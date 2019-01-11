@@ -47,7 +47,7 @@ typedef int HWND;
 
 // This file is distributed as part of the Plugin API docs, so
 // ensure that WINDOWS_VERSION is defined (if applicable)
-#if defined(_WINDOWS_) || defined(_WIN32)
+#if (defined(_WINDOWS_) || defined(_WIN32)) &&!defined(AGS_RATA)
   #ifndef WINDOWS_VERSION
   #define WINDOWS_VERSION
   #endif

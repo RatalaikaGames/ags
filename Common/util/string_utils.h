@@ -24,6 +24,10 @@
 namespace AGS { namespace Common { class Stream; } }
 using namespace AGS; // FIXME later
 
+// because it's so hard to manage portability with macros, let's use these
+int ags_stricmp(const char *string1, const char *string2);
+int ags_strnicmp(const char *string1, const char *string2, int n);
+
 #if !defined (WINDOWS_VERSION)
 
 #if !defined (strlwr)
@@ -34,13 +38,6 @@ extern "C" char *strlwr(char *s);
 extern "C" char *strupr(char *s);
 #endif
 
-#if !defined (stricmp)
-#define stricmp strcasecmp
-#endif
-
-#if !defined (strnicmp)
-#define strnicmp strncasecmp
-#endif
 
 #else
 

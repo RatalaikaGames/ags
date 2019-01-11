@@ -14,6 +14,7 @@
 
 #include <errno.h>
 #include <stdlib.h>
+#include <string.h>
 #include "gui/guidefines.h"
 #include "util/math.h"
 #include "util/string_utils.h"
@@ -22,6 +23,24 @@
 using namespace AGS::Common;
 
 #define STD_BUFFER_SIZE 3000
+
+//C string facilities
+int ags_stricmp(const char *string1, const char *string2)
+{
+	#ifdef _MSC_VER
+	return _stricmp(string1, string2);
+	#else
+	return stricmp(string1, string2);
+	#endif
+}
+int ags_strnicmp(const char *string1, const char *string2, int n)
+{
+	#ifdef _MSC_VER
+	return _strnicmp(string1, string2, n);
+	#else
+	return strnicmp(string1, string2, n);
+	#endif
+}
 
 // Turn [ into \n and turn \[ into [
 void unescape(char *buffer) {

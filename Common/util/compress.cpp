@@ -323,7 +323,11 @@ void save_lzw(Stream *out, const Bitmap *bmpp, const color *pall)
 
   // Delete temp file
   delete lz_temp_s;
+
+	//TODO MBG - MUST FIX! WHAT DO WE USE THIS FOR ANYWAY
+	#ifndef AGS_RATA
   unlink(lztempfnm);
+	#endif
 
   // Seek back to the end of the output stream
   out->Seek(toret, kSeekBegin);

@@ -57,6 +57,9 @@ public:
    || defined(ANDROID_VERSION)
 #include "mutex_pthread.h"
 
+#elif defined(AGS_RATA)
+#include "ags_mutex.h"
+
 #endif
 
 

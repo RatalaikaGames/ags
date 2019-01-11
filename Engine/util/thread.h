@@ -72,7 +72,11 @@ public:
    || defined(ANDROID_VERSION)
 #include "thread_pthread.h"
 
+#elif defined(AGS_RATA)
+#include "ags_thread.h"
+
 #endif
 
 
 #endif // __AGS_EE_UTIL__THREAD_H
+ 

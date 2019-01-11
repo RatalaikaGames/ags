@@ -80,7 +80,7 @@ ALSoftwareGraphicsDriver::ALSoftwareGraphicsDriver()
   _autoVsync = false;
   _spareTintingScreen = NULL;
   _gfxModeList = NULL;
-#ifdef _WIN32
+#ifdef WINDOWS_VERSION
   dxGammaControl = NULL;
 #endif
   _allegroScreenWrapper = NULL;
@@ -159,7 +159,7 @@ PGfxFilter ALSoftwareGraphicsDriver::GetGraphicsFilter() const
 
 int ALSoftwareGraphicsDriver::GetAllegroGfxDriverID(bool windowed)
 {
-#ifdef _WIN32
+#ifdef WINDOWS_VERSION
   if (windowed)
     return GFX_DIRECTX_WIN;
   return GFX_DIRECTX;
@@ -218,7 +218,7 @@ bool ALSoftwareGraphicsDriver::SetDisplayMode(const DisplayMode &mode, volatile 
   // If we already have a gfx filter, then use it to update virtual screen immediately
   CreateVirtualScreen();
 
-#ifdef _WIN32
+#ifdef WINDOWS_VERSION
   if (!mode.Windowed)
   {
     memset(&ddrawCaps, 0, sizeof(ddrawCaps));
@@ -274,7 +274,7 @@ void ALSoftwareGraphicsDriver::ReleaseDisplayMode()
   OnModeReleased();
   ClearDrawLists();
 
-#ifdef _WIN32
+#ifdef WINDOWS_VERSION
   if (dxGammaControl != NULL) 
   {
     dxGammaControl->Release();
@@ -334,7 +334,7 @@ void ALSoftwareGraphicsDriver::UnInit()
 
 bool ALSoftwareGraphicsDriver::SupportsGammaControl() 
 {
-#ifdef _WIN32
+#ifdef WINDOWS_VERSION
 
   if (dxGammaControl != NULL) 
   {
@@ -348,7 +348,7 @@ bool ALSoftwareGraphicsDriver::SupportsGammaControl()
 
 void ALSoftwareGraphicsDriver::SetGamma(int newGamma)
 {
-#ifdef _WIN32
+#ifdef WINDOWS_VERSION
   for (int i = 0; i < 256; i++) {
     int newValue = ((int)defaultGammaRamp.red[i] * newGamma) / 100;
     if (newValue >= 65535)
@@ -786,7 +786,7 @@ void ALSoftwareGraphicsDriver::BoxOutEffect(bool blackingOut, int speed, int del
 
 bool ALSoftwareGraphicsDriver::PlayVideo(const char *filename, bool useAVISound, VideoSkipType skipType, bool stretchToFullScreen)
 {
-#ifdef _WIN32
+#ifdef WINDOWS_VERSION
   int result = dxmedia_play_video(filename, useAVISound, skipType, stretchToFullScreen ? 1 : 0);
   return (result == 0);
 #else

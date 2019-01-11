@@ -214,7 +214,7 @@ private:
     ALSpriteBatches _spriteBatches;
     GFX_MODE_LIST *_gfxModeList;
 
-#ifdef _WIN32
+#ifdef WINDOWS_VERSION
     IDirectDrawGammaControl* dxGammaControl;
     // The gamma ramp is a lookup table for each possible R, G and B value
     // in 32-bit colour (from 0-255) it maps them to a brightness value

@@ -813,6 +813,11 @@ extern char android_base_directory[256];
 
 int check_write_access() {
 
+	#ifdef AGS_RATA
+	return 1;
+	#else
+
+
   if (platform->GetDiskFreeSpaceMB() < 2)
     return 0;
 
@@ -847,6 +852,7 @@ int check_write_access() {
     return 0;
 
   return 1;
+	#endif
 }
 
 int engine_check_disk_space()

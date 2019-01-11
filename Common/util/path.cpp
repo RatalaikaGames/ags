@@ -129,6 +129,8 @@ String MakeAbsolutePath(const String &path)
 #elif defined (PSP_VERSION)
     // FIXME: Properly construct a full PSP path
     return path;
+#elif defined AGS_RATA
+		return path;
 #endif
     char buf[512];
     canonicalize_filename(buf, abs_path, 512);

@@ -14,6 +14,7 @@
 
 #if defined(WINDOWS_VERSION)
 #include <io.h>
+#elif defined(AGS_RATA)
 #else
 #include <unistd.h> // for unlink()
 #endif
@@ -48,6 +49,9 @@ bool File::TestReadFile(const String &filename)
 
 bool File::TestWriteFile(const String &filename)
 {
+	#ifdef AGS_RATA
+	return true;
+	#else
     FILE *test_file = fopen(filename, "r+");
     if (test_file)
     {
@@ -55,10 +59,14 @@ bool File::TestWriteFile(const String &filename)
         return true;
     }
     return TestCreateFile(filename);
+		#endif
 }
 
 bool File::TestCreateFile(const String &filename)
 {
+	#ifdef AGS_RATA
+	return true;
+	#else
     FILE *test_file = fopen(filename, "wb");
     if (test_file)
     {
@@ -67,10 +75,14 @@ bool File::TestCreateFile(const String &filename)
         return true;
     }
     return false;
+		#endif
 }
 
 bool File::DeleteFile(const String &filename)
 {
+	#ifdef AGS_RATA
+	return true;
+	#else
     if (unlink(filename) != 0)
     {
         int err;
@@ -85,6 +97,7 @@ bool File::DeleteFile(const String &filename)
         }
     }
     return true;
+		#endif
 }
 
 bool File::GetFileModesFromCMode(const String &cmode, FileOpenMode &open_mode, FileWorkMode &work_mode)

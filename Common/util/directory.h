@@ -20,10 +20,19 @@
 
 #include "util/string.h"
 
-#if defined (WINDOWS_VERSION)
+#include "util/string.h"
+
 // undef the declarations from winbase.h
+
+#if defined (CreateDirectory)
 #undef CreateDirectory
+#endif
+
+#if defined (SetCurrentDirectory)
 #undef SetCurrentDirectory
+#endif
+
+#if defined (GetCurrentDirectory)
 #undef GetCurrentDirectory
 #endif
 

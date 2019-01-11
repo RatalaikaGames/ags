@@ -288,6 +288,8 @@ int savegamedialog()
 
 void preparesavegamelist(int ctrllist)
 {
+	#ifdef AGS_RATA
+	#else
   numsaves = 0;
   toomanygames = 0;
   al_ffblk ffb;
@@ -350,6 +352,7 @@ void preparesavegamelist(int ctrllist)
       }
     }
   }
+	#endif
 }
 
 void enterstringwindow(const char *prompttext, char *stouse)

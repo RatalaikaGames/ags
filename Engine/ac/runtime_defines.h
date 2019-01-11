@@ -137,7 +137,9 @@ const int LegacyRoomVolumeFactor            = 30;
 #endif
 
 #if !defined (WINDOWS_VERSION)
+#if !defined (AGS_RATA)
 #define HWND long
+#endif
 #endif
 
 #define TRANS_ALPHA_CHANNEL 20000

@@ -163,7 +163,11 @@ void initialize_start_and_play_game(int override_start_room, const char *loadSav
 
         do_start_game();
 
+        //console versions should maintain their own game loop
+        #ifdef CONSOLE_VERSION
+        #else
         RunGameUntilAborted();
+        #endif
 
     } catch (Ali3DException gfxException)
     {

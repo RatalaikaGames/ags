@@ -363,9 +363,12 @@ bool search_for_game_data_file()
 
 bool engine_init_game_data()
 {
-    // Search for an available game package in the known locations
+    // Accept preset game package if available;
+    // otherwise, search for an available game package in the known locations
     AssetError err;
-    if (search_for_game_data_file())
+    if(!game_file_name.IsEmpty())
+        err = AssetManager::SetDataFile(game_file_name);
+    else if (search_for_game_data_file())
         err = AssetManager::SetDataFile(game_file_name);
     else
         err = kAssetErrNoLibFile;
@@ -1516,7 +1519,12 @@ int initialize_engine(int argc,char*argv[])
 
     initialize_start_and_play_game(override_start_room, loadSaveGameOnStartup);
 
+    //console versions should maintain their own game loop
+    #ifdef CONSOLE_VERSION
+    #else
     quit("|bye!");
+    #endif
+
     return 0;
 }
 

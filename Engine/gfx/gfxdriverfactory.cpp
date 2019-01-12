@@ -38,7 +38,7 @@ void GetGfxDriverFactoryNames(StringV &ids)
 #ifdef WINDOWS_VERSION
     ids.push_back("D3D9");
 #endif
-#if defined (ANDROID_VERSION) || defined (IOS_VERSION) || defined (WINDOWS_VERSION)
+#if defined (ANDROID_VERSION) || defined (IOS_VERSION) || defined (WINDOWS_VERSION) || defined(CONSOLE_VERSION)
     ids.push_back("OGL");
 #endif
     ids.push_back("Software");

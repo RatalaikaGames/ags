@@ -32,16 +32,26 @@ namespace AGS
 {
 namespace Engine
 {
+    namespace AL3DConsole
+    {
+        class ConsoleGraphicsFactory;
+        extern ConsoleGraphicsFactory *g_pGraphicsFactory;
+    }
 
 void GetGfxDriverFactoryNames(StringV &ids)
 {
 #ifdef WINDOWS_VERSION
     ids.push_back("D3D9");
 #endif
-#if defined (ANDROID_VERSION) || defined (IOS_VERSION) || defined (WINDOWS_VERSION) || defined(CONSOLE_VERSION)
+#if defined (ANDROID_VERSION) || defined (IOS_VERSION) || defined (WINDOWS_VERSION)
     ids.push_back("OGL");
 #endif
+#if defined(CONSOLE_VERSION)
+    ids.push_back("CONS");
+#endif
+#if !defined(CONSOLE_VERSION)
     ids.push_back("Software");
+#endif
 }
 
 IGfxDriverFactory *GetGfxDriverFactory(const String id)
@@ -53,6 +63,12 @@ IGfxDriverFactory *GetGfxDriverFactory(const String id)
 #if defined (ANDROID_VERSION) || defined (IOS_VERSION)|| defined (WINDOWS_VERSION)
     if (id.CompareNoCase("OGL") == 0)
         return OGL::OGLGraphicsFactory::GetFactory();
+#endif
+#if defined (CONSOLE_VERSION)
+     if (id.CompareNoCase("CONS") == 0)
+     {
+        return (IGfxDriverFactory*)::AGS::Engine::AL3DConsole::g_pGraphicsFactory;
+     }
 #endif
     if (id.CompareNoCase("Software") == 0)
         return ALSW::ALSWGraphicsFactory::GetFactory();

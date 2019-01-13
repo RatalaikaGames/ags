@@ -33,7 +33,7 @@ class ConsoleGfxFilter : public ScalingGfxFilter
 public:
     virtual const GfxFilterInfo &GetInfo() const;
 
-    virtual void SetSamplerStateForStandardSprite(void *direct3ddevice9);
+    virtual void SetSamplerStateForStandardSprite();
     virtual bool NeedToColourEdgeLines();
 
     static const GfxFilterInfo FilterInfo;

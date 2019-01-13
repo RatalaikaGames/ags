@@ -29,7 +29,7 @@ const GfxFilterInfo &ConsoleGfxFilter::GetInfo() const
     return FilterInfo;
 }
 
-void ConsoleGfxFilter::SetSamplerStateForStandardSprite(void *direct3ddevice9)
+void ConsoleGfxFilter::SetSamplerStateForStandardSprite()
 {
     //d3d9->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
     //d3d9->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);

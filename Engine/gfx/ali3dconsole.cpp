@@ -16,6 +16,10 @@
 //
 //=============================================================================
 
+#ifndef CONSOLE_VERSION
+#error This file should only be included on the Console build
+#endif
+
 #include <allegro.h>
 #include "main/main_allegro.h"
 #include "debug/assert.h"
@@ -435,15 +439,16 @@ namespace AGS
 
 			void D3DGraphicsDriver::UnInit() 
 			{
+				if(!_initialized) return;
+
 				//who wants to deal with this?
-				assert(false);
 				OnUnInit();
+
+				_initialized = false;
 			}
 
 			D3DGraphicsDriver::~D3DGraphicsDriver()
 			{
-				//who wants to deal with this?
-				assert(false);
 				UnInit();
 			}
 
@@ -538,7 +543,6 @@ namespace AGS
 
 			void D3DGraphicsDriver::Render(GlobalFlipType flip)
 			{
-				//this is the final rendering step; so basically it's where swapbuffers should happen
 				_renderAndPresent(flip, true);
 			}
 
@@ -744,71 +748,61 @@ namespace AGS
 
 			void D3DGraphicsDriver::_renderAndPresent(GlobalFlipType flip, bool clearDrawListAfterwards)
 			{
+				//TODO - begin and end semantics mixed up. not sure about this yet.
+				AGSCON::Graphics::BeginFrame();
 				_render(flip, clearDrawListAfterwards);
-				//direct3ddevice->Present(NULL, NULL, NULL, NULL);
+				AGSCON::Graphics::EndFrame();
 			}
 
 			void D3DGraphicsDriver::_render(GlobalFlipType flip, bool clearDrawListAfterwards)
 			{
 				//TODO MBG - READ THIS CAREFULLY!
 
-				//IDirect3DSurface9 *pBackBuffer = NULL;
-
+				//REMINDER: viewport was preserved. why?
 				//D3DVIEWPORT9 pViewport;
+				//direct3ddevice->GetViewport(&pViewport);
 
-				//if (!_renderSprAtScreenRes) {
-				//	direct3ddevice->GetViewport(&pViewport);
+				AGSCON::Graphics::BeginRender();
 
-				//	if (direct3ddevice->GetRenderTarget(0, &pBackBuffer) != D3D_OK)
-				//	{
-				//		throw Ali3DException("IDirect3DSurface9::GetRenderTarget failed");
-				//	}
-				//	if (direct3ddevice->SetRenderTarget(0, pNativeSurface) != D3D_OK)
-				//	{
-				//		throw Ali3DException("IDirect3DSurface9::SetRenderTarget failed");
-				//	}
-				//}
+				//TODO - proper offscreen stuff
+				//if (!_renderSprAtScreenRes)
+				//	AGSCON::Graphics::SetRenderTarget(0, pNativeSurface);
+				AGSCON::Graphics::SetBackbufferRenderTarget();
 
 				////note the odd choice of alpha
-				//direct3ddevice->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_RGBA(0, 0, 0, 128), 0.5f, 0);
-				//if (direct3ddevice->BeginScene() != D3D_OK)
-				//	throw Ali3DException("IDirect3DDevice9::BeginScene failed");
+				AGSCON::Graphics::ClearColor(0,0,0,128);
 
-				//// if showing at 2x size, the sprite can get distorted otherwise
-				//direct3ddevice->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
-				//direct3ddevice->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
-				//direct3ddevice->SetSamplerState(0, D3DSAMP_ADDRESSW, D3DTADDRESS_CLAMP);
+				// "if showing at 2x size, the sprite can get distorted otherwise"
+				//set sampler to CLAMP
 
-				//RenderSpriteBatches(flip);
+				RenderSpriteBatches(flip);
 
-				//direct3ddevice->EndScene();
+				//not right place for this
+				//AGSCON::Graphics::EndRender();
 
-				//if (!_renderSprAtScreenRes) {
-				//	if (direct3ddevice->SetRenderTarget(0, pBackBuffer)!= D3D_OK)
-				//	{
-				//		throw Ali3DException("IDirect3DSurface9::SetRenderTarget failed");
-				//	}
-				//	// use correct sampling method when stretching buffer to the final rect
-				//	_filter->SetSamplerStateForStandardSprite(direct3ddevice);
-				//	D3DTEXTUREFILTERTYPE filterType;
-				//	direct3ddevice->GetSamplerState(0, D3DSAMP_MAGFILTER, (DWORD*)&filterType);
-				//	if (direct3ddevice->StretchRect(pNativeSurface, NULL, pBackBuffer, &viewport_rect, filterType) != D3D_OK)
-				//	{
-				//		throw Ali3DException("IDirect3DSurface9::StretchRect failed");
-				//	}
-				//	direct3ddevice->SetViewport(&pViewport);
-				//}
+				if (!_renderSprAtScreenRes) {
+					AGSCON::Graphics::SetBackbufferRenderTarget();
+					
+					// use correct sampling method when stretching buffer to the final rect
+					_filter->SetSamplerStateForStandardSprite();
 
-				//if (!_renderSprAtScreenRes) {
-				//	pBackBuffer->Release();
-				//}
+					//TODO - uhhhh I guess this is the final presentation logic? that's pretty shoddy. need to re-engineer that
 
-				//if (clearDrawListAfterwards)
-				//{
-				//	BackupDrawLists();
-				//	flipTypeLastTime = flip;
-				//	ClearDrawLists();
-				//}
+					//D3DTEXTUREFILTERTYPE filterType;
+					//direct3ddevice->GetSamplerState(0, D3DSAMP_MAGFILTER, (DWORD*)&filterType);
+					//if (direct3ddevice->StretchRect(pNativeSurface, NULL, pBackBuffer, &viewport_rect, filterType) != D3D_OK)
+					//{
+					//	throw Ali3DException("IDirect3DSurface9::StretchRect failed");
+					//}
+					//direct3ddevice->SetViewport(&pViewport);
+				}
+
+				if (clearDrawListAfterwards)
+				{
+					BackupDrawLists();
+					flipTypeLastTime = flip;
+					ClearDrawLists();
+				}
 			}
 
 			void D3DGraphicsDriver::RenderSpriteBatches(GlobalFlipType flip)
@@ -869,12 +863,12 @@ namespace AGS
 					const D3DDrawListEntry *sprite = &listToDraw[i];
 					if (listToDraw[i].bitmap == NULL)
 					{
-						//MBG TODO - WTF IS THIS CAST HERE?
-						assert(false);
+						//MBG - WTF IS THIS CAST HERE?
 						//if (DoNullSpriteCallback(listToDraw[i].x, (int)direct3ddevice))
-						//	stageEntry = D3DDrawListEntry((D3DBitmap*)_stageVirtualScreenDDB);
-						//else
-						//	continue;
+						if (DoNullSpriteCallback(listToDraw[i].x, listToDraw[i].y)) //GUESSS?
+							stageEntry = D3DDrawListEntry((D3DBitmap*)_stageVirtualScreenDDB);
+						else
+							continue;
 						sprite = &stageEntry;
 					}
 
@@ -1331,7 +1325,26 @@ namespace AGS
 				}
 				virtual String               GetDefaultFilterID() const { return ConsoleGfxFilter::FilterInfo.Id; }
 
+				virtual ~ConsoleGraphicsFactory()
+				{
+				}
+
+
 			private:
+
+
+				virtual void Shutdown()
+				{
+					DestroyDriver();
+					s_ConsoleGraphicsFactory.~ConsoleGraphicsFactory();
+				}
+
+				virtual void DestroyDriver()
+				{
+					s_inst.~D3DGraphicsDriver();
+					_driver = nullptr;
+				}
+
 				virtual D3DGraphicsDriver   *EnsureDriverCreated() {
 					s_inst.Init();
 					return &s_inst;

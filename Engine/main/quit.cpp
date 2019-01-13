@@ -210,6 +210,10 @@ void quit_release_data()
 
 void quit_delete_temp_files()
 {
+    #ifdef CONSOLE_VERSION
+    return;
+    #endif
+
     al_ffblk	dfb;
     int	dun = al_findfirst("~ac*.tmp",&dfb,FA_SEARCH);
     while (!dun) {

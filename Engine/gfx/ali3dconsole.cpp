@@ -211,10 +211,11 @@ namespace AGS
 				flipTypeLastTime = kFlip_None;
 
 				// Shifts comply to D3DFMT_A8R8G8B8
+				// TODO - probably needs to be configurable by console
 				_vmem_a_shift_32 = 24;
-				_vmem_r_shift_32 = 16;
+				_vmem_r_shift_32 = 0;
 				_vmem_g_shift_32 = 8;
-				_vmem_b_shift_32 = 0;
+				_vmem_b_shift_32 = 16;
 
 				// Initialize default sprite batch, it will be used when no other batch was activated
 				InitSpriteBatch(0, _spriteBatchDesc[0]);
@@ -1072,8 +1073,8 @@ namespace AGS
 				int maxWidth = report.MaxWidth;
 				int maxHeight = report.MaxHeight;
 
-				maxWidth = 64; //TEST: this is just for testing. why not?
-				maxHeight = 64; //TEST: this is just for testing. why not?
+				//maxWidth = 64; //TEST: this is just for testing. why not?
+				//maxHeight = 64; //TEST: this is just for testing. why not?
 
 				// Calculate how many textures will be necessary to
 				// store this image

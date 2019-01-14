@@ -1025,7 +1025,7 @@ Engine::GameInitError pl_register_plugins(const std::vector<Common::PluginInfo> 
         }
         else
         {
-          AGS::Common::Debug::Printf("Plugin loading failed, trying built-in plugins...");
+          AGS::Common::Debug::Printf("Plugin loading `%s` failed, trying built-in plugins...", (const char*)apl->filename);
           if (!pl_use_builtin_plugin(apl))
           {
             // Plugin loading has failed at this point, try using built-in plugin function stubs

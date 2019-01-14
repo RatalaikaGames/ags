@@ -13,11 +13,31 @@ namespace AGSCON
 		class RenderTarget;
 		class VertexLayout;
 		class Sampler;
+		class UniformLocation;
+
+		enum class PrimitiveType
+		{
+			TriangleList,
+			TriangleStrip,
+			TriangleFan
+		};
+
+		enum class ShaderStage
+		{
+			Vertex = 0,
+			Fragment = 1,
+		};
 
 		//the format of a vertex element (aka attribute)
 		enum class AttributeFormat
 		{
 			Float
+		};
+
+		struct TextureLock
+		{
+			void* Ptr;
+			int StrideBytes;
 		};
 
 		//one element of a vertex (aka attribute)
@@ -34,6 +54,28 @@ namespace AGSCON
 			int Stride;
 			int NumAttributes;
 			const VertexLayoutDescr_Attribute* Attributes;
+		};
+
+		//Asks the backend for information about how to handle a given image
+		struct ImageRequest
+		{
+			int Width, Height;
+		};
+
+		//The resulting report associated with a ImageRequest
+		struct ImageReport
+		{
+			//The request that was made
+			ImageRequest Request;
+
+			//The maximum width possible for a this image
+			int MaxWidth;
+
+			//The maximum height possible for this image
+			int MaxHeight;
+
+			//Whether this image must be power of 2
+			bool MustNPOT;
 		};
 
 		enum class SamplerMinFilter
@@ -54,6 +96,13 @@ namespace AGSCON
 			Repeat
 		};
 
+		enum class ProgramType
+		{
+			Standard,
+			Tint,
+			TintLegacy
+		};
+
 		struct SamplerDescr
 		{
 			SamplerMinFilter MinFilter;
@@ -62,12 +111,16 @@ namespace AGSCON
 			SamplerWrapMode WrapModeT;
 		};
 
+		void MakeImageRequest(const ImageRequest* request, ImageReport* report);
+
 		void BeginFrame();
 		void BeginRender();
 		void EndRender();
 		void EndFrame();
 
 		Texture* Texture_Create(int w, int h);
+		void Texture_Lock(Texture* texture, TextureLock* lockData);
+		void Texture_Unlock(Texture* texture, TextureLock* lockData);
 		void Texture_Destroy(Texture* tex);
 
 		VertexLayout* VertexLayout_Create(const VertexLayoutDescr* layoutDescr);
@@ -75,6 +128,13 @@ namespace AGSCON
 
 		VertexBuffer* VertexBuffer_Create(const VertexLayout* layout, int nElements, void* data);
 		void VertexBuffer_Destroy(VertexBuffer* vb);
+
+		//This takes an enum instead of a buffer or a path because the details of pathing and resource loading are up to the console backend implementation
+		Program* Program_Create(VertexLayout* layout, ProgramType which);
+		void Program_Destroy(Program* program);
+
+		UniformLocation* UniformLocation_Create(Program* program, const char* name);
+		void UniformLocation_Destroy(UniformLocation* uniformLocation);
 
 		RenderTarget* RenderTarget_Create(int width, int height);
 		void RenderTarget_Destroy(RenderTarget* rt);
@@ -100,5 +160,13 @@ namespace AGSCON
 		void ClearColor(int red, int green, int blue, int alpha);
 
 		void BindFragmentTexture(int target, Texture* texture, Sampler* sampler);
+		void BindVertexBuffer(VertexBuffer* vb);
+		void BindProgram(Program* program);
+
+		void UniformFloat2(const UniformLocation* uniformLocation, const float* data);
+		void UniformFloat4(const UniformLocation* uniformLocation, const float* data);
+		void UniformMatrix44(const UniformLocation* uniformLocation, const float* data);
+
+		void DrawVertices(int start, int count, PrimitiveType primitiveType);
 	}
 }

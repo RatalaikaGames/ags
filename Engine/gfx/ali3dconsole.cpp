@@ -200,7 +200,6 @@ namespace AGS
 				_screenTintSprite.skip = true;
 				_screenTintSprite.x = 0;
 				_screenTintSprite.y = 0;
-				shader = nullptr;
 				_legacyPixelShader = false;
 				//pNativeSurface = NULL;
 				_smoothScaling = false;
@@ -220,19 +219,37 @@ namespace AGS
 
 				//AKA "first time init"
 
-				//maybe useful notes...
-
-				// the PixelShader.fx uses ps_1_4
-				// the PixelShaderLegacy.fx needs ps_2_0
-
+				//setup vertex layout...
 				static const AGSCON::Graphics::VertexLayoutDescr_Attribute vtxAttrs[] = {
-					{ "pos", 0, AGSCON::Graphics::AttributeFormat::Float, 2 },
-					{ "tex", 8, AGSCON::Graphics::AttributeFormat::Float, 2 }
+					{ "aPos", 0, AGSCON::Graphics::AttributeFormat::Float, 2 },
+					{ "aTex", 8, AGSCON::Graphics::AttributeFormat::Float, 2 }
 				};
 				static const AGSCON::Graphics::VertexLayoutDescr vtxDescr = { 16, 2, vtxAttrs };
-
 				_vertexLayout = AGSCON::Graphics::VertexLayout_Create(&vtxDescr);
 
+				//setup shaders....
+				shaders.standard.program = AGSCON::Graphics::Program_Create(_vertexLayout, AGSCON::Graphics::ProgramType::Standard);
+				shaders.standard.uTextureFactor = AGSCON::Graphics::UniformLocation_Create(shaders.standard.program, "uTextureFactor");
+				shaders.standard.uControl = AGSCON::Graphics::UniformLocation_Create(shaders.standard.program, "uControl");
+				shaders.standard.mvp = AGSCON::Graphics::UniformLocation_Create(shaders.standard.program, "mvp");
+				
+				shaders.tint.program = AGSCON::Graphics::Program_Create(_vertexLayout, AGSCON::Graphics::ProgramType::Tint);
+				shaders.tint.mvp = AGSCON::Graphics::UniformLocation_Create(shaders.tint.program, "mvp");
+
+				shaders.tintLegacy.program = AGSCON::Graphics::Program_Create(_vertexLayout, AGSCON::Graphics::ProgramType::TintLegacy);
+				shaders.tintLegacy.mvp = AGSCON::Graphics::UniformLocation_Create(shaders.tintLegacy.program, "mvp");
+
+				//setup samplers
+				static const AGSCON::Graphics::SamplerDescr samplerDescrNearest = {
+					AGSCON::Graphics::SamplerMinFilter::Nearest,
+					AGSCON::Graphics::SamplerMagFilter::Nearest
+				};
+				static const AGSCON::Graphics::SamplerDescr samplerDescrLinear = {
+					AGSCON::Graphics::SamplerMinFilter::Linear,
+					AGSCON::Graphics::SamplerMagFilter::Linear
+				};
+				samplers.nearest = AGSCON::Graphics::Sampler_Create(&samplerDescrNearest);
+				samplers.linear = AGSCON::Graphics::Sampler_Create(&samplerDescrLinear);
 			}
 			
 			void D3DGraphicsDriver::Vsync() 
@@ -592,73 +609,66 @@ namespace AGS
 
 					//direct3ddevice->SetPixelShaderConstantF(0, &vector[0], 2);
 					//direct3ddevice->SetPixelShader(pixelShader);
+
 				}
 				else
 				{
-					//TODO - replicate in shader (we'll use one shader for now but on vita it may be worth splitting them)
-					//// Not using custom pixel shader; set up the default one
-					//direct3ddevice->SetPixelShader(NULL);
-					//int useTintRed = 255;
-					//int useTintGreen = 255;
-					//int useTintBlue = 255;
-					//int useTransparency = 0xff;
-					//int textureColorOp = D3DTOP_MODULATE;
+					AGSCON::Graphics::BindProgram(shaders.standard.program);
 
-					//if ((bmpToDraw->_lightLevel > 0) && (bmpToDraw->_lightLevel < 256))
-					//{
-					//	// darkening the sprite... this stupid calculation is for
-					//	// consistency with the allegro software-mode code that does
-					//	// a trans blend with a (8,8,8) sprite
-					//	useTintRed = (bmpToDraw->_lightLevel * 192) / 256 + 64;
-					//	useTintGreen = useTintRed;
-					//	useTintBlue = useTintRed;
-					//}
-					//else if (bmpToDraw->_lightLevel > 256)
-					//{
-					//	// ideally we would use a multi-stage operation here
-					//	// because we need to do TEXTURE + (TEXTURE x LIGHT)
-					//	// but is it worth having to set the device to 2-stage?
-					//	textureColorOp = D3DTOP_ADD;
-					//	useTintRed = (bmpToDraw->_lightLevel - 256) / 2;
-					//	useTintGreen = useTintRed;
-					//	useTintBlue = useTintRed;
-					//}
+					int useTintRed = 255;
+					int useTintGreen = 255;
+					int useTintBlue = 255;
+					int useTransparency = 0xff;
+					
+					//in essence, we have:
+					//(TEX*TFACTOR)*CTL.x + (TEX+TFACTOR)*CTL.y
+					//this allows us to choose between the modulation and addition results
+					float control[] = { 1.0f, 0.0f };
 
-					//if (bmpToDraw->_transparency > 0)
-					//{
-					//	useTransparency = bmpToDraw->_transparency;
-					//}
+					if ((bmpToDraw->_lightLevel > 0) && (bmpToDraw->_lightLevel < 256))
+					{
+						// darkening the sprite... this stupid calculation is for
+						// consistency with the allegro software-mode code that does
+						// a trans blend with a (8,8,8) sprite
+						useTintRed = (bmpToDraw->_lightLevel * 192) / 256 + 64;
+						useTintGreen = useTintRed;
+						useTintBlue = useTintRed;
+					}
+					else if (bmpToDraw->_lightLevel > 256)
+					{
+						// "ideally we would use a multi-stage operation here
+						// because we need to do TEXTURE + (TEXTURE x LIGHT)"
+						//OK, so why not? but we should leave it this way for compatibility's sake
+						std::swap(control[0],control[1]);
+						useTintRed = (bmpToDraw->_lightLevel - 256) / 2;
+						useTintGreen = useTintRed;
+						useTintBlue = useTintRed;
+					}
 
-					//direct3ddevice->SetRenderState(D3DRS_TEXTUREFACTOR, D3DCOLOR_RGBA(useTintRed, useTintGreen, useTintBlue, useTransparency));
-					//direct3ddevice->SetTextureStageState(0, D3DTSS_COLOROP, textureColorOp);
-					//direct3ddevice->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-					//direct3ddevice->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_TFACTOR);
+					if (bmpToDraw->_transparency > 0)
+					{
+						useTransparency = bmpToDraw->_transparency;
+					}
 
-					//if (bmpToDraw->_transparency == 0)
-					//{
-					//	// No transparency, use texture alpha component
-					//	direct3ddevice->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-					//	direct3ddevice->SetTextureStageState(0, D3DTSS_ALPHAARG1,  D3DTA_TEXTURE);
-					//}
-					//else
-					//{
-					//	// Fixed transparency, use (TextureAlpha x FixedTranslucency)
-					//	direct3ddevice->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
-					//	direct3ddevice->SetTextureStageState(0, D3DTSS_ALPHAARG1,  D3DTA_TEXTURE);
-					//	direct3ddevice->SetTextureStageState(0, D3DTSS_ALPHAARG2,  D3DTA_TFACTOR);
-					//}
+					float textureFactor[] = {
+						useTintRed/255.0f,
+						useTintGreen/255.0f,
+						useTintBlue/255.0f,
+						useTransparency/255.0f
+					};
+
+					// "No transparency, use texture alpha component"
+					// In other words:
+					// Just select the texture alpha by clobbering modulation alpha channel to 1.0;
+					// else modulate by the selected transparency
+					if(bmpToDraw->_transparency == 0)
+						textureFactor[3] = 1.0f;
+
+					AGSCON::Graphics::UniformFloat4(shaders.standard.uTextureFactor,textureFactor);
+					AGSCON::Graphics::UniformFloat2(shaders.standard.uControl,control);
 				}
 
-				//CHOOSE BETWEEN ONE PREBAKED VERT, OR THE "TILEMAP"
-
-				//if (bmpToDraw->_vertex == NULL)
-				//{
-				//	direct3ddevice->SetStreamSource(0, vertexbuffer, 0, sizeof(CUSTOMVERTEX));
-				//}
-				//else
-				//{
-				//	direct3ddevice->SetStreamSource(0, bmpToDraw->_vertex, 0, sizeof(CUSTOMVERTEX));
-				//}
+				AGSCON::Graphics::BindVertexBuffer(bmpToDraw->_vertex);
 
 				float width = bmpToDraw->GetWidthToRender();
 				float height = bmpToDraw->GetHeightToRender();
@@ -719,30 +729,27 @@ namespace AGS
 					MatrixTransform2D(matSelfTransform, (float)thisX - _pixelRenderXOffset, (float)thisY + _pixelRenderYOffset, widthToScale, heightToScale, 0.f);
 					MatrixMultiply(matTransform, matSelfTransform, matGlobal);
 
-					//TODO ALL THE DRAWS!
+					AGSCON::Graphics::UniformMatrix44(shaders.standard.mvp, (float*)&matTransform);
 
-					//if ((_smoothScaling) && bmpToDraw->_useResampler && (bmpToDraw->_stretchToHeight > 0) &&
-					//	((bmpToDraw->_stretchToHeight != bmpToDraw->_height) ||
-					//	(bmpToDraw->_stretchToWidth != bmpToDraw->_width)))
-					//{
-					//	direct3ddevice->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-					//	direct3ddevice->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-					//}
-					//else if (!_renderSprAtScreenRes)
-					//{
-					//	direct3ddevice->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
-					//	direct3ddevice->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
-					//}
-					//else
-					//{
-					//	_filter->SetSamplerStateForStandardSprite(direct3ddevice);
-					//}
+					AGSCON::Graphics::Sampler* sampler;
+					if ((_smoothScaling) && bmpToDraw->_useResampler && (bmpToDraw->_stretchToHeight > 0) &&
+						((bmpToDraw->_stretchToHeight != bmpToDraw->_height) ||
+						(bmpToDraw->_stretchToWidth != bmpToDraw->_width)))
+					{
+						sampler = samplers.linear;
+					}
+					else if (!_renderSprAtScreenRes)
+					{
+						sampler = samplers.nearest;
+					}
+					else
+					{
+						sampler = samplers.nearest;
+					}
+					
+					AGSCON::Graphics::BindFragmentTexture(0, bmpToDraw->_tiles[ti].texture, sampler);
 
-					//direct3ddevice->SetTransform(D3DTS_WORLD, &matTransform);
-					//direct3ddevice->SetTexture(0, bmpToDraw->_tiles[ti].texture);
-
-					//direct3ddevice->DrawPrimitive(D3DPT_TRIANGLESTRIP, ti * 4, 2);
-
+					AGSCON::Graphics::DrawVertices(ti*4,4, AGSCON::Graphics::PrimitiveType::TriangleStrip);
 				}
 			}
 
@@ -953,22 +960,14 @@ namespace AGS
 
 			void D3DGraphicsDriver::UpdateTextureRegion(D3DTextureTile *tile, Bitmap *bitmap, D3DBitmap *target, bool hasAlpha)
 			{
-				//MUST TODO
-				//IDirect3DTexture9* newTexture = tile->texture;
+				AGSCON::Graphics::TextureLock textureLock;
+				AGSCON::Graphics::Texture_Lock(tile->texture, &textureLock);
 
-				//D3DLOCKED_RECT lockedRegion;
-				//HRESULT hr = newTexture->LockRect(0, &lockedRegion, NULL, D3DLOCK_NOSYSLOCK | D3DLOCK_DISCARD);
-				//if (hr != D3D_OK)
-				//{
-				//	throw Ali3DException("Unable to lock texture");
-				//}
+				bool usingLinearFiltering = _filter->NeedToColourEdgeLines();
 
-				//bool usingLinearFiltering = _filter->NeedToColourEdgeLines();
-				//char *memPtr = (char*)lockedRegion.pBits;
+				BitmapToVideoMem(bitmap, hasAlpha, tile, target, (char*)textureLock.Ptr, textureLock.StrideBytes, usingLinearFiltering);
 
-				//BitmapToVideoMem(bitmap, hasAlpha, tile, target, memPtr, lockedRegion.Pitch, usingLinearFiltering);
-
-				//newTexture->UnlockRect(0);
+				AGSCON::Graphics::Texture_Unlock(tile->texture, &textureLock);
 			}
 
 			void D3DGraphicsDriver::UpdateDDBFromBitmap(IDriverDependantBitmap* bitmapToUpdate, Bitmap *bitmap, bool hasAlpha)
@@ -1006,12 +1005,19 @@ namespace AGS
 			{
 				int allocatedWidth = *width, allocatedHeight = *height;
 
+				AGSCON::Graphics::ImageRequest req;
+				AGSCON::Graphics::ImageReport report;
+				req.Width = *width;
+				req.Height = *height;
+
+				AGSCON::Graphics::MakeImageRequest(&req, &report);
+
 				//eventually we should keep this full functionality on consoles as there are annoying restrictions
 				//at surprising times for various texture formats without pow2 or odd strides; also minimum texture sizes can strike
 
 				//(need to make API for this tho)
 
-				/*if (direct3ddevicecaps.TextureCaps & D3DPTEXTURECAPS_POW2)
+				if (report.MustNPOT)
 				{
 					bool foundWidth = false, foundHeight = false;
 					int tryThis = 2;
@@ -1033,20 +1039,8 @@ namespace AGS
 					}
 				}
 
-				if (direct3ddevicecaps.TextureCaps & D3DPTEXTURECAPS_SQUAREONLY)
-				{
-					if (allocatedWidth > allocatedHeight) 
-					{
-						allocatedHeight = allocatedWidth;
-					}
-					else
-					{
-						allocatedWidth = allocatedHeight;
-					}
-				}
-
 				*width = allocatedWidth;
-				*height = allocatedHeight;*/
+				*height = allocatedHeight;
 			}
 
 
@@ -1063,19 +1057,23 @@ namespace AGS
 				AdjustSizeToNearestSupportedByCard(&allocatedWidth, &allocatedHeight);
 				int tilesAcross = 1, tilesDown = 1;
 
-				// *************** REMOVE THESE LINES *************
-				//direct3ddevicecaps.MaxTextureWidth = 64;
-				//direct3ddevicecaps.MaxTextureHeight = 256;
-				// *************** END REMOVE THESE LINES *************
+				AGSCON::Graphics::ImageRequest req;
+				AGSCON::Graphics::ImageReport report;
+				req.Width = allocatedWidth;
+				req.Height = allocatedHeight;
 
-				//this is just for testing. why not?
-				const int TEST_MAX_TEXTURE_WIDTH = 64;
-				const int TEST_MAX_TEXTURE_HEIGHT = 64;
+				AGSCON::Graphics::MakeImageRequest(&req, &report);
+
+				int maxWidth = report.MaxWidth;
+				int maxHeight = report.MaxHeight;
+
+				maxWidth = 64; //TEST: this is just for testing. why not?
+				maxHeight = 64; //TEST: this is just for testing. why not?
 
 				// Calculate how many textures will be necessary to
 				// store this image
-				tilesAcross = (allocatedWidth + TEST_MAX_TEXTURE_WIDTH - 1) / TEST_MAX_TEXTURE_WIDTH;
-				tilesDown = (allocatedHeight + TEST_MAX_TEXTURE_HEIGHT - 1) / TEST_MAX_TEXTURE_HEIGHT;
+				tilesAcross = (allocatedWidth + maxWidth - 1) / maxWidth;
+				tilesDown = (allocatedHeight + maxHeight - 1) / maxHeight;
 				int tileWidth = bitmap->GetWidth() / tilesAcross;
 				int lastTileExtraWidth = bitmap->GetWidth() % tilesAcross;
 				int tileHeight = bitmap->GetHeight() / tilesDown;
@@ -1133,7 +1131,7 @@ namespace AGS
 					}
 				}
 
-				AGSCON::Graphics::VertexBuffer_Create(_vertexLayout, numTiles*4, vertices);
+				ddb->_vertex = AGSCON::Graphics::VertexBuffer_Create(_vertexLayout, numTiles*4, vertices);
 
 				ddb->_numTiles = numTiles;
 				ddb->_tiles = tiles;

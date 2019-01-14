@@ -223,8 +223,34 @@ namespace AGS
 				int _tint_red, _tint_green, _tint_blue;
 				CUSTOMVERTEX defaultVertices[4];
 				String previousError;
-				//IDirect3DPixelShader9* pixelShader;
-				AGSCON::Graphics::Program *shader;
+
+				struct {
+					struct StandardProgram
+					{
+						AGSCON::Graphics::UniformLocation* mvp;
+					};
+
+					struct STANDARD : public StandardProgram {
+						AGSCON::Graphics::Program* program;
+						AGSCON::Graphics::UniformLocation* uTextureFactor;
+						AGSCON::Graphics::UniformLocation* uControl;
+					} standard;
+
+					struct TINT : public StandardProgram {
+						AGSCON::Graphics::Program* program;
+					} tint;
+
+					struct TINTLEGACY : public StandardProgram {
+						AGSCON::Graphics::Program* program;
+					} tintLegacy;
+
+				} shaders;
+
+				struct {
+					AGSCON::Graphics::Sampler* nearest;
+					AGSCON::Graphics::Sampler* linear;
+				} samplers;
+
 				bool _smoothScaling;
 				bool _legacyPixelShader;
 				float _pixelRenderXOffset;

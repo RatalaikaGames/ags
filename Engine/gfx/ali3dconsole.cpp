@@ -192,6 +192,8 @@ namespace AGS
 				if(_initialized) return;
 				_initialized = true;
 
+				AGSCON::Graphics::Initialize();
+
 				_tint_red = 0;
 				_tint_green = 0;
 				_tint_blue = 0;
@@ -231,13 +233,16 @@ namespace AGS
 				shaders.standard.program = AGSCON::Graphics::Program_Create(_vertexLayout, AGSCON::Graphics::ProgramType::Standard);
 				shaders.standard.uTextureFactor = AGSCON::Graphics::UniformLocation_Create(shaders.standard.program, "uTextureFactor");
 				shaders.standard.uControl = AGSCON::Graphics::UniformLocation_Create(shaders.standard.program, "uControl");
-				shaders.standard.mvp = AGSCON::Graphics::UniformLocation_Create(shaders.standard.program, "mvp");
+				shaders.standard.um44Projection = AGSCON::Graphics::UniformLocation_Create(shaders.standard.program, "um44Projection");
+				shaders.standard.um44Modelview = AGSCON::Graphics::UniformLocation_Create(shaders.standard.program, "um44Modelview");
 				
 				shaders.tint.program = AGSCON::Graphics::Program_Create(_vertexLayout, AGSCON::Graphics::ProgramType::Tint);
-				shaders.tint.mvp = AGSCON::Graphics::UniformLocation_Create(shaders.tint.program, "mvp");
+				shaders.tint.um44Projection = AGSCON::Graphics::UniformLocation_Create(shaders.tint.program, "um44Projection");
+				shaders.tint.um44Modelview = AGSCON::Graphics::UniformLocation_Create(shaders.tint.program, "um44Modelview");
 
 				shaders.tintLegacy.program = AGSCON::Graphics::Program_Create(_vertexLayout, AGSCON::Graphics::ProgramType::TintLegacy);
-				shaders.tintLegacy.mvp = AGSCON::Graphics::UniformLocation_Create(shaders.tintLegacy.program, "mvp");
+				shaders.tintLegacy.um44Projection = AGSCON::Graphics::UniformLocation_Create(shaders.tintLegacy.program, "um44Projection");
+				shaders.tintLegacy.um44Modelview = AGSCON::Graphics::UniformLocation_Create(shaders.tintLegacy.program, "um44Modelview");
 
 				//setup samplers
 				static const AGSCON::Graphics::SamplerDescr samplerDescrNearest = {
@@ -250,6 +255,25 @@ namespace AGS
 				};
 				samplers.nearest = AGSCON::Graphics::Sampler_Create(&samplerDescrNearest);
 				samplers.linear = AGSCON::Graphics::Sampler_Create(&samplerDescrLinear);
+
+
+				//set up "default vertices" used as a template for making other verts
+				defaultVertices[0].position.x = 0.0f;
+				defaultVertices[0].position.y = 0.0f;
+				defaultVertices[0].tu=0.0;
+				defaultVertices[0].tv=0.0;
+				defaultVertices[1].position.x = 1.0f;
+				defaultVertices[1].position.y = 0.0f;
+				defaultVertices[1].tu=1.0;
+				defaultVertices[1].tv=0.0;
+				defaultVertices[2].position.x = 0.0f;
+				defaultVertices[2].position.y = -1.0f;
+				defaultVertices[2].tu=0.0;
+				defaultVertices[2].tv=1.0;
+				defaultVertices[3].position.x = 1.0f;
+				defaultVertices[3].position.y = -1.0f;
+				defaultVertices[3].tu=1.0;
+				defaultVertices[3].tv=1.0;
 			}
 			
 			void D3DGraphicsDriver::Vsync() 
@@ -324,6 +348,7 @@ namespace AGS
 					0.0f, 0.0f, 0.0f, 0.0f,
 					0.0f, 0.0f, 0.0f, 1.0f
 				};
+				currentProjection = matOrtho;
 
 				Matrix44 matIdentity = {
 					1.0f, 0.0f, 0.0f, 0.0f,
@@ -729,7 +754,8 @@ namespace AGS
 					MatrixTransform2D(matSelfTransform, (float)thisX - _pixelRenderXOffset, (float)thisY + _pixelRenderYOffset, widthToScale, heightToScale, 0.f);
 					MatrixMultiply(matTransform, matSelfTransform, matGlobal);
 
-					AGSCON::Graphics::UniformMatrix44(shaders.standard.mvp, (float*)&matTransform);
+					AGSCON::Graphics::UniformMatrix44(shaders.standard.um44Projection, (float*)&currentProjection);
+					AGSCON::Graphics::UniformMatrix44(shaders.standard.um44Modelview, (float*)&matTransform);
 
 					AGSCON::Graphics::Sampler* sampler;
 					if ((_smoothScaling) && bmpToDraw->_useResampler && (bmpToDraw->_stretchToHeight > 0) &&
@@ -784,8 +810,8 @@ namespace AGS
 
 				RenderSpriteBatches(flip);
 
-				//not right place for this
-				//AGSCON::Graphics::EndRender();
+				//not right place for this... but for now...
+				AGSCON::Graphics::EndRender();
 
 				if (!_renderSprAtScreenRes) {
 					AGSCON::Graphics::SetBackbufferRenderTarget();
@@ -1087,7 +1113,7 @@ namespace AGS
 				D3DTextureTile *tiles = (D3DTextureTile*)malloc(sizeof(D3DTextureTile) * numTiles);
 				memset(tiles, 0, sizeof(D3DTextureTile) * numTiles);
 
-				CUSTOMVERTEX *vertices = new CUSTOMVERTEX[numTiles*4];
+				COOLCUSTOMVERTEX *vertices = new COOLCUSTOMVERTEX[numTiles*4];
 
 				for (int x = 0; x < tilesAcross; x++)
 				{

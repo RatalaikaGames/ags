@@ -111,6 +111,8 @@ namespace AGSCON
 			SamplerWrapMode WrapModeT;
 		};
 
+		void Initialize();
+
 		void MakeImageRequest(const ImageRequest* request, ImageReport* report);
 
 		void BeginFrame();

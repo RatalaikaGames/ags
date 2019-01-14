@@ -60,7 +60,6 @@ namespace AGS
 			struct Vector2f {
 				float x;
 				float y;
-				float z;
 			};
 
 			//I think the premise here is that some images may be too large for texture
@@ -143,7 +142,7 @@ namespace AGS
 				int left, top, right, bottom;
 			};
 
-			struct CUSTOMVERTEX
+			struct COOLCUSTOMVERTEX
 			{
 				Vector2f   position; // The position.
 				float       tu, tv;   // The texture coordinates.
@@ -221,13 +220,15 @@ namespace AGS
 				AGSCON::Graphics::RenderTarget* pNativeSurface;
 				RECT viewport_rect;
 				int _tint_red, _tint_green, _tint_blue;
-				CUSTOMVERTEX defaultVertices[4];
+				COOLCUSTOMVERTEX defaultVertices[4];
 				String previousError;
 
 				struct {
 					struct StandardProgram
 					{
-						AGSCON::Graphics::UniformLocation* mvp;
+						AGSCON::Graphics::UniformLocation* uProjection;
+						AGSCON::Graphics::UniformLocation* um44Projection;
+						AGSCON::Graphics::UniformLocation* um44Modelview;
 					};
 
 					struct STANDARD : public StandardProgram {
@@ -261,6 +262,8 @@ namespace AGS
 				Bitmap *_screenTintLayer;
 				D3DBitmap* _screenTintLayerDDB;
 				D3DDrawListEntry _screenTintSprite;
+
+				Matrix44 currentProjection;
 
 				D3DSpriteBatches _spriteBatches;
 				GlobalFlipType flipTypeLastTime;

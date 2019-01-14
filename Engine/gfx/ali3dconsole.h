@@ -137,11 +137,6 @@ namespace AGS
 				}
 			};
 
-			struct RECT
-			{
-				int left, top, right, bottom;
-			};
-
 			struct COOLCUSTOMVERTEX
 			{
 				Vector2f   position; // The position.
@@ -165,8 +160,8 @@ namespace AGS
 			public:
 				D3DGraphicsDriver(int secret, float key);
 
-				virtual const char*GetDriverName() { return "Direct3D 9"; }
-				virtual const char*GetDriverID() { return "D3D9"; }
+				virtual const char*GetDriverName() { return "Console"; }
+				virtual const char*GetDriverID() { return "CONS"; }
 				virtual void SetTintMethod(TintMethod method);
 				virtual bool SetDisplayMode(const DisplayMode &mode, volatile int *loopTimer);
 				virtual bool SetNativeSize(const Size &src_size);
@@ -216,41 +211,11 @@ namespace AGS
 				bool _initialized;
 				PD3DFilter _filter;
 
-				AGSCON::Graphics::VertexLayout* _vertexLayout;
 				AGSCON::Graphics::RenderTarget* pNativeSurface;
-				RECT viewport_rect;
+				AGSCON::Graphics::Rectangle viewport_rect;
 				int _tint_red, _tint_green, _tint_blue;
 				COOLCUSTOMVERTEX defaultVertices[4];
 				String previousError;
-
-				struct {
-					struct StandardProgram
-					{
-						AGSCON::Graphics::UniformLocation* uProjection;
-						AGSCON::Graphics::UniformLocation* um44Projection;
-						AGSCON::Graphics::UniformLocation* um44Modelview;
-					};
-
-					struct STANDARD : public StandardProgram {
-						AGSCON::Graphics::Program* program;
-						AGSCON::Graphics::UniformLocation* uTextureFactor;
-						AGSCON::Graphics::UniformLocation* uControl;
-					} standard;
-
-					struct TINT : public StandardProgram {
-						AGSCON::Graphics::Program* program;
-					} tint;
-
-					struct TINTLEGACY : public StandardProgram {
-						AGSCON::Graphics::Program* program;
-					} tintLegacy;
-
-				} shaders;
-
-				struct {
-					AGSCON::Graphics::Sampler* nearest;
-					AGSCON::Graphics::Sampler* linear;
-				} samplers;
 
 				bool _smoothScaling;
 				bool _legacyPixelShader;

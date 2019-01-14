@@ -1,10 +1,11 @@
 #pragma once
 
+//This API represents a tried and true set of minimal graphics APIs suitable for porting across all current-gen consoles
+//That is, assuming a certain simplified 2d game model.
+//No big choices here are arbitrary; they are all significant.
+
 namespace AGSCON
 {
-	//This API represents a tried and true set of minimal graphics APIs suitable for porting across all current-gen consoles
-	//That is, assuming a certain simplified 2d game model.
-	//No big choices here are arbitrary; they are all significant.
 	namespace Graphics
 	{
 		class Texture;
@@ -14,6 +15,11 @@ namespace AGSCON
 		class VertexLayout;
 		class Sampler;
 		class UniformLocation;
+
+		struct Rectangle
+		{
+			int left, top, right, bottom;
+		};
 
 		enum class PrimitiveType
 		{
@@ -128,14 +134,25 @@ namespace AGSCON
 		VertexLayout* VertexLayout_Create(const VertexLayoutDescr* layoutDescr);
 		void VertexLayout_Destroy(VertexLayout* layout);
 
-		VertexBuffer* VertexBuffer_Create(const VertexLayout* layout, int nElements, void* data);
+		VertexBuffer* VertexBuffer_Create(const VertexLayout* layout, int nElements, const void* data);
 		void VertexBuffer_Destroy(VertexBuffer* vb);
 
 		//This takes an enum instead of a buffer or a path because the details of pathing and resource loading are up to the console backend implementation
+		//Note: I've knowingly kept (and some other things) exposed even though they're used only by the backend
+		//that's just in case we need to take the shader loading, etc. out of the backend eventually
+		//(in other words, the backend's resource setup is done wholly in terms of publicly-accessible stuff)
+		//That might be handy for implementing better scalers in the future
 		Program* Program_Create(VertexLayout* layout, ProgramType which);
 		void Program_Destroy(Program* program);
 
+		//Creates the uniform location for a given uniform on the program...
 		UniformLocation* UniformLocation_Create(Program* program, const char* name);
+
+		//Creates the uniform location for a given TEXTURE on the program
+		//It's assumed that samplers and textures are linked (each texture has a corresponding shader)
+		UniformLocation* UniformLocation_CreateTexture(Program* program, const char* name);
+
+		//Destroys a UniformLocation
 		void UniformLocation_Destroy(UniformLocation* uniformLocation);
 
 		RenderTarget* RenderTarget_Create(int width, int height);
@@ -157,11 +174,11 @@ namespace AGSCON
 		void SetRenderTarget(int index, RenderTarget* rt);
 
 		void SetBackbufferRenderTarget();
-		
+
 		//Clears the currently set RT's color buffer only
 		void ClearColor(int red, int green, int blue, int alpha);
 
-		void BindFragmentTexture(int target, Texture* texture, Sampler* sampler);
+		void BindFragmentTexture(UniformLocation* location, Texture* texture, Sampler* sampler);
 		void BindVertexBuffer(VertexBuffer* vb);
 		void BindProgram(Program* program);
 
@@ -170,5 +187,43 @@ namespace AGSCON
 		void UniformMatrix44(const UniformLocation* uniformLocation, const float* data);
 
 		void DrawVertices(int start, int count, PrimitiveType primitiveType);
+
+		void PresentNative(RenderTarget* tex, const Rectangle* viewport_rect);
+
+		//---------------------------------------------------
+		
+		//now we get into the non-generalized things... stuff specifically for AGS
+
+		extern struct SHADERS {
+			struct StandardProgram
+			{
+				AGSCON::Graphics::Program* program;
+				AGSCON::Graphics::UniformLocation* uProjection;
+				AGSCON::Graphics::UniformLocation* um44Projection;
+				AGSCON::Graphics::UniformLocation* um44Modelview;
+				AGSCON::Graphics::UniformLocation* tex; //putting this in the standard program may be a nuisance, but is not likely to be
+			};
+
+			struct STANDARD : public StandardProgram {
+				AGSCON::Graphics::UniformLocation* uTextureFactor;
+				AGSCON::Graphics::UniformLocation* uControl;
+			} standard;
+
+			struct TINT : public StandardProgram {
+			} tint;
+
+			struct TINTLEGACY : public StandardProgram {
+			} tintLegacy;
+
+			VertexLayout* standardVertexLayout;
+			VertexBuffer* quad1x1;
+
+		} shaders;
+
+		extern struct SAMPLERS {
+			AGSCON::Graphics::Sampler* nearest;
+			AGSCON::Graphics::Sampler* linear;
+		} samplers;
+
 	}
 }

@@ -219,44 +219,6 @@ namespace AGS
 				// Initialize default sprite batch, it will be used when no other batch was activated
 				InitSpriteBatch(0, _spriteBatchDesc[0]);
 
-				//AKA "first time init"
-
-				//setup vertex layout...
-				static const AGSCON::Graphics::VertexLayoutDescr_Attribute vtxAttrs[] = {
-					{ "aPos", 0, AGSCON::Graphics::AttributeFormat::Float, 2 },
-					{ "aTex", 8, AGSCON::Graphics::AttributeFormat::Float, 2 }
-				};
-				static const AGSCON::Graphics::VertexLayoutDescr vtxDescr = { 16, 2, vtxAttrs };
-				_vertexLayout = AGSCON::Graphics::VertexLayout_Create(&vtxDescr);
-
-				//setup shaders....
-				shaders.standard.program = AGSCON::Graphics::Program_Create(_vertexLayout, AGSCON::Graphics::ProgramType::Standard);
-				shaders.standard.uTextureFactor = AGSCON::Graphics::UniformLocation_Create(shaders.standard.program, "uTextureFactor");
-				shaders.standard.uControl = AGSCON::Graphics::UniformLocation_Create(shaders.standard.program, "uControl");
-				shaders.standard.um44Projection = AGSCON::Graphics::UniformLocation_Create(shaders.standard.program, "um44Projection");
-				shaders.standard.um44Modelview = AGSCON::Graphics::UniformLocation_Create(shaders.standard.program, "um44Modelview");
-				
-				shaders.tint.program = AGSCON::Graphics::Program_Create(_vertexLayout, AGSCON::Graphics::ProgramType::Tint);
-				shaders.tint.um44Projection = AGSCON::Graphics::UniformLocation_Create(shaders.tint.program, "um44Projection");
-				shaders.tint.um44Modelview = AGSCON::Graphics::UniformLocation_Create(shaders.tint.program, "um44Modelview");
-
-				shaders.tintLegacy.program = AGSCON::Graphics::Program_Create(_vertexLayout, AGSCON::Graphics::ProgramType::TintLegacy);
-				shaders.tintLegacy.um44Projection = AGSCON::Graphics::UniformLocation_Create(shaders.tintLegacy.program, "um44Projection");
-				shaders.tintLegacy.um44Modelview = AGSCON::Graphics::UniformLocation_Create(shaders.tintLegacy.program, "um44Modelview");
-
-				//setup samplers
-				static const AGSCON::Graphics::SamplerDescr samplerDescrNearest = {
-					AGSCON::Graphics::SamplerMinFilter::Nearest,
-					AGSCON::Graphics::SamplerMagFilter::Nearest
-				};
-				static const AGSCON::Graphics::SamplerDescr samplerDescrLinear = {
-					AGSCON::Graphics::SamplerMinFilter::Linear,
-					AGSCON::Graphics::SamplerMagFilter::Linear
-				};
-				samplers.nearest = AGSCON::Graphics::Sampler_Create(&samplerDescrNearest);
-				samplers.linear = AGSCON::Graphics::Sampler_Create(&samplerDescrLinear);
-
-
 				//set up "default vertices" used as a template for making other verts
 				defaultVertices[0].position.x = 0.0f;
 				defaultVertices[0].position.y = 0.0f;
@@ -604,6 +566,8 @@ namespace AGS
 				if (bmpToDraw->_transparency >= 255)
 					return;
 
+				AGSCON::Graphics::SHADERS::StandardProgram* selectedProgram;
+
 				if (bmpToDraw->_tintSaturation > 0)
 				{
 					// Use custom pixel shader
@@ -638,7 +602,7 @@ namespace AGS
 				}
 				else
 				{
-					AGSCON::Graphics::BindProgram(shaders.standard.program);
+					selectedProgram = &AGSCON::Graphics::shaders.standard;
 
 					int useTintRed = 255;
 					int useTintGreen = 255;
@@ -689,10 +653,11 @@ namespace AGS
 					if(bmpToDraw->_transparency == 0)
 						textureFactor[3] = 1.0f;
 
-					AGSCON::Graphics::UniformFloat4(shaders.standard.uTextureFactor,textureFactor);
-					AGSCON::Graphics::UniformFloat2(shaders.standard.uControl,control);
+					AGSCON::Graphics::UniformFloat4(AGSCON::Graphics::shaders.standard.uTextureFactor,textureFactor);
+					AGSCON::Graphics::UniformFloat2(AGSCON::Graphics::shaders.standard.uControl,control);
 				}
 
+				AGSCON::Graphics::BindProgram(selectedProgram->program);
 				AGSCON::Graphics::BindVertexBuffer(bmpToDraw->_vertex);
 
 				float width = bmpToDraw->GetWidthToRender();
@@ -754,26 +719,26 @@ namespace AGS
 					MatrixTransform2D(matSelfTransform, (float)thisX - _pixelRenderXOffset, (float)thisY + _pixelRenderYOffset, widthToScale, heightToScale, 0.f);
 					MatrixMultiply(matTransform, matSelfTransform, matGlobal);
 
-					AGSCON::Graphics::UniformMatrix44(shaders.standard.um44Projection, (float*)&currentProjection);
-					AGSCON::Graphics::UniformMatrix44(shaders.standard.um44Modelview, (float*)&matTransform);
+					AGSCON::Graphics::UniformMatrix44(AGSCON::Graphics::shaders.standard.um44Projection, (float*)&currentProjection);
+					AGSCON::Graphics::UniformMatrix44(AGSCON::Graphics::shaders.standard.um44Modelview, (float*)&matTransform);
 
 					AGSCON::Graphics::Sampler* sampler;
 					if ((_smoothScaling) && bmpToDraw->_useResampler && (bmpToDraw->_stretchToHeight > 0) &&
 						((bmpToDraw->_stretchToHeight != bmpToDraw->_height) ||
 						(bmpToDraw->_stretchToWidth != bmpToDraw->_width)))
 					{
-						sampler = samplers.linear;
+						sampler = AGSCON::Graphics::samplers.linear;
 					}
 					else if (!_renderSprAtScreenRes)
 					{
-						sampler = samplers.nearest;
+						sampler = AGSCON::Graphics::samplers.nearest;
 					}
 					else
 					{
-						sampler = samplers.nearest;
+						sampler = AGSCON::Graphics::samplers.nearest;
 					}
 					
-					AGSCON::Graphics::BindFragmentTexture(0, bmpToDraw->_tiles[ti].texture, sampler);
+					AGSCON::Graphics::BindFragmentTexture(selectedProgram->tex, bmpToDraw->_tiles[ti].texture, sampler);
 
 					AGSCON::Graphics::DrawVertices(ti*4,4, AGSCON::Graphics::PrimitiveType::TriangleStrip);
 				}
@@ -797,10 +762,15 @@ namespace AGS
 
 				AGSCON::Graphics::BeginRender();
 
+				//NEW
+				if (!_renderSprAtScreenRes)
+					AGSCON::Graphics::SetRenderTarget(0, pNativeSurface);
+
+				//OLD
 				//TODO - proper offscreen stuff
 				//if (!_renderSprAtScreenRes)
 				//	AGSCON::Graphics::SetRenderTarget(0, pNativeSurface);
-				AGSCON::Graphics::SetBackbufferRenderTarget();
+				//AGSCON::Graphics::SetBackbufferRenderTarget();
 
 				////note the odd choice of alpha
 				AGSCON::Graphics::ClearColor(0,0,0,128);
@@ -810,16 +780,17 @@ namespace AGS
 
 				RenderSpriteBatches(flip);
 
-				//not right place for this... but for now...
-				AGSCON::Graphics::EndRender();
-
 				if (!_renderSprAtScreenRes) {
-					AGSCON::Graphics::SetBackbufferRenderTarget();
 					
-					// use correct sampling method when stretching buffer to the final rect
-					_filter->SetSamplerStateForStandardSprite();
-
 					//TODO - uhhhh I guess this is the final presentation logic? that's pretty shoddy. need to re-engineer that
+					
+					AGSCON::Graphics::SetBackbufferRenderTarget();
+
+					// "use correct sampling method when stretching buffer to the final rect"
+					// it seems like this is a weak approximation of the intended real filtering capability
+					// for now I'll just ignore it and hardcode it by game
+					//_filter->SetSamplerStateForStandardSprite();
+
 
 					//D3DTEXTUREFILTERTYPE filterType;
 					//direct3ddevice->GetSamplerState(0, D3DSAMP_MAGFILTER, (DWORD*)&filterType);
@@ -828,7 +799,14 @@ namespace AGS
 					//	throw Ali3DException("IDirect3DSurface9::StretchRect failed");
 					//}
 					//direct3ddevice->SetViewport(&pViewport);
-				}
+
+					//AGSCON::Graphics::SetBackbufferRenderTarget();
+
+					AGSCON::Graphics::PresentNative(pNativeSurface, &viewport_rect);
+				} 
+
+				//not right place for this... but for now...
+				AGSCON::Graphics::EndRender();
 
 				if (clearDrawListAfterwards)
 				{
@@ -847,7 +825,7 @@ namespace AGS
 					const D3DSpriteBatch &batch = _spriteBatches[i];
 					if (!viewport.IsEmpty())
 					{
-						RECT scissor;
+						AGSCON::Graphics::Rectangle scissor;
 						if (_renderSprAtScreenRes)
 						{
 							scissor.left = _scaling.X.ScalePt(viewport.Left);
@@ -862,7 +840,8 @@ namespace AGS
 							scissor.right = viewport.Right + 1;
 							scissor.bottom = viewport.Bottom + 1;
 						}
-						AGSCON::Graphics::SetScissor(scissor.left, scissor.top, scissor.right - scissor.left, scissor.bottom - scissor.top);
+						//TODO - NOT RIGHT
+						//AGSCON::Graphics::SetScissor(scissor.left, scissor.top, scissor.right - scissor.left, scissor.bottom - scissor.top);
 					}
 					else
 					{
@@ -1157,7 +1136,7 @@ namespace AGS
 					}
 				}
 
-				ddb->_vertex = AGSCON::Graphics::VertexBuffer_Create(_vertexLayout, numTiles*4, vertices);
+				ddb->_vertex = AGSCON::Graphics::VertexBuffer_Create(AGSCON::Graphics::shaders.standardVertexLayout, numTiles*4, vertices);
 
 				ddb->_numTiles = numTiles;
 				ddb->_tiles = tiles;

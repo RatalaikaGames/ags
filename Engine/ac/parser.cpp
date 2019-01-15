@@ -13,6 +13,8 @@
 //=============================================================================
 
 #include <cctype> //isalnum()
+#include <stdio.h>
+
 #include "util/string_utils.h" //strlwr()
 #include "ac/common.h"
 #include "ac/gamesetupstruct.h"

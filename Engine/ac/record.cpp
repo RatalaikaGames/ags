@@ -12,6 +12,8 @@
 //
 //=============================================================================
 
+#include <stdio.h>
+
 #define IS_RECORD_UNIT
 #include "ac/common.h"
 #include "media/audio/audiodefines.h"

@@ -12,6 +12,8 @@
 //
 //=============================================================================
 
+#include <stdio.h>
+
 #include "ac/dialog.h"
 #include "ac/common.h"
 #include "ac/character.h"

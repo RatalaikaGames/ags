@@ -12,7 +12,9 @@
 //
 //=============================================================================
 
+#include <stdio.h>
 #include <algorithm>
+
 #include "aastr.h"
 #include "ac/common.h"
 #include "util/compress.h"

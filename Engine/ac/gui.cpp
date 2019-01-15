@@ -12,6 +12,8 @@
 //
 //=============================================================================
 
+#include <stdio.h>
+
 #include "ac/gui.h"
 #include "ac/common.h"
 #include "ac/draw.h"

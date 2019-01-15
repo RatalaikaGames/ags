@@ -16,6 +16,8 @@
 // Quit game procedure
 //
 
+#include <stdio.h>
+
 #include "ac/cdaudio.h"
 #include "ac/gamesetup.h"
 #include "ac/gamesetupstruct.h"

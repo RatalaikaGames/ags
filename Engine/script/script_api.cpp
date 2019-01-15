@@ -13,6 +13,8 @@
 //=============================================================================
 
 #include <string.h>
+#include <stdio.h>
+
 #include "ac/game_version.h"
 #include "script/cc_error.h"
 #include "script/runtimescriptvalue.h"

@@ -12,6 +12,8 @@
 //
 //=============================================================================
 
+#include <stdio.h>
+
 #define USE_CLIB
 #include "ac/asset_helper.h"
 #include "ac/common.h"

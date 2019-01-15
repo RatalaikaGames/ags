@@ -12,6 +12,8 @@
 //
 //=============================================================================
 
+#include <stdio.h>
+
 #include "ac/string.h"
 #include "ac/common.h"
 #include "ac/display.h"
@@ -109,7 +111,7 @@ int String_StartsWith(const char *thisString, const char *checkForString, bool c
         return (strncmp(thisString, checkForString, strlen(checkForString)) == 0) ? 1 : 0;
     }
     else {
-        return (strnicmp(thisString, checkForString, strlen(checkForString)) == 0) ? 1 : 0;
+        return (ags_strnicmp(thisString, checkForString, strlen(checkForString)) == 0) ? 1 : 0;
     }
 }
 
@@ -146,7 +148,7 @@ const char* String_Replace(const char *thisString, const char *lookForText, cons
         }
         else
         {
-            matchHere = (strnicmp(&thisString[i], lookForText, strlen(lookForText)) == 0);
+            matchHere = (ags_strnicmp(&thisString[i], lookForText, strlen(lookForText)) == 0);
         }
 
         if (matchHere)

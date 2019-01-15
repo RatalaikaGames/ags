@@ -73,7 +73,7 @@ void WordsDictionary::sort () {
 int WordsDictionary::find_index (const char*wrem) {
     int aa;
     for (aa = 0; aa < num_words; aa++) {
-        if (stricmp (wrem, word[aa]) == 0)
+        if (ags_stricmp (wrem, word[aa]) == 0)
             return aa;
     }
     return -1;

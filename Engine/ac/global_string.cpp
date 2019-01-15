@@ -49,13 +49,13 @@ void _sc_strcat(char*s1, const char*s2) {
 void _sc_strlower (char *desbuf) {
     VALIDATE_STRING(desbuf);
     check_strlen (desbuf);
-    strlwr (desbuf);
+    ags_strlwr (desbuf);
 }
 
 void _sc_strupper (char *desbuf) {
     VALIDATE_STRING(desbuf);
     check_strlen (desbuf);
-    strupr (desbuf);
+    ags_strupr (desbuf);
 }
 
 /*int _sc_strcmp (char *s1, char *s2) {

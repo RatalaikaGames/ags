@@ -27,8 +27,10 @@ using namespace AGS; // FIXME later
 // because it's so hard to manage portability with macros, let's use these
 int ags_stricmp(const char *string1, const char *string2);
 int ags_strnicmp(const char *string1, const char *string2, int n);
+char *ags_strlwr(char *str);
+char *ags_strupr(char *str);
 
-#if !defined (WINDOWS_VERSION)
+#if !defined (WINDOWS_VERSION) && !defined(CONSOLE_VERSION)
 
 #if !defined (strlwr)
 extern "C" char *strlwr(char *s);

@@ -24,13 +24,16 @@ using namespace AGS::Common;
 
 #define STD_BUFFER_SIZE 3000
 
+extern "C" char *_alemu_strlwr(char *string);
+extern "C" char *_alemu_strupr(char *string);
+
 //C string facilities
 int ags_stricmp(const char *string1, const char *string2)
 {
 	#ifdef _MSC_VER
 	return _stricmp(string1, string2);
 	#else
-	return stricmp(string1, string2);
+	return strcasecmp(string1, string2);
 	#endif
 }
 int ags_strnicmp(const char *string1, const char *string2, int n)
@@ -38,9 +41,29 @@ int ags_strnicmp(const char *string1, const char *string2, int n)
 	#ifdef _MSC_VER
 	return _strnicmp(string1, string2, n);
 	#else
-	return strnicmp(string1, string2, n);
+	return strncasecmp(string1, string2, n);
 	#endif
 }
+
+char *ags_strlwr(char *str)
+{
+    #ifdef _MSC_VER
+    return strlwr(str);
+    #else
+    return _alemu_strlwr(str);
+    #endif
+}
+
+
+char *ags_strupr(char *str)
+{
+    #ifdef _MSC_VER
+    return strupr(str);
+    #else
+    return _alemu_strupr(str);
+    #endif
+}
+
 
 // Turn [ into \n and turn \[ into [
 void unescape(char *buffer) {

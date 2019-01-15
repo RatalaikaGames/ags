@@ -18,6 +18,12 @@
 #ifndef __AGS_CN_DEBUG__ASSERT_H
 #define __AGS_CN_DEBUG__ASSERT_H
 
+#ifdef CONSOLE_VERSION
+//what? just #include assert.h if you want assert
+#include <assert.h>
+
+#else
+
 #ifdef _DEBUG
 
 // TODO: revise this later (add platform-specific output maybe?)
@@ -44,5 +50,7 @@ inline void assert(bool expr)
 inline void assert(bool expr) {}
 
 #endif // !_DEBUG
+
+#endif
 
 #endif // __AGS_CN_DEBUG__ASSERT_H

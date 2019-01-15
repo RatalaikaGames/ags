@@ -188,7 +188,7 @@ int cunpackbitl(unsigned char *line, int size, Stream *in)
     if (in->HasErrors())
       break;
 
-    char cx = ix;
+    signed char cx = ix;
     if (cx == -128)
       cx = 0;
 

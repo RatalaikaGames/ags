@@ -465,7 +465,7 @@ int ccInstance::Run(int32_t curpc)
         int pc_at = pc + 1;
         for (int i = 0; i < codeOp.ArgCount; ++i, ++pc_at)
         {
-            char fixup = codeInst->code_fixups[pc_at];
+            signed char fixup = codeInst->code_fixups[pc_at];
             if (fixup > 0)
             {
                 // could be relative pointer or import address

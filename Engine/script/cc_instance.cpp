@@ -13,6 +13,8 @@
 //=============================================================================
 
 #include <string.h>
+#include <stdio.h>
+
 #include "ac/common.h"
 #include "ac/dynobj/cc_dynamicarray.h"
 #include "ac/dynobj/managedobjectpool.h"

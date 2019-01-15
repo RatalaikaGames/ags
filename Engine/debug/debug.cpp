@@ -13,6 +13,8 @@
 //=============================================================================
 
 #include <memory>
+#include <stdio.h>
+
 #include "ac/common.h"
 #include "ac/gamesetupstruct.h"
 #include "ac/runtime_defines.h"
@@ -49,9 +51,10 @@ char editor_debugger_instance_token[100];
 IAGSEditorDebugger *editor_debugger = NULL;
 int break_on_next_script_step = 0;
 volatile int game_paused_in_debugger = 0;
-HWND editor_window_handle = 0;
 
 #ifdef WINDOWS_VERSION
+HWND editor_window_handle = 0;
+
 
 #include "platform/windows/debug/namedpipesagsdebugger.h"
 
@@ -330,8 +333,10 @@ int check_for_messages_from_editor()
 
         if (strncmp(msgPtr, "START", 5) == 0)
         {
+            #ifdef WINDOWS_VERSION
             const char *windowHandle = strstr(msgPtr, "EditorWindow") + 14;
             editor_window_handle = (HWND)atoi(windowHandle);
+            #endif
         }
         else if (strncmp(msgPtr, "READY", 5) == 0)
         {

@@ -12,6 +12,8 @@
 //
 //=============================================================================
 
+#include <stdio.h>
+
 #include "ac/dialogtopic.h"
 #include "ac/gamesetupstruct.h"
 #include "ac/spritecache.h"

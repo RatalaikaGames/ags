@@ -16,6 +16,8 @@
 // Engine initialization
 //
 
+#include <stdio.h>
+
 #include "main/mainheader.h"
 #include "ac/asset_helper.h"
 #include "ac/common.h"
@@ -1519,11 +1521,7 @@ int initialize_engine(int argc,char*argv[])
 
     initialize_start_and_play_game(override_start_room, loadSaveGameOnStartup);
 
-    //console versions should maintain their own game loop
-    #ifdef CONSOLE_VERSION
-    #else
     quit("|bye!");
-    #endif
 
     return 0;
 }

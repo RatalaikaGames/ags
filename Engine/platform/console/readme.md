@@ -5,9 +5,9 @@ Now I'm going to list what you do to make it work. At some point I will deliver 
 * Define CONSOLE_VERSION
 * Implement something named like "AGSConsolePort", which is a AGSPlatformDriver, by studying the examples of other platform drivers
 * Implement "mutex_console.h" and "thread_console.h" by studying examples, etc.
-* ALLEGRO
+* ALLEGRO (TODO: can we incorporate some of these changes into official AGS allegro fork?)
 ** Create a configuration header file suitable for building allegro
-** Privately patch allegro to include it in near the top in the platform list. (TODO: can we incorporate this into official AGS allegro fork?)
+** Privately patch allegro's `alconfig.h` to include that configuration header in the platform list near the top.
 ** Implement a certain set of allegro APIs (TBD). You will have to be creative here.
 
 * Third Party Libraries:

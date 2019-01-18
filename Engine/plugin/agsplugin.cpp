@@ -310,8 +310,11 @@ void IAGSEngine::GetBitmapDimensions (BITMAP *bmp, int32 *width, int32 *height, 
     if (coldepth != NULL)
         coldepth[0] = bitmap_color_depth(bmp);
 }
-// [IKM] Interesting, why does AGS need those two functions?
-// Can it be that it was planned to change implementation in the future?
+
+//These are intended for use by AGSE_SAVEGAME and AGSE_RESTOREGAME events (the file handle will be passed)
+//(see https://www.adventuregamestudio.co.uk/site/ags/plugins/engine/ )
+//Note that these are woefully inadequate services (handles declared as 32bit ints and casted to FILE*, hilariously) 
+//We should deprecate these (spew warnings when used) disable them on non-win32 (and possibly the file-handle passing to AGSE_SAVEGAME etc.), and replace them
 int IAGSEngine::FRead (void *buffer, int32 len, int32 handle) {
     return fread (buffer, 1, len, (FILE*)handle);
 }

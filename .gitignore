@@ -135,3 +135,6 @@ libsrc/*.zip
 # NuGet v3's project.json files produces more ignorable files
 *.nuget.props
 *.nuget.targets
+
+# Picky users editorconfigs customized from project defaults
+/Engine/gfx/.editorconfig

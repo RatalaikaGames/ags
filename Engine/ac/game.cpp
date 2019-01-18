@@ -83,6 +83,7 @@
 #include "util/filestream.h" // TODO: needed only because plugins expect file handle
 #include "util/path.h"
 #include "util/string_utils.h"
+#include "util/posix.h"
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -1079,7 +1080,7 @@ long write_screen_shot_for_vista(Stream *out, Bitmap *screenshot)
         Stream *temp_in = Common::File::OpenFileRead(tempFileName);
         temp_in->Read(buffer, fileSize);
         delete temp_in;
-        unlink(tempFileName);
+        ags_unlink(tempFileName);
 
         out->Write(buffer, fileSize);
         free(buffer);

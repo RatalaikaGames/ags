@@ -36,6 +36,7 @@
 #include "util/path.h"
 #include "util/string.h"
 #include "util/string_utils.h"
+#include "util/posix.h"
 
 using namespace AGS::Common;
 
@@ -73,10 +74,10 @@ int File_Delete(const char *fnmm) {
   if (!ResolveScriptPath(fnmm, false, path, alt_path))
     return 0;
 
-  if (unlink(path) == 0)
+  if (ags_unlink(path) == 0)
       return 1;
   if (errno == ENOENT && !alt_path.IsEmpty() && alt_path.Compare(path) != 0)
-      return unlink(alt_path) == 0 ? 1 : 0;
+      return ags_unlink(alt_path) == 0 ? 1 : 0;
   return 0;
 }
 

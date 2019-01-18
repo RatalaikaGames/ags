@@ -32,6 +32,7 @@
 #include "gfx/gfxfilter.h"
 #include "device/mousew32.h"
 #include "util/file.h"
+#include "util/posix.h"
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -388,7 +389,7 @@ void stop_recording() {
         replay_out->Write (tbufr, lenno);
         free (tbufr);
         delete replay_temp_in;
-        unlink (replayTempFile);
+        ags_unlink (replayTempFile);
     }
     else if (write_version >= 3) {
         replay_out->WriteInt32 (0);

@@ -18,6 +18,7 @@
 #include "util/lzw.h"
 #include "util/misc.h"
 #include "util/bbop.h"
+#include "util/posix.h"
 
 #ifdef _MANAGED
 // ensure this doesn't get compiled to .NET IL
@@ -324,10 +325,7 @@ void save_lzw(Stream *out, const Bitmap *bmpp, const color *pall)
   // Delete temp file
   delete lz_temp_s;
 
-	//TODO MBG - MUST FIX! WHAT DO WE USE THIS FOR ANYWAY
-	#ifndef AGS_RATA
-  unlink(lztempfnm);
-	#endif
+  ags_unlink(lztempfnm);
 
   // Seek back to the end of the output stream
   out->Seek(toret, kSeekBegin);

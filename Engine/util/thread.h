@@ -72,8 +72,8 @@ public:
    || defined(ANDROID_VERSION)
 #include "thread_pthread.h"
 
-#elif defined(AGS_RATA)
-#include "ags_thread.h"
+#elif defined(CONSOLE_VERSION)
+#include "thread_console.h"
 
 #endif
 

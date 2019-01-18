@@ -102,4 +102,10 @@ enum
     kUnit     = 1 << kShift
 };
 
+//disable features unneeded for consoles
+#ifndef CONSOLE_VERSION
+#define AGS_HAS_POSIX
+#define AGS_HAS_RICH_GAME_MEDIA
+#endif
+
 #endif // __AGS_CN_CORE__TYPES_H

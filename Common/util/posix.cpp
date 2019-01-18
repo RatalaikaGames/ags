@@ -15,7 +15,7 @@
 
 #include <string.h>
 #include "posix.h"
-#include "core/buildconfig.h"
+#include "core/types.h"
 
 
 //TODO - can actually include agsplatformdriver.h here.... in some cases. 

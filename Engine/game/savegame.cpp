@@ -12,7 +12,7 @@
 //
 //=============================================================================
 
-#include "core/buildconfig.h"
+#include "core/types.h"
 #include "ac/character.h"
 #include "ac/common.h"
 #include "ac/draw.h"

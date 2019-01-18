@@ -30,6 +30,7 @@
 #include "util/compress.h"
 #include "util/file.h"
 #include "util/stream.h"
+#include "util/posix.h"
 
 using namespace AGS::Common;
 
@@ -728,7 +729,7 @@ int SpriteCache::InitFile(const char *filnam)
 
     // failed, delete the index file because it's invalid
     // TODO: refactor loading process and make it NOT delete file running the game!!
-    unlink(spindexfilename);
+    ags_unlink(spindexfilename);
 
     return RebuildSpriteIndex(_stream.get(), topmost, vers);
 }

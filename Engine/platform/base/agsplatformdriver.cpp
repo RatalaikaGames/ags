@@ -41,6 +41,7 @@ AGSPlatformDriver *platform = NULL;
 
 void AGSPlatformDriver::AboutToQuitGame() { }
 void AGSPlatformDriver::PostAllegroInit(bool windowed) { }
+void AGSPlatformDriver::PostAllegroExit() {}
 void AGSPlatformDriver::DisplaySwitchOut() { }
 void AGSPlatformDriver::DisplaySwitchIn() { }
 void AGSPlatformDriver::PauseApplication() { }
@@ -52,6 +53,12 @@ void AGSPlatformDriver::AdjustWindowStyleForFullscreen() { }
 void AGSPlatformDriver::RestoreWindowStyle() { }
 void AGSPlatformDriver::RegisterGameWithGameExplorer() { }
 void AGSPlatformDriver::UnRegisterGameWithGameExplorer() { }
+
+int AGSPlatformDriver::InitializeCDPlayer() { return 1; }
+int AGSPlatformDriver::CDPlayerCommand(int cmdd, int datt) { return 0; }
+void AGSPlatformDriver::ShutdownCDPlayer() {}
+
+void AGSPlatformDriver::PlayVideo(const char* name, int skip, int flags) {}
 
 const char* AGSPlatformDriver::GetAllegroFailUserHint()
 {
@@ -67,6 +74,7 @@ void AGSPlatformDriver::GetSystemTime(ScriptDateTime *sdt) {
     struct tm *newtime;
     time_t long_time;
 
+    //TODO CONSOLE - run time() through platform driver also.. probably. may be an example of how to deal with some of the libc problems generally
     time( &long_time );
     newtime = localtime( &long_time );
 

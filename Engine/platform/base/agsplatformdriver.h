@@ -100,10 +100,10 @@ struct AGSPlatformDriver
     virtual const char* GetAllegroFailUserHint();
     virtual eScriptSystemOSID GetSystemOSID() = 0;
     virtual void GetSystemTime(ScriptDateTime*);
-    virtual void PlayVideo(const char* name, int skip, int flags) = 0;
+    virtual void PlayVideo(const char* name, int skip, int flags);
     virtual void InitialiseAbufAtStartup();
     virtual void PostAllegroInit(bool windowed);
-    virtual void PostAllegroExit() = 0;
+    virtual void PostAllegroExit();
     virtual void FinishedUsingGraphicsMode();
     virtual SetupReturnValue RunSetup(const Common::ConfigTree &cfg_in, Common::ConfigTree &cfg_out);
     virtual void SetGameWindowIcon();
@@ -136,9 +136,9 @@ struct AGSPlatformDriver
     // Adjust window size to ensure it is in the supported limits
     virtual void ValidateWindowSize(int &x, int &y, bool borderless) const {}
 
-    virtual int  InitializeCDPlayer() = 0;  // return 0 on success
-    virtual int  CDPlayerCommand(int cmdd, int datt) = 0;
-    virtual void ShutdownCDPlayer() = 0;
+    virtual int  InitializeCDPlayer();  // return 0 on success
+    virtual int  CDPlayerCommand(int cmdd, int datt);
+    virtual void ShutdownCDPlayer();
 
     virtual bool LockMouseToWindow();
     virtual void UnlockMouse();
@@ -154,7 +154,7 @@ struct AGSPlatformDriver
     //-----------------------------------------------
     // UNUSED THINGS. SHOULD BE DELETED? CHANGED TO MAKE NON-PURE SO THEY DONT HAVE TO BE IMPLEMENTED
     //-----------------------------------------------
-    virtual const char* GetNoMouseErrorString() { return NULL; }
+    virtual const char* _deprecated_GetNoMouseErrorString() { return NULL; }
     //-----------------------------------------------
 
 

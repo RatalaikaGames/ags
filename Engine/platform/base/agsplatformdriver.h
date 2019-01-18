@@ -143,6 +143,8 @@ struct AGSPlatformDriver
     virtual bool LockMouseToWindow();
     virtual void UnlockMouse();
 
+    virtual void Save_DeleteSlot(int slnum);
+
     static AGSPlatformDriver *GetDriver();
 
     //-----------------------------------------------

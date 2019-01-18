@@ -120,21 +120,7 @@ void RestoreGameSlot(int slnum) {
 }
 
 void DeleteSaveSlot (int slnum) {
-    String nametouse;
-    nametouse = get_save_game_path(slnum);
-    unlink (nametouse);
-    if ((slnum >= 1) && (slnum <= MAXSAVEGAMES)) {
-        String thisname;
-        for (int i = MAXSAVEGAMES; i > slnum; i--) {
-            thisname = get_save_game_path(i);
-            if (Common::File::TestReadFile(thisname)) {
-                // Rename the highest save game to fill in the gap
-                rename (thisname, nametouse);
-                break;
-            }
-        }
-
-    }
+    platform->Save_DeleteSlot(slnum);
 }
 
 void PauseGame() {

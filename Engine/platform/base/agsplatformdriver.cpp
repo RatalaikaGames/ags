@@ -22,8 +22,11 @@
 #include "platform/base/agsplatformdriver.h"
 #include "ac/common.h"
 #include "ac/runtime_defines.h"
+#include "ac/game.h"
 #include "util/string_utils.h"
 #include "util/stream.h"
+#include "util/posix.h"
+#include "util/file.h"
 #include "gfx/bitmap.h"
 #include "plugin/agsplugin.h"
 
@@ -127,6 +130,25 @@ int AGSPlatformDriver::ConvertKeycodeToScanCode(int keycode)
 
 bool AGSPlatformDriver::LockMouseToWindow() { return false; }
 void AGSPlatformDriver::UnlockMouse() { }
+
+void AGSPlatformDriver::Save_DeleteSlot(int slnum)
+{
+    String nametouse;
+    nametouse = get_save_game_path(slnum);
+    ags_unlink (nametouse);
+    if ((slnum >= 1) && (slnum <= MAXSAVEGAMES)) {
+        String thisname;
+        for (int i = MAXSAVEGAMES; i > slnum; i--) {
+            thisname = get_save_game_path(i);
+            if (Common::File::TestReadFile(thisname)) {
+                // Rename the highest save game to fill in the gap
+                rename (thisname, nametouse);
+                break;
+            }
+        }
+    }
+}
+
 
 //-----------------------------------------------
 // IOutputHandler implementation

@@ -41,6 +41,7 @@
 #include "ac/viewframe.h"
 #include "ac/dynobj/scriptobject.h"
 #include "ac/dynobj/scriptsystem.h"
+#include "ac/gamesetup.h"
 #include "debug/debug_log.h"
 #include "debug/debugger.h"
 #include "debug/out.h"
@@ -1368,21 +1369,9 @@ bool engine_do_config(const String &exe_path)
     return engine_check_run_setup(exe_path, cfg);
 }
 
-int initialize_engine(int argc,char*argv[])
+int _initialize_engine_common()
 {
-    if (engine_pre_init_callback) {
-        engine_pre_init_callback();
-    }
-    
     int res;
-    if (!engine_init_allegro())
-        return EXIT_NORMAL;
-
-    const String exe_path = argv[0];
-    if (!engine_init_gamefile(exe_path))
-        return EXIT_NORMAL;
-    if (!engine_do_config(exe_path))
-        return EXIT_NORMAL;
 
     engine_setup_allegro();
 
@@ -1525,6 +1514,46 @@ int initialize_engine(int argc,char*argv[])
     quit("|bye!");
 
     return 0;
+}
+
+//simplified game setup for console versions
+//we could modify this to pass config and ags filenames in here if needed
+void initialize_engine_console()
+{
+    game_file_name = "game.ags";
+
+    Debug::Printf(kDbgMsg_Init, "Initializing game data (console version");
+    ConfigTree cfg;
+    IniUtil::Read("acsetup.cfg", cfg);
+    usetup.data_files_dir = "";
+    usetup.main_data_filename = game_file_name;
+
+    Debug::Printf(kDbgMsg_Init, "Setting up game configuration");
+    apply_config(cfg); //TODO - remove console hacks from here
+    post_config(); //not really needed by console, developer can fix his configuration
+
+    engine_init_allegro();
+
+    _initialize_engine_common();
+}
+
+int initialize_engine(int argc,char*argv[])
+{
+    if (engine_pre_init_callback) {
+        engine_pre_init_callback();
+    }
+
+    //this could probably go in common, and simplify what's here
+    if (!engine_init_allegro())
+        return EXIT_NORMAL;
+
+    const String exe_path = argv[0];
+    if (!engine_init_gamefile(exe_path))
+        return EXIT_NORMAL;
+    if (!engine_do_config(exe_path))
+        return EXIT_NORMAL;
+
+    return _initialize_engine_common();
 }
 
 bool engine_try_set_gfxmode_any(const ScreenSetup &setup)

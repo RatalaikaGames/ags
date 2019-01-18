@@ -24,6 +24,9 @@ void		engine_init_game_settings();
 int         initialize_engine(int argc,char*argv[]);
 int			initialize_engine_with_exception_handling(int argc,char*argv[]);
 
+// Special, simplified initialization for console builds
+void         initialize_engine_console();
+
 struct ScreenSetup;
 // Try to set new graphics mode deduced from given configuration;
 // if requested mode fails, tries to find any compatible mode close to the

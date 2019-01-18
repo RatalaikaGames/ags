@@ -39,6 +39,7 @@
 #include "gfx/bitmap.h"
 #include "core/assetmanager.h"
 #include "plugin/plugin_engine.h"
+#include "util/posix.h"
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -219,7 +220,7 @@ void quit_delete_temp_files()
     al_ffblk	dfb;
     int	dun = al_findfirst("~ac*.tmp",&dfb,FA_SEARCH);
     while (!dun) {
-        unlink(dfb.name);
+        ags_unlink(dfb.name);
         dun = al_findnext(&dfb);
     }
     al_findclose (&dfb);

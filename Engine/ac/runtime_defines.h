@@ -137,7 +137,7 @@ const int LegacyRoomVolumeFactor            = 30;
 #endif
 
 #if !defined (WINDOWS_VERSION)
-#if !defined (AGS_RATA)
+#if !defined (CONSOLE_VERSION)
 #define HWND long
 #endif
 #endif

@@ -20,7 +20,7 @@
 
 #include "endianness.h"
 
-#if defined (_WINDOWS) && !defined (WINDOWS_VERSION) &&!defined(AGS_RATA)
+#if defined (_WINDOWS) && !defined (WINDOWS_VERSION) &&!defined(CONSOLE_VERSION)
 #define WINDOWS_VERSION
 #endif
 

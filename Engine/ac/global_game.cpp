@@ -12,6 +12,8 @@
 //
 //=============================================================================
 
+#include <stdio.h>
+
 #define USE_CLIB
 #include "ac/global_game.h"
 #include "ac/common.h"

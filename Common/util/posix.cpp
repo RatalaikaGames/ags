@@ -15,12 +15,8 @@
 
 #include <string.h>
 #include "posix.h"
+#include "core/buildconfig.h"
 
-//disable "posix" support for consoles
-//(it's here because I don't want to have to enable this for all the existing platforms)
-#ifndef CONSOLE_VERSION
-#define AGS_HAS_POSIX
-#endif
 
 //TODO - can actually include agsplatformdriver.h here.... in some cases. 
 //in any platform that's not windows, actually, we're simply a game engine

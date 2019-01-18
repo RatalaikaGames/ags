@@ -12,6 +12,7 @@
 //
 //=============================================================================
 
+#include "core/buildconfig.h"
 #include "ac/character.h"
 #include "ac/common.h"
 #include "ac/draw.h"
@@ -684,12 +685,9 @@ void WriteDescription(Stream *out, const String &user_text, const Bitmap *user_i
     WriteSaveImage(out, user_image);
 }
 
-PStream StartSavegame(const String &filename, const String &user_text, const Bitmap *user_image)
+void SaveGameCommonHeader(PStream out, const String &user_text, const Bitmap *user_image)
 {
-    Stream *out = Common::File::CreateFile(filename);
-    if (!out)
-        return PStream();
-
+    #ifdef AGS_HAS_RICH_GAME_MEDIA
     // Initialize and write Vista header
     RICH_GAME_MEDIA_HEADER vistaHeader;
     memset(&vistaHeader, 0, sizeof(RICH_GAME_MEDIA_HEADER));
@@ -705,17 +703,14 @@ PStream StartSavegame(const String &filename, const String &user_text, const Bit
     vistaHeader.szLevelName[0] = 0;
     vistaHeader.szComments[0] = 0;
     // MS Windows Vista rich media header
-    vistaHeader.WriteToFile(out);
+    vistaHeader.WriteToFile(out.get());
+    #endif
 
     // Savegame signature
     out->Write(SavegameSource::Signature.GetCStr(), SavegameSource::Signature.GetLength());
 
-    // CHECKME: what is this plugin hook suppose to mean, and if it is called here correctly
-    pl_run_plugin_hooks(AGSE_PRESAVEGAME, 0);
-
     // Write descrition block
-    WriteDescription(out, user_text, user_image);
-    return PStream(out);
+    WriteDescription(out.get(), user_text, user_image);
 }
 
 void DoBeforeSave()

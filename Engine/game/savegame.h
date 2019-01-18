@@ -156,8 +156,8 @@ HSaveError     OpenSavegame(const String &filename, SavegameDescription &desc, S
 // Reads the game data from the save stream and reinitializes game state
 HSaveError     RestoreGameState(PStream in, SavegameVersion svg_version);
 
-// Opens savegame for writing and puts in savegame description
-PStream        StartSavegame(const String &filename, const String &user_text, const Bitmap *user_image);
+// Writes the common savegame header suitable for use on desktop systems
+void           SaveGameCommonHeader(PStream out, const String &user_text, const Bitmap *user_image);
 
 // Prepares game for saving state and writes game data into the save stream
 void           SaveGameState(PStream out);

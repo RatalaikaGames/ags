@@ -27,6 +27,8 @@
 #include "util/stream.h"
 #include "util/posix.h"
 #include "util/file.h"
+#include "game/main_game_file.h"
+#include "game/savegame.h"
 #include "gfx/bitmap.h"
 #include "plugin/agsplugin.h"
 
@@ -147,6 +149,14 @@ void AGSPlatformDriver::Save_DeleteSlot(int slnum)
             }
         }
     }
+}
+
+Stream* AGSPlatformDriver::Save_CreateSlotStream(int slnum)
+{
+    String nametouse;
+    nametouse = get_save_game_path(slnum);
+
+    return Common::File::CreateFile(nametouse);
 }
 
 

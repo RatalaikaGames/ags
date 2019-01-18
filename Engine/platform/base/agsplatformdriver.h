@@ -24,6 +24,7 @@
 #include "ac/datetime.h"
 #include "debug/outputhandler.h"
 #include "util/ini_util.h"
+#include "util/stream.h"
 
 namespace AGS
 {
@@ -143,6 +144,8 @@ struct AGSPlatformDriver
     virtual bool LockMouseToWindow();
     virtual void UnlockMouse();
 
+    
+    virtual Common::Stream* Save_CreateSlotStream(int slnum);
     virtual void Save_DeleteSlot(int slnum);
 
     static AGSPlatformDriver *GetDriver();
@@ -154,7 +157,7 @@ struct AGSPlatformDriver
     virtual void PrintMessage(const AGS::Common::DebugMessage &msg);
 
     //-----------------------------------------------
-    // UNUSED THINGS. SHOULD BE DELETED? CHANGED TO MAKE NON-PURE SO THEY DONT HAVE TO BE IMPLEMENTED
+    // UNUSED THINGS. SHOULD BE DELETED?
     //-----------------------------------------------
     virtual const char* _deprecated_GetNoMouseErrorString() { return NULL; }
     //-----------------------------------------------

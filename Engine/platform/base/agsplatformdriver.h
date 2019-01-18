@@ -40,7 +40,26 @@ enum eScriptSystemOSID
     eOS_Mac,
     eOS_Android,
     eOS_iOS,
-    eOS_PSP
+    eOS_PSP,
+    eOS_PSVita,
+    eOS_PSX,
+    eOS_PS2,
+    eOS_PS3,
+    eOS_PS4,
+    eOS_Xbox,
+    eOS_Xbox360,
+    eOS_XboxOne,
+    eOS_N64,
+    eOS_Wii,
+    eOS_WiiU,
+    eOS_GBA,
+    eOS_NDS,
+    eOS_N3DS,
+    eOS_NSwitch,
+    
+    //Oftentimes, people will have a windows prototype while developing for consoles.
+    //This is here to distinguish it from the eOS_Win case, which would be the legit windows release
+    eOS_WinProto 
 };
 
 enum SetupReturnValue
@@ -73,7 +92,6 @@ struct AGSPlatformDriver
     virtual const char *GetDiskWriteAccessTroubleshootingText();
     virtual const char *GetGraphicsTroubleshootingText() { return ""; }
     virtual unsigned long GetDiskFreeSpaceMB() = 0;
-    virtual const char* GetNoMouseErrorString() = 0;
     // Tells whether build is capable of controlling mouse movement properly
     virtual bool IsMouseControlSupported(bool windowed) { return false; }
     // Tells whether this platform's backend library deals with mouse cursor
@@ -132,6 +150,13 @@ struct AGSPlatformDriver
     //-----------------------------------------------
     // Writes to the standard platform's output, prepending "AGS: " prefix to the message
     virtual void PrintMessage(const AGS::Common::DebugMessage &msg);
+
+    //-----------------------------------------------
+    // UNUSED THINGS. SHOULD BE DELETED? CHANGED TO MAKE NON-PURE SO THEY DONT HAVE TO BE IMPLEMENTED
+    //-----------------------------------------------
+    virtual const char* GetNoMouseErrorString() { return NULL; }
+    //-----------------------------------------------
+
 
 private:
     static AGSPlatformDriver *instance;

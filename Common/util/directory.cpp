@@ -2,7 +2,7 @@
 #include <errno.h>
 #if defined (WINDOWS_VERSION)
 #include <direct.h>
-#elif defined(AGS_RATA)
+#elif defined(CONSOLE_VERSION)
 #else
 #include <sys/stat.h>
 #include <unistd.h>
@@ -20,7 +20,7 @@ namespace Directory
 
 bool CreateDirectory(const String &path)
 {
-	#ifdef AGS_RATA
+	#ifdef CONSOLE_VERSION
 	return false;
 	#else
     return mkdir(path
@@ -33,7 +33,7 @@ bool CreateDirectory(const String &path)
 
 String SetCurrentDirectory(const String &path)
 {
-	#ifdef AGS_RATA
+	#ifdef CONSOLE_VERSION
 		return "";
 	#else
     chdir(path);
@@ -43,7 +43,7 @@ String SetCurrentDirectory(const String &path)
 
 String GetCurrentDirectory()
 {
-	#ifdef AGS_RATA
+	#ifdef CONSOLE_VERSION
 		return "";
 	#else
     char buf[512];

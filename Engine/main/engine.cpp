@@ -64,6 +64,7 @@
 #include "util/path.h"
 #include "main/game_file.h"
 #include "debug/out.h"
+#include "util/posix.h"
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -440,7 +441,7 @@ int engine_check_memory()
         return EXIT_NORMAL;
     }
     free(memcheck);
-    unlink (replayTempFile);
+    ags_unlink (replayTempFile);
     return RETURN_CONTINUE;
 }
 
@@ -818,7 +819,7 @@ extern char android_base_directory[256];
 
 int check_write_access() {
 
-	#ifdef AGS_RATA
+	#ifdef CONSOLE_VERSION
 	return 1;
 	#else
 
@@ -853,7 +854,7 @@ int check_write_access() {
 
   our_eip = -1897;
 
-  if (unlink(tempPath))
+  if (ags_unlink(tempPath))
     return 0;
 
   return 1;
@@ -1447,7 +1448,7 @@ int initialize_engine(int argc,char*argv[])
     // [IKM] I seriously don't get it why do we need to delete warnings.log
     // in the middle of procedure; some warnings may have already being
     // written there at this point, no?
-    unlink("warnings.log");
+    ags_unlink("warnings.log");
 
     engine_init_rand();
 

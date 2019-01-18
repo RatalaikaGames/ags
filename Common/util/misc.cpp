@@ -41,7 +41,7 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#if !defined (WINDOWS_VERSION) && !defined(AGS_RATA)
+#if !defined (WINDOWS_VERSION) && !defined(CONSOLE_VERSION)
 #include <unistd.h>
 #include <dirent.h>
 #include <string.h>

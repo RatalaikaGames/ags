@@ -24,6 +24,7 @@
 #include "main/main_allegro.h"
 #include "debug/assert.h"
 #include "debug/out.h"
+#include "platform/base/agsplatformdriver.h"
 #include "gfx/ali3dexception.h"
 #include "gfx/gfxfilter_console.h"
 #include "gfx/gfxfilter_aaconsole.h"
@@ -553,8 +554,6 @@ namespace AGS
 
 			void D3DGraphicsDriver::_reDrawLastFrame()
 			{
-				//wow, does this actually work? the whole game is retained-mode enough for this to work? seems kind of unlikely.
-				//well, not my problem
 				RestoreDrawLists();
 			}
 
@@ -567,10 +566,13 @@ namespace AGS
 				if (bmpToDraw->_transparency >= 255)
 					return;
 
-				AGSCON::Graphics::SHADERS::StandardProgram* selectedProgram;
+				AGSCON::Graphics::SHADERS::StandardProgram* selectedProgram = nullptr;
 
 				if (bmpToDraw->_tintSaturation > 0)
 				{
+					//TODO - set shader
+					AGSCON::Graphics::BindProgram(selectedProgram->program);
+
 					// Use custom pixel shader
 					float vector[8];
 					if (_legacyPixelShader)
@@ -604,6 +606,7 @@ namespace AGS
 				else
 				{
 					selectedProgram = &AGSCON::Graphics::shaders.standard;
+					AGSCON::Graphics::BindProgram(selectedProgram->program);
 
 					int useTintRed = 255;
 					int useTintGreen = 255;
@@ -658,7 +661,6 @@ namespace AGS
 					AGSCON::Graphics::UniformFloat2(AGSCON::Graphics::shaders.standard.uControl,control);
 				}
 
-				AGSCON::Graphics::BindProgram(selectedProgram->program);
 				AGSCON::Graphics::BindVertexBuffer(bmpToDraw->_vertex);
 
 				float width = bmpToDraw->GetWidthToRender();
@@ -765,13 +767,13 @@ namespace AGS
 
 				//NEW
 				if (!_renderSprAtScreenRes)
-					AGSCON::Graphics::SetRenderTarget(0, pNativeSurface);
+					AGSCON::Graphics::BindRenderTarget(0, pNativeSurface);
 
 				//OLD
 				//TODO - proper offscreen stuff
 				//if (!_renderSprAtScreenRes)
-				//	AGSCON::Graphics::SetRenderTarget(0, pNativeSurface);
-				//AGSCON::Graphics::SetBackbufferRenderTarget();
+				//	AGSCON::Graphics::BindRenderTarget(0, pNativeSurface);
+				//AGSCON::Graphics::BindBackbufferRenderTarget();
 
 				////note the odd choice of alpha
 				AGSCON::Graphics::ClearColor(0,0,0,128);
@@ -785,7 +787,7 @@ namespace AGS
 					
 					//TODO - uhhhh I guess this is the final presentation logic? that's pretty shoddy. need to re-engineer that
 					
-					AGSCON::Graphics::SetBackbufferRenderTarget();
+					AGSCON::Graphics::BindBackbufferRenderTarget();
 
 					// "use correct sampling method when stretching buffer to the final rect"
 					// it seems like this is a weak approximation of the intended real filtering capability
@@ -801,7 +803,7 @@ namespace AGS
 					//}
 					//direct3ddevice->SetViewport(&pViewport);
 
-					//AGSCON::Graphics::SetBackbufferRenderTarget();
+					//AGSCON::Graphics::BindBackbufferRenderTarget();
 
 					AGSCON::Graphics::PresentNative(pNativeSurface, &viewport_rect);
 				} 
@@ -1181,8 +1183,8 @@ namespace AGS
 					{
 						if (_pollingCallback)
 							_pollingCallback();
-						//YUCK!!!!!!!!!!!!!!!
-						//platform->YieldCPU();
+
+						platform->YieldCPU();
 					}
 					while (timerValue == *_loopTimer);
 
@@ -1267,8 +1269,7 @@ namespace AGS
 
 					if (_pollingCallback)
 						_pollingCallback();
-					//YUCK!!!!!!!!!!!!!!!
-					//platform->Delay(delay);
+					platform->Delay(delay);
 				}
 
 				this->DestroyDDB(d3db);
@@ -1340,7 +1341,7 @@ namespace AGS
 				virtual void Shutdown()
 				{
 					DestroyDriver();
-					s_ConsoleGraphicsFactory.~ConsoleGraphicsFactory();
+					this->~ConsoleGraphicsFactory();
 				}
 
 				virtual void DestroyDriver()

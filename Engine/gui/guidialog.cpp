@@ -290,7 +290,7 @@ int savegamedialog()
 
 void preparesavegamelist(int ctrllist)
 {
-	#ifdef AGS_RATA
+	#ifdef CONSOLE_VERSION
 	#else
   numsaves = 0;
   toomanygames = 0;

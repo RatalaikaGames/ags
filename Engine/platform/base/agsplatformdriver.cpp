@@ -151,6 +151,11 @@ void AGSPlatformDriver::Save_DeleteSlot(int slnum)
     }
 }
 
+Common::Stream *AGSPlatformDriver::OpenFile(eFilePurpose purpose, const Common::String &filename, Common::FileOpenMode open_mode, Common::FileWorkMode work_mode)
+{
+    return File::OpenFile(filename, open_mode, work_mode);
+}
+
 Stream* AGSPlatformDriver::Save_CreateSlotStream(int slnum)
 {
     String nametouse;
@@ -158,6 +163,34 @@ Stream* AGSPlatformDriver::Save_CreateSlotStream(int slnum)
 
     return Common::File::CreateFile(nametouse);
 }
+
+struct PfStruct
+{
+    FILE* fp;
+};
+
+void* AGSPlatformDriver::allegro_fopen(eFilePurpose purpose, const char* path)
+{
+    FILE* fp = fopen(path,"rb");
+    if(!fp) return NULL;
+    PfStruct* ret = new PfStruct();
+    ret->fp = fp;
+    return ret;
+}
+int AGSPlatformDriver::allegro_fclose(void *userdata) {
+    PfStruct* pf = (PfStruct*)userdata;
+    int ret = fclose(pf->fp);
+    delete pf;
+    return ret;
+}
+int AGSPlatformDriver::allegro_getc(void *userdata) { return fgetc(((PfStruct*)userdata)->fp); }
+int AGSPlatformDriver::allegro_ungetc(int c, void *userdata) { return ungetc(c, ((PfStruct*)userdata)->fp); }
+long AGSPlatformDriver::allegro_fread(void *p, long n, void *userdata) { return fread(p, 1, n, ((PfStruct*)userdata)->fp); }
+int AGSPlatformDriver::allegro_putc(int c, void *userdata) { return fputc(c, ((PfStruct*)userdata)->fp); }
+long AGSPlatformDriver::allegro_fwrite(const void *p, long n, void *userdata) { return fwrite(p, 1, n, ((PfStruct*)userdata)->fp); }
+int AGSPlatformDriver::allegro_fseek(void *userdata, int offset) { return fseek(((PfStruct*)userdata)->fp, offset, SEEK_SET); }
+int AGSPlatformDriver::allegro_feof(void *userdata) { return feof(((PfStruct*)userdata)->fp); }
+int AGSPlatformDriver::allegro_ferror(void *userdata) { return ferror(((PfStruct*)userdata)->fp); }
 
 
 //-----------------------------------------------

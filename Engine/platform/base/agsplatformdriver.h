@@ -25,6 +25,7 @@
 #include "debug/outputhandler.h"
 #include "util/ini_util.h"
 #include "util/stream.h"
+#include "util/file.h"
 
 namespace AGS
 {
@@ -61,6 +62,12 @@ enum eScriptSystemOSID
     //Oftentimes, people will have a windows prototype while developing for consoles.
     //This is here to distinguish it from the eOS_Win case, which would be the legit windows release
     eOS_WinProto 
+};
+
+enum eFilePurpose
+{
+    eFilePurpose_LoadAsset,
+    eFilePurpose_MountPackfile
 };
 
 enum SetupReturnValue
@@ -144,9 +151,23 @@ struct AGSPlatformDriver
     virtual bool LockMouseToWindow();
     virtual void UnlockMouse();
 
-    
     virtual Common::Stream* Save_CreateSlotStream(int slnum);
     virtual void Save_DeleteSlot(int slnum);
+
+    virtual Common::Stream *OpenFile(eFilePurpose purpose, const Common::String &filename, Common::FileOpenMode open_mode, Common::FileWorkMode work_mode);
+
+    // Functions for allegro plumbing so it can run through virtualized file IO (only used by packfile system)
+    // Due to this, I've only bothered to set it up for opening files for reading
+    virtual void* allegro_fopen(eFilePurpose purpose, const char* path);
+    virtual int allegro_fclose(void *userdata);
+    virtual int allegro_getc(void *userdata);
+    virtual int allegro_ungetc(int c, void *userdata);
+    virtual long allegro_fread(void *p, long n, void *userdata);
+    virtual int allegro_putc(int c, void *userdata);
+    virtual long allegro_fwrite(const void *p, long n, void *userdata);
+    virtual int allegro_fseek(void *userdata, int offset);
+    virtual int allegro_feof(void *userdata);
+    virtual int allegro_ferror(void *userdata);
 
     static AGSPlatformDriver *GetDriver();
 

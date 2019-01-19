@@ -47,6 +47,31 @@ extern AGSPlatformDriver *platform;
 
 extern int MAXSTRLEN;
 
+// File IO bridge to allegro's packfile system - Shims to the platform driver
+static int agc_ac_pf_fclose(void *userdata) { return platform->allegro_fclose(userdata); }
+static int agc_ac_pf_getc(void *userdata) { return platform->allegro_getc(userdata); }
+static int agc_ac_pf_ungetc(int c, void *userdata) { return platform->allegro_ungetc(c, userdata); }
+static long agc_ac_pf_fread(void *p, long n, void *userdata) { return platform->allegro_fread(p, n, userdata); }
+static int agc_ac_pf_putc(int c, void *userdata) { return platform->allegro_putc(c, userdata); }
+static long agc_ac_pf_fwrite(AL_CONST void *p, long n, void *userdata) { return platform->allegro_fwrite(p, n, userdata); }
+static int agc_ac_pf_fseek(void *userdata, int offset) { return platform->allegro_fseek(userdata, offset); }
+static int agc_ac_pf_feof(void *userdata) { return platform->allegro_feof(userdata); }
+static int agc_ac_pf_ferror(void *userdata) { return platform->allegro_ferror(userdata); }
+
+// File IO bridge to allegro's packfile system - info struct passed to allegro
+static PACKFILE_VTABLE al_pack_vtbl = {
+    &agc_ac_pf_fclose,
+    &agc_ac_pf_getc,
+    &agc_ac_pf_ungetc,
+    &agc_ac_pf_fread,
+    &agc_ac_pf_putc,
+    &agc_ac_pf_fwrite,
+    &agc_ac_pf_fseek,
+    &agc_ac_pf_feof,
+    &agc_ac_pf_ferror,
+};
+
+
 // TODO: the asset path configuration should certainly be revamped at some
 // point, with uniform method of configuring auxiliary paths and packages.
 
@@ -386,17 +411,18 @@ bool LocateAsset(const AssetPath &path, AssetLocation &loc)
 PACKFILE *PackfileFromAsset(const AssetPath &path)
 {
     AssetLocation loc;
-    if (LocateAsset(path, loc))
-    {
-        PACKFILE *pf = pack_fopen(loc.FileName, File::GetCMode(kFile_Open, kFile_Read));
-        if (pf)
-        {
-            pack_fseek(pf, loc.Offset);
-            pf->normal.todo = loc.Size;
-        }
-        return pf;
-    }
-    return NULL;
+    if (!LocateAsset(path, loc)) return NULL;
+
+    void* opaque = platform->allegro_fopen(eFilePurpose_MountPackfile, loc.FileName);
+    if(!opaque) return NULL;
+
+    PACKFILE *pf = pack_fopen_vtable(&al_pack_vtbl, opaque);
+    if (!pf) return NULL; 
+
+    pack_fseek(pf, loc.Offset);
+    pf->normal.todo = loc.Size;
+    
+    return pf;
 }
 
 DUMBFILE *DUMBfileFromAsset(const AssetPath &path)

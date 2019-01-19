@@ -165,7 +165,7 @@ struct AGSPlatformDriver
     virtual long allegro_fread(void *p, long n, void *userdata);
     virtual int allegro_putc(int c, void *userdata);
     virtual long allegro_fwrite(const void *p, long n, void *userdata);
-    virtual int allegro_fseek(void *userdata, int offset);
+    virtual int allegro_fseek(void *userdata, int offset); //warning! this is implicitly SEEK_CUR
     virtual int allegro_feof(void *userdata);
     virtual int allegro_ferror(void *userdata);
 

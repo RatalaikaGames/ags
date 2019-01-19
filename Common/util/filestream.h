@@ -66,12 +66,16 @@ public:
     virtual soff_t  Seek(soff_t offset, StreamSeek origin);
 
 protected:
+    FileStream(FileOpenMode open_mode, FileWorkMode work_mode, DataEndianess stream_endianess = kLittleEndian);
+
     void            Open(const String &file_name, FileOpenMode open_mode, FileWorkMode work_mode);
+
+    const FileOpenMode  _openMode;
+    const FileWorkMode  _workMode;
 
 private:
     FILE                *_file;
-    const FileOpenMode  _openMode;
-    const FileWorkMode  _workMode;
+
 };
 
 } // namespace Common

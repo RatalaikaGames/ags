@@ -30,6 +30,14 @@ FileStream::FileStream(const String &file_name, FileOpenMode open_mode, FileWork
     Open(file_name, open_mode, work_mode);
 }
 
+FileStream::FileStream(FileOpenMode open_mode, FileWorkMode work_mode, DataEndianess stream_endianess)
+    : DataStream(stream_endianess)
+    , _file(NULL)
+    , _openMode(open_mode)
+    , _workMode(work_mode)
+{
+}
+
 FileStream::~FileStream()
 {
     Close();

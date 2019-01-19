@@ -106,12 +106,9 @@ String File::GetCMode(FileOpenMode open_mode, FileWorkMode work_mode)
 // end easy common utilities
 //---------------------------------------------
 
-
-
 //If posix is not provided, we can't open files, dont have stat, etc. etc.
 //So all these functions will need to be implemented another way
 #ifdef AGS_HAS_POSIX
-
 
 soff_t File::GetFileSize(const String &filename)
 {

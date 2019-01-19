@@ -19,6 +19,13 @@ namespace Common
 namespace Path
 {
 
+//If posix is not provided, we can't open files, dont have stat, etc. etc.
+//So all these functions will need to be implemented another way
+
+//I think I would like to refactor path, file, and directory into one filesystem access layer thing.
+
+#ifdef AGS_HAS_POSIX
+
 bool IsDirectory(const String &filename)
 {
     struct stat_t st;
@@ -40,6 +47,8 @@ bool IsFile(const String &filename)
     }
     return false;
 }
+
+#endif //AGS_HAS_POSIX
 
 int ComparePaths(const String &path1, const String &path2)
 {
@@ -129,8 +138,6 @@ String MakeAbsolutePath(const String &path)
 #elif defined (PSP_VERSION)
     // FIXME: Properly construct a full PSP path
     return path;
-#elif defined AGS_RATA
-		return path;
 #endif
     char buf[512];
     canonicalize_filename(buf, abs_path, 512);

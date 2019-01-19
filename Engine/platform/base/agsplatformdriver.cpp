@@ -79,8 +79,8 @@ void AGSPlatformDriver::GetSystemTime(ScriptDateTime *sdt) {
     struct tm *newtime;
     time_t long_time;
 
-    //TODO CONSOLE - run time() through platform driver also.. probably. may be an example of how to deal with some of the libc problems generally
-    time( &long_time );
+    //note: subject to year 2038 problem due to shoving time_t in an integer
+    sdt->rawUnixTime = time( &long_time );
     newtime = localtime( &long_time );
 
     sdt->hour = newtime->tm_hour;

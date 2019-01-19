@@ -420,7 +420,6 @@ PACKFILE *PackfileFromAsset(const AssetPath &path)
     if (!pf) return NULL; 
 
     pack_fseek(pf, loc.Offset);
-    pf->normal.todo = loc.Size;
     
     return pf;
 }

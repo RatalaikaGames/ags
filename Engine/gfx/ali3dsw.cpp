@@ -133,11 +133,6 @@ bool ALSoftwareGraphicsDriver::IsModeSupported(const DisplayMode &mode)
 
 int ALSoftwareGraphicsDriver::GetDisplayDepthForNativeDepth(int native_color_depth) const
 {
-    //MBG - not sure about this... need it for now though. but i dont even want to use the sw graphics driver, so i may kick this aside
-    #ifdef CONSOLE_VERSION
-    return 32;
-    #endif
-
     // TODO: check for device caps to know which depth is supported?
     if (native_color_depth > 8)
         return 32;

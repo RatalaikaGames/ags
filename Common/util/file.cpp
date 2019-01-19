@@ -12,93 +12,23 @@
 //
 //=============================================================================
 
-#if defined(WINDOWS_VERSION)
-#include <io.h>
-#elif defined(AGS_RATA)
-#else
-#include <unistd.h> // for unlink()
-#endif
+#include <string.h>
 #include <errno.h>
+
+#include "core/types.h"
 #include "util/file.h"
 #include "util/filestream.h"
 #include "util/stdio_compat.h"
+#include "util/posix.h"
 
 namespace AGS
 {
 namespace Common
 {
 
-soff_t File::GetFileSize(const String &filename)
-{
-    struct stat_t st;
-    if (stat_fn(filename, &st) == 0)
-        return st.st_size;
-    return -1;
-}
-
-bool File::TestReadFile(const String &filename)
-{
-    FILE *test_file = fopen(filename, "rb");
-    if (test_file)
-    {
-        fclose(test_file);
-        return true;
-    }
-    return false;
-}
-
-bool File::TestWriteFile(const String &filename)
-{
-	#ifdef AGS_RATA
-	return true;
-	#else
-    FILE *test_file = fopen(filename, "r+");
-    if (test_file)
-    {
-        fclose(test_file);
-        return true;
-    }
-    return TestCreateFile(filename);
-		#endif
-}
-
-bool File::TestCreateFile(const String &filename)
-{
-	#ifdef AGS_RATA
-	return true;
-	#else
-    FILE *test_file = fopen(filename, "wb");
-    if (test_file)
-    {
-        fclose(test_file);
-        unlink(filename);
-        return true;
-    }
-    return false;
-		#endif
-}
-
-bool File::DeleteFile(const String &filename)
-{
-	#ifdef AGS_RATA
-	return true;
-	#else
-    if (unlink(filename) != 0)
-    {
-        int err;
-#if defined(WINDOWS_VERSION)
-        _get_errno(&err);
-#else
-        err = errno;
-#endif
-        if (err == EACCES)
-        {
-            return false;
-        }
-    }
-    return true;
-		#endif
-}
+//---------------------------------------------
+// EASY COMMON UTILITIES
+//---------------------------------------------
 
 bool File::GetFileModesFromCMode(const String &cmode, FileOpenMode &open_mode, FileWorkMode &work_mode)
 {
@@ -172,6 +102,77 @@ String File::GetCMode(FileOpenMode open_mode, FileWorkMode work_mode)
     return mode;
 }
 
+//---------------------------------------------
+// end easy common utilities
+//---------------------------------------------
+
+
+
+//If posix is not provided, we can't open files, dont have stat, etc. etc.
+//So all these functions will need to be implemented another way
+#ifdef AGS_HAS_POSIX
+
+
+soff_t File::GetFileSize(const String &filename)
+{
+    struct stat_t st;
+    if (stat_fn(filename, &st) == 0)
+        return st.st_size;
+    return -1;
+}
+
+bool File::TestReadFile(const String &filename)
+{
+    FILE *test_file = fopen(filename, "rb");
+    if (test_file)
+    {
+        fclose(test_file);
+        return true;
+    }
+    return false;
+}
+
+bool File::TestWriteFile(const String &filename)
+{
+    FILE *test_file = fopen(filename, "r+");
+    if (test_file)
+    {
+        fclose(test_file);
+        return true;
+    }
+    return TestCreateFile(filename);
+}
+
+bool File::TestCreateFile(const String &filename)
+{
+    FILE *test_file = fopen(filename, "wb");
+    if (test_file)
+    {
+        fclose(test_file);
+        ags_unlink(filename);
+        return true;
+    }
+    return false;
+}
+
+bool File::DeleteFile(const String &filename)
+{
+    if (ags_unlink(filename) != 0)
+    {
+        int err;
+#if defined(WINDOWS_VERSION)
+        _get_errno(&err);
+#else
+        err = errno;
+#endif
+        if (err == EACCES)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 Stream *File::OpenFile(const String &filename, FileOpenMode open_mode, FileWorkMode work_mode)
 {
     FileStream *fs = new FileStream(filename, open_mode, work_mode);
@@ -183,5 +184,9 @@ Stream *File::OpenFile(const String &filename, FileOpenMode open_mode, FileWorkM
     return fs;
 }
 
+#endif //AGS_HAS_POSIX
+
 } // namespace Common
 } // namespace AGS
+
+

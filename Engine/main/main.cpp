@@ -453,7 +453,13 @@ int malloc_fail_handler(size_t amountwanted) {
 }
 #endif
 
+//consoles can't have main defined in here. Uhhh frankly, I don't see why anyone wants main() defined in here
+//This should be ags_main, launched from the platform frontend
+#ifdef CONSOLE_VERSION
+int not_really_main(int argc,char*argv[]) { 
+#else
 int main(int argc,char*argv[]) { 
+#endif
 
 #ifdef _DEBUG
     Test_DoAllTests();

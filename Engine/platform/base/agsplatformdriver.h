@@ -158,7 +158,8 @@ struct AGSPlatformDriver
 
     // Functions for allegro plumbing so it can run through virtualized file IO (only used by packfile system)
     // Due to this, I've only bothered to set it up for opening files for reading
-    virtual void* allegro_fopen(eFilePurpose purpose, const char* path);
+    // TODO - these have been specialized to be odd packfile semantics; the functions should be renamed accordingly
+    virtual void* allegro_fopen(eFilePurpose purpose, const char* path, int64_t offset, long length); //long and not 64bit because the ftell API returns longs anyway
     virtual int allegro_fclose(void *userdata);
     virtual int allegro_getc(void *userdata);
     virtual int allegro_ungetc(int c, void *userdata);
@@ -168,6 +169,10 @@ struct AGSPlatformDriver
     virtual int allegro_fseek(void *userdata, int offset); //warning! this is implicitly SEEK_CUR
     virtual int allegro_feof(void *userdata);
     virtual int allegro_ferror(void *userdata);
+    
+    //these functions are extensions, because allegro lacks them. it's picky details of how allegro and AGS work together to use the packfile
+    virtual long allegro_flength(void *userdata); 
+    virtual long allegro_fremain(void *userdata); 
 
     static AGSPlatformDriver *GetDriver();
 

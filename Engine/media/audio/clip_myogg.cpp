@@ -47,16 +47,18 @@ int MYOGG::poll()
         return 0;
     }
 
-    if ((!done) && (in->todo > 0))
+    long remain = platform->allegro_fremain(in->userdata);
+
+    if ((!done) && (remain > 0))
     {
         // update the buffer
         char *tempbuf = (char *)alogg_get_oggstream_buffer(stream);
         if (tempbuf != NULL)
         {
             int free_val = -1;
-            if (chunksize >= in->todo)
+            if (chunksize >= remain)
             {
-                chunksize = in->todo;
+                chunksize = remain;
                 free_val = chunksize;
             }
             pack_fread(tempbuf, chunksize, in);

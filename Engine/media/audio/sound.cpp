@@ -18,6 +18,7 @@
 
 #include "util/wgt2allg.h"
 #include "ac/file.h"
+#include "platform/base/agsplatformdriver.h"
 #include "media/audio/audiodefines.h"
 #include "media/audio/sound.h"
 #include "media/audio/audiointernaldefs.h"
@@ -103,19 +104,22 @@ SOUNDCLIP *my_load_mp3(const AssetPath &asset_name, int voll)
     thistune = new MYMP3();
     thistune->in = mp3in;
     thistune->chunksize = MP3CHUNKSIZE;
-    thistune->filesize = mp3in->todo;
+    thistune->filesize = platform->allegro_flength(mp3in->userdata);
     thistune->done = 0;
     thistune->vol = voll;
 
-    if (thistune->chunksize > mp3in->todo)
-        thistune->chunksize = mp3in->todo;
+    long remains = platform->allegro_fremain(mp3in->userdata);
+
+    // limit chunk size to remaining file length
+    if (thistune->chunksize > remains)
+        thistune->chunksize = remains;
 
     pack_fread(tmpbuffer, thistune->chunksize, mp3in);
 
     thistune->buffer = (char *)tmpbuffer;
 
     AGS::Engine::MutexLock _lockMp3(_mp3_mutex);
-    thistune->stream = almp3_create_mp3stream(tmpbuffer, thistune->chunksize, (mp3in->todo < 1));
+    thistune->stream = almp3_create_mp3stream(tmpbuffer, thistune->chunksize, (remains < 1));
 	_lockMp3.Release();
 
     if (thistune->stream == NULL) {
@@ -233,13 +237,16 @@ SOUNDCLIP *my_load_ogg(const AssetPath &asset_name, int voll)
     thisogg->last_ms_offs = 0;
     thisogg->last_but_one_but_one = 0;
 
-    if (thisogg->chunksize > mp3in->todo)
-        thisogg->chunksize = mp3in->todo;
+    long remains = platform->allegro_fremain(mp3in->userdata);
+
+    // limit chunk size to remaining file length
+    if (thisogg->chunksize > remains)
+        thisogg->chunksize = remains;
 
     pack_fread(tmpbuffer, thisogg->chunksize, mp3in);
 
     thisogg->buffer = (char *)tmpbuffer;
-    thisogg->stream = alogg_create_oggstream(tmpbuffer, thisogg->chunksize, (mp3in->todo < 1));
+    thisogg->stream = alogg_create_oggstream(tmpbuffer, thisogg->chunksize, (remains < 1));
 
     if (thisogg->stream == NULL) {
         free(tmpbuffer);

@@ -43,6 +43,8 @@ int MYMP3::poll()
         return 0;
     }
 
+    long remain = platform->allegro_fremain(in->userdata);
+
     if (!done) {
         // update the buffer
 		AGS::Engine::MutexLock _lockMp3(_mp3_mutex);
@@ -51,8 +53,8 @@ int MYMP3::poll()
 
         if (tempbuf != NULL) {
             int free_val = -1;
-            if (chunksize >= in->todo) {
-                chunksize = in->todo;
+            if (chunksize >= remain) {
+                chunksize = remain;
                 free_val = chunksize;
             }
             pack_fread(tempbuf, chunksize, in);

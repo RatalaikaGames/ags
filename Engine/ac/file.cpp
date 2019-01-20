@@ -413,7 +413,7 @@ PACKFILE *PackfileFromAsset(const AssetPath &path)
     AssetLocation loc;
     if (!LocateAsset(path, loc)) return NULL;
 
-    void* opaque = platform->allegro_fopen(eFilePurpose_MountPackfile, loc.FileName);
+    void* opaque = platform->allegro_fopen(eFilePurpose_MountPackfile, loc.FileName, loc.Offset, loc.Size);
     if(!opaque) return NULL;
 
     PACKFILE *pf = pack_fopen_vtable(&al_pack_vtbl, opaque);

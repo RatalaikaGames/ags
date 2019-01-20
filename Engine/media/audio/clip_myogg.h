@@ -28,6 +28,7 @@ struct MYOGG:public SOUNDCLIP
     int last_but_one_but_one;
     int last_but_one;
     int last_ms_offs;
+    int todo;
 
     int poll();
 

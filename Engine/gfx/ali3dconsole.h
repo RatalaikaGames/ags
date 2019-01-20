@@ -67,12 +67,12 @@ namespace AGS
 			//I judge this is plausible even on a modern system, so I'd better support it
 			//Key point is, it isn't for performance, but for compatibility.
 			//Worst case will be several textures, not 100s
-			struct D3DTextureTile : public TextureTile
+			struct DDTextureTile : public TextureTile
 			{
 				AGSCON::Graphics::Texture* texture;
 			};
 
-			class D3DBitmap : public VideoMemDDB
+			class DDBitmap : public VideoMemDDB
 			{
 			public:
 				// Transparency is a bit counter-intuitive
@@ -104,10 +104,10 @@ namespace AGS
 				int _transparency;
 				AGSCON::Graphics::VertexBuffer* _vertex;
 
-				D3DTextureTile *_tiles;
+				DDTextureTile *_tiles;
 				int _numTiles;
 
-				D3DBitmap(int width, int height, int colDepth, bool opaque)
+				DDBitmap(int width, int height, int colDepth, bool opaque)
 				{
 					_width = width;
 					_height = height;
@@ -131,7 +131,7 @@ namespace AGS
 
 				void Dispose();
 
-				~D3DBitmap()
+				~DDBitmap()
 				{
 					Dispose();
 				}
@@ -143,22 +143,22 @@ namespace AGS
 				float       tu, tv;   // The texture coordinates.
 			};
 
-			typedef SpriteDrawListEntry<D3DBitmap> D3DDrawListEntry;
-			// D3D renderer's sprite batch
-			struct D3DSpriteBatch
+			typedef SpriteDrawListEntry<DDBitmap> DDDrawListEntry;
+			// DD renderer's sprite batch
+			struct DDSpriteBatch
 			{
 				// List of sprites to render
-				std::vector<D3DDrawListEntry> List;
+				std::vector<DDDrawListEntry> List;
 				// Transformation matrix, built from the batch description
 				Matrix44 Matrix;
 			};
-			typedef std::vector<D3DSpriteBatch>    D3DSpriteBatches;
+			typedef std::vector<DDSpriteBatch>    DDSpriteBatches;
 
 
-			class D3DGraphicsDriver : public VideoMemoryGraphicsDriver
+			class ConsoleGraphicsDriver : public VideoMemoryGraphicsDriver
 			{
 			public:
-				D3DGraphicsDriver(int secret, float key);
+				ConsoleGraphicsDriver(int secret, float key);
 
 				virtual const char*GetDriverName() { return "Console"; }
 				virtual const char*GetDriverID() { return "CONS"; }
@@ -195,12 +195,12 @@ namespace AGS
 				virtual bool HasAcceleratedTransform() { return true; }
 				virtual void SetScreenTint(int red, int green, int blue);
 
-				typedef stdtr1compat::shared_ptr<ConsoleGfxFilter> PD3DFilter;
+				typedef stdtr1compat::shared_ptr<ConsoleGfxFilter> PConsoleFilter;
 
-				void SetGraphicsFilter(PD3DFilter filter);
+				void SetGraphicsFilter(PConsoleFilter filter);
 
-				D3DGraphicsDriver();
-				virtual ~D3DGraphicsDriver();
+				ConsoleGraphicsDriver();
+				virtual ~ConsoleGraphicsDriver();
 
 			private:
 
@@ -209,7 +209,7 @@ namespace AGS
 				void Init();
 
 				bool _initialized;
-				PD3DFilter _filter;
+				PConsoleFilter _filter;
 
 				AGSCON::Graphics::RenderTarget* pNativeSurface;
 				AGSCON::Graphics::Rectangle viewport_rect;
@@ -225,27 +225,27 @@ namespace AGS
 
 				// TODO: find a way to have this tint sprite in the normal sprite list (or use shader instead!)
 				Bitmap *_screenTintLayer;
-				D3DBitmap* _screenTintLayerDDB;
-				D3DDrawListEntry _screenTintSprite;
+				DDBitmap* _screenTintLayerDDB;
+				DDDrawListEntry _screenTintSprite;
 
 				Matrix44 currentProjection;
 
-				D3DSpriteBatches _spriteBatches;
+				DDSpriteBatches _spriteBatches;
 				GlobalFlipType flipTypeLastTime;
 				// TODO: these draw list backups are needed only for the fade-in/out effects
 				// find out if it's possible to reimplement these effects in main drawing routine.
 				SpriteBatchDescs _backupBatchDescs;
-				D3DSpriteBatches _backupBatches;
+				DDSpriteBatches _backupBatches;
 
 				// Called after new mode was successfully initialized
 				virtual void InitSpriteBatch(size_t index, const SpriteBatchDesc &desc);
 				virtual void ResetAllBatches();
 				// Called when the direct3d device is created for the first time
-				void InitializeD3DState();
+				void InitializeDDState();
 				void SetupViewport();
 				// Unset parameters and release resources related to the display mode
 				void AdjustSizeToNearestSupportedByCard(int *width, int *height);
-				void UpdateTextureRegion(D3DTextureTile *tile, Bitmap *bitmap, D3DBitmap *target, bool hasAlpha);
+				void UpdateTextureRegion(DDTextureTile *tile, Bitmap *bitmap, DDBitmap *target, bool hasAlpha);
 				void CreateVirtualScreen();
 				void do_fade(bool fadingOut, int speed, int targetColourRed, int targetColourGreen, int targetColourBlue);
 				void create_screen_tint_bitmap();
@@ -259,8 +259,8 @@ namespace AGS
 				void _render(GlobalFlipType flip, bool clearDrawListAfterwards);
 				void _reDrawLastFrame();
 				void RenderSpriteBatches(GlobalFlipType flip);
-				void RenderSpriteBatch(const D3DSpriteBatch &batch, GlobalFlipType flip);
-				void _renderSprite(const D3DDrawListEntry *entry, const Matrix44 &matGlobal, bool globalLeftRightFlip, bool globalTopBottomFlip);
+				void RenderSpriteBatch(const DDSpriteBatch &batch, GlobalFlipType flip);
+				void _renderSprite(const DDDrawListEntry *entry, const Matrix44 &matGlobal, bool globalLeftRightFlip, bool globalTopBottomFlip);
 			};
 
 

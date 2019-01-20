@@ -44,13 +44,10 @@ namespace AGS
 		namespace AL3DConsole
 		{
 			//singleton instance
-			static D3DGraphicsDriver s_inst(0,0);
+			static ConsoleGraphicsDriver s_inst(0,0);
 
 			using namespace Common;
 
-			// Following functions implement various matrix operations. Normally they are found in the auxiliary d3d9x.dll,
-			// but we do not want AGS to be dependent on it.
-			//
 			// Setup identity matrix
 			void MatrixIdentity(Matrix44 &m)
 			{
@@ -108,7 +105,7 @@ namespace AGS
 				MatrixMultiply(m, tr1, translate);
 			}
 
-			void D3DBitmap::Dispose()
+			void DDBitmap::Dispose()
 			{
 				if (_tiles != nullptr)
 				{
@@ -126,23 +123,6 @@ namespace AGS
 					_vertex = nullptr;
 				}
 			}
-
-			/*bool D3DGfxModeList::GetMode(int index, DisplayMode &mode) const
-			{
-				if (_direct3d && index >= 0 && index < _modeCount)
-				{
-					D3DDISPLAYMODE d3d_mode;
-					if (SUCCEEDED(_direct3d->EnumAdapterModes(D3DADAPTER_DEFAULT, _pixelFormat, index, &d3d_mode)))
-					{
-						mode.Width = d3d_mode.Width;
-						mode.Height = d3d_mode.Height;
-						mode.ColorDepth = d3d_format_to_color_depth(d3d_mode.Format, false);
-						mode.RefreshRate = d3d_mode.RefreshRate;
-						return true;
-					}
-				}
-				return false;
-			}*/
 
 			void dummy_vsync() { }
 
@@ -186,9 +166,9 @@ namespace AGS
 				TRUE                         // int windowed;
 			};
 
-			D3DGraphicsDriver::D3DGraphicsDriver(int secret, float key) {}
+			ConsoleGraphicsDriver::ConsoleGraphicsDriver(int secret, float key) {}
 
-			void D3DGraphicsDriver::Init()
+			void ConsoleGraphicsDriver::Init()
 			{
 				if(_initialized) return;
 				_initialized = true;
@@ -240,14 +220,14 @@ namespace AGS
 				defaultVertices[3].tv=1.0;
 			}
 			
-			void D3DGraphicsDriver::Vsync() 
+			void ConsoleGraphicsDriver::Vsync() 
 			{
 				// do nothing on D3D
 			}
 
 
 			//useful reminder of how to shut down, I guess
-			//void D3DGraphicsDriver::ReleaseDisplayMode()
+			//void ConsoleGraphicsDriver::ReleaseDisplayMode()
 			//{
 			//	ClearDrawLists();
 			//	ClearDrawBackups();
@@ -265,7 +245,7 @@ namespace AGS
 			//	DestroyAllStageScreens();
 			//}
 
-			bool D3DGraphicsDriver::IsModeSupported(const DisplayMode &mode)
+			bool ConsoleGraphicsDriver::IsModeSupported(const DisplayMode &mode)
 			{
 				if (mode.Width <= 0 || mode.Height <= 0 || mode.ColorDepth <= 0)
 				{
@@ -277,14 +257,14 @@ namespace AGS
 				return false;
 			}
 
-			bool D3DGraphicsDriver::SupportsGammaControl() 
+			bool ConsoleGraphicsDriver::SupportsGammaControl() 
 			{
 				//support when I find a game that needs it
 				assert(false);
 				return false;
 			}
 
-			void D3DGraphicsDriver::SetGamma(int newGamma)
+			void ConsoleGraphicsDriver::SetGamma(int newGamma)
 			{
 				assert(false);
 				
@@ -298,12 +278,12 @@ namespace AGS
 				}*/
 			}
 
-			void D3DGraphicsDriver::InitializeD3DState()
+			void ConsoleGraphicsDriver::InitializeDDState()
 			{
 				//initialize cull, blend, Ztest, etc.
 			}
 
-			void D3DGraphicsDriver::SetupViewport()
+			void ConsoleGraphicsDriver::SetupViewport()
 			{
 				// Setup orthographic projection matrix
 				Matrix44 matOrtho = {
@@ -341,7 +321,7 @@ namespace AGS
 				viewport_rect.bottom = _dstRect.Bottom + 1;
 			}
 
-			void D3DGraphicsDriver::SetGraphicsFilter(PD3DFilter filter)
+			void ConsoleGraphicsDriver::SetGraphicsFilter(PConsoleFilter filter)
 			{
 				_filter = filter;
 				OnSetFilter();
@@ -350,12 +330,12 @@ namespace AGS
 				create_screen_tint_bitmap();
 			}
 
-			void D3DGraphicsDriver::SetTintMethod(TintMethod method) 
+			void ConsoleGraphicsDriver::SetTintMethod(TintMethod method) 
 			{
 				_legacyPixelShader = (method == TintReColourise);
 			}
 
-			bool D3DGraphicsDriver::SetDisplayMode(const DisplayMode &mode, volatile int *loopTimer)
+			bool ConsoleGraphicsDriver::SetDisplayMode(const DisplayMode &mode, volatile int *loopTimer)
 			{
 				//we'll hack games if this is inadequate
 				if (mode.ColorDepth != 32)
@@ -366,13 +346,13 @@ namespace AGS
 
 				OnInit(loopTimer);
 				GraphicsDriverBase::OnModeSet(mode);
-				InitializeD3DState();
+				InitializeDDState();
 				CreateVirtualScreen();
 				create_screen_tint_bitmap();
 				return true;
 			}
 
-			void D3DGraphicsDriver::CreateVirtualScreen()
+			void ConsoleGraphicsDriver::CreateVirtualScreen()
 			{
 				if (!IsModeSet() || !IsNativeSizeValid())
 					return;
@@ -392,7 +372,7 @@ namespace AGS
 				screen = (BITMAP*)_stageVirtualScreen->GetAllegroBitmap();
 			}
 
-			bool D3DGraphicsDriver::SetNativeSize(const Size &src_size)
+			bool ConsoleGraphicsDriver::SetNativeSize(const Size &src_size)
 			{
 				OnSetNativeSize(src_size);
 				// Also make sure viewport is updated using new native & destination rectangles
@@ -401,7 +381,7 @@ namespace AGS
 				return !_srcRect.IsEmpty();
 			}
 
-			bool D3DGraphicsDriver::SetRenderFrame(const Rect &dst_rect)
+			bool ConsoleGraphicsDriver::SetRenderFrame(const Rect &dst_rect)
 			{
 				OnSetRenderFrame(dst_rect);
 				// Also make sure viewport is updated using new native & destination rectangles
@@ -409,13 +389,13 @@ namespace AGS
 				return !_dstRect.IsEmpty();
 			}
 
-			int D3DGraphicsDriver::GetDisplayDepthForNativeDepth(int native_color_depth) const
+			int ConsoleGraphicsDriver::GetDisplayDepthForNativeDepth(int native_color_depth) const
 			{
 				// TODO: check for device caps to know which depth is supported?
 				return 32;
 			}
 
-			static class D3DGfxModeList : public IGfxModeList
+			static class DDGfxModeList : public IGfxModeList
 			{
 			public:
 				virtual int GetModeCount() const { return 1; }
@@ -433,17 +413,17 @@ namespace AGS
 				}
 			} s_modeList;
 
-			IGfxModeList *D3DGraphicsDriver::GetSupportedModeList(int color_depth)
+			IGfxModeList *ConsoleGraphicsDriver::GetSupportedModeList(int color_depth)
 			{
 				return &s_modeList;
 			}
 
-			PGfxFilter D3DGraphicsDriver::GetGraphicsFilter() const
+			PGfxFilter ConsoleGraphicsDriver::GetGraphicsFilter() const
 			{
 				return _filter;
 			}
 
-			void D3DGraphicsDriver::UnInit() 
+			void ConsoleGraphicsDriver::UnInit() 
 			{
 				if(!_initialized) return;
 
@@ -453,12 +433,12 @@ namespace AGS
 				_initialized = false;
 			}
 
-			D3DGraphicsDriver::~D3DGraphicsDriver()
+			ConsoleGraphicsDriver::~ConsoleGraphicsDriver()
 			{
 				UnInit();
 			}
 
-			void D3DGraphicsDriver::ClearRectangle(int x1, int y1, int x2, int y2, RGB *colorToUse)
+			void ConsoleGraphicsDriver::ClearRectangle(int x1, int y1, int x2, int y2, RGB *colorToUse)
 			{
 				//I'm leaving this here as a note, but.... why the NOTE below?
 				//a game may clear a rectangle for any reason
@@ -476,7 +456,7 @@ namespace AGS
 				//direct3ddevice->Clear(1, &rectToClear, D3DCLEAR_TARGET, colorDword, 0.5f, 0);
 			}
 
-			bool D3DGraphicsDriver::GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_native_res, Size *want_size)
+			bool ConsoleGraphicsDriver::GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_native_res, Size *want_size)
 			{
 				// Currently don't support copying in screen resolution when we are rendering in native
 				if (!_renderSprAtScreenRes)
@@ -537,29 +517,29 @@ namespace AGS
 				return true;
 			}
 
-			void D3DGraphicsDriver::RenderToBackBuffer()
+			void ConsoleGraphicsDriver::RenderToBackBuffer()
 			{
-				throw Ali3DException("D3D driver does not have a back buffer");
+				throw Ali3DException("driver does not have a back buffer");
 			}
 
-			void D3DGraphicsDriver::Render()
+			void ConsoleGraphicsDriver::Render()
 			{
 				Render(kFlip_None);
 			}
 
-			void D3DGraphicsDriver::Render(GlobalFlipType flip)
+			void ConsoleGraphicsDriver::Render(GlobalFlipType flip)
 			{
 				_renderAndPresent(flip, true);
 			}
 
-			void D3DGraphicsDriver::_reDrawLastFrame()
+			void ConsoleGraphicsDriver::_reDrawLastFrame()
 			{
 				RestoreDrawLists();
 			}
 
-			void D3DGraphicsDriver::_renderSprite(const D3DDrawListEntry *drawListEntry, const Matrix44 &matGlobal, bool globalLeftRightFlip, bool globalTopBottomFlip)
+			void ConsoleGraphicsDriver::_renderSprite(const DDDrawListEntry *drawListEntry, const Matrix44 &matGlobal, bool globalLeftRightFlip, bool globalTopBottomFlip)
 			{
-				D3DBitmap *bmpToDraw = drawListEntry->bitmap;
+				DDBitmap *bmpToDraw = drawListEntry->bitmap;
 				Matrix44 matSelfTransform;
 				Matrix44 matTransform;
 
@@ -747,7 +727,7 @@ namespace AGS
 				}
 			}
 
-			void D3DGraphicsDriver::_renderAndPresent(GlobalFlipType flip, bool clearDrawListAfterwards)
+			void ConsoleGraphicsDriver::_renderAndPresent(GlobalFlipType flip, bool clearDrawListAfterwards)
 			{
 				//TODO - begin and end semantics mixed up. not sure about this yet.
 				AGSCON::Graphics::BeginFrame();
@@ -755,7 +735,7 @@ namespace AGS
 				AGSCON::Graphics::EndFrame();
 			}
 
-			void D3DGraphicsDriver::_render(GlobalFlipType flip, bool clearDrawListAfterwards)
+			void ConsoleGraphicsDriver::_render(GlobalFlipType flip, bool clearDrawListAfterwards)
 			{
 				//TODO MBG - READ THIS CAREFULLY!
 
@@ -816,13 +796,13 @@ namespace AGS
 				}
 			}
 
-			void D3DGraphicsDriver::RenderSpriteBatches(GlobalFlipType flip)
+			void ConsoleGraphicsDriver::RenderSpriteBatches(GlobalFlipType flip)
 			{
 				// Render all the sprite batches with necessary transformations
 				for (size_t i = 0; i <= _actSpriteBatch; ++i)
 				{
 					const Rect &viewport = _spriteBatchDesc[i].Viewport;
-					const D3DSpriteBatch &batch = _spriteBatches[i];
+					const DDSpriteBatch &batch = _spriteBatches[i];
 					if (!viewport.IsEmpty())
 					{
 						AGSCON::Graphics::Rectangle scissor;
@@ -859,26 +839,26 @@ namespace AGS
 				}
 			}
 
-			void D3DGraphicsDriver::RenderSpriteBatch(const D3DSpriteBatch &batch, GlobalFlipType flip)
+			void ConsoleGraphicsDriver::RenderSpriteBatch(const DDSpriteBatch &batch, GlobalFlipType flip)
 			{
 				bool globalLeftRightFlip = (flip == kFlip_Vertical) || (flip == kFlip_Both);
 				bool globalTopBottomFlip = (flip == kFlip_Horizontal) || (flip == kFlip_Both);
 
-				D3DDrawListEntry stageEntry; // raw-draw plugin support
+				DDDrawListEntry stageEntry; // raw-draw plugin support
 
-				const std::vector<D3DDrawListEntry> &listToDraw = batch.List;
+				const std::vector<DDDrawListEntry> &listToDraw = batch.List;
 				for (size_t i = 0; i < listToDraw.size(); ++i)
 				{
 					if (listToDraw[i].skip)
 						continue;
 
-					const D3DDrawListEntry *sprite = &listToDraw[i];
+					const DDDrawListEntry *sprite = &listToDraw[i];
 					if (listToDraw[i].bitmap == NULL)
 					{
 						//MBG - WTF IS THIS CAST HERE?
 						//if (DoNullSpriteCallback(listToDraw[i].x, (int)direct3ddevice))
 						if (DoNullSpriteCallback(listToDraw[i].x, listToDraw[i].y)) //GUESSS?
-							stageEntry = D3DDrawListEntry((D3DBitmap*)_stageVirtualScreenDDB);
+							stageEntry = DDDrawListEntry((DDBitmap*)_stageVirtualScreenDDB);
 						else
 							continue;
 						sprite = &stageEntry;
@@ -888,7 +868,7 @@ namespace AGS
 				}
 			}
 
-			void D3DGraphicsDriver::InitSpriteBatch(size_t index, const SpriteBatchDesc &desc)
+			void ConsoleGraphicsDriver::InitSpriteBatch(size_t index, const SpriteBatchDesc &desc)
 			{
 				if (_spriteBatches.size() <= index)
 					_spriteBatches.resize(index + 1);
@@ -909,19 +889,19 @@ namespace AGS
 				CreateStageScreen(index, Size(src_w, src_h));
 			}
 
-			void D3DGraphicsDriver::ResetAllBatches()
+			void ConsoleGraphicsDriver::ResetAllBatches()
 			{
 				for (size_t i = 0; i < _spriteBatches.size(); ++i)
 					_spriteBatches[i].List.clear();
 			}
 
-			void D3DGraphicsDriver::ClearDrawBackups()
+			void ConsoleGraphicsDriver::ClearDrawBackups()
 			{
 				_backupBatchDescs.clear();
 				_backupBatches.clear();
 			}
 
-			void D3DGraphicsDriver::BackupDrawLists()
+			void ConsoleGraphicsDriver::BackupDrawLists()
 			{
 				ClearDrawBackups();
 				for (size_t i = 0; i <= _actSpriteBatch; ++i)
@@ -931,7 +911,7 @@ namespace AGS
 				}
 			}
 
-			void D3DGraphicsDriver::RestoreDrawLists()
+			void ConsoleGraphicsDriver::RestoreDrawLists()
 			{
 				if (_backupBatchDescs.size() == 0)
 				{
@@ -943,17 +923,17 @@ namespace AGS
 				_actSpriteBatch = _backupBatchDescs.size() - 1;
 			}
 
-			void D3DGraphicsDriver::DrawSprite(int x, int y, IDriverDependantBitmap* bitmap)
+			void ConsoleGraphicsDriver::DrawSprite(int x, int y, IDriverDependantBitmap* bitmap)
 			{
-				_spriteBatches[_actSpriteBatch].List.push_back(D3DDrawListEntry((D3DBitmap*)bitmap, x, y));
+				_spriteBatches[_actSpriteBatch].List.push_back(DDDrawListEntry((DDBitmap*)bitmap, x, y));
 			}
 
-			void D3DGraphicsDriver::DestroyDDB(IDriverDependantBitmap* bitmap)
+			void ConsoleGraphicsDriver::DestroyDDB(IDriverDependantBitmap* bitmap)
 			{
 				// Remove deleted DDB from backups
-				for (D3DSpriteBatches::iterator it = _backupBatches.begin(); it != _backupBatches.end(); ++it)
+				for (DDSpriteBatches::iterator it = _backupBatches.begin(); it != _backupBatches.end(); ++it)
 				{
-					std::vector<D3DDrawListEntry> &drawlist = it->List;
+					std::vector<DDDrawListEntry> &drawlist = it->List;
 					for (size_t i = 0; i < drawlist.size(); i++)
 					{
 						if (drawlist[i].bitmap == bitmap)
@@ -963,7 +943,7 @@ namespace AGS
 				delete bitmap;
 			}
 
-			void D3DGraphicsDriver::UpdateTextureRegion(D3DTextureTile *tile, Bitmap *bitmap, D3DBitmap *target, bool hasAlpha)
+			void ConsoleGraphicsDriver::UpdateTextureRegion(DDTextureTile *tile, Bitmap *bitmap, DDBitmap *target, bool hasAlpha)
 			{
 				AGSCON::Graphics::TextureLock textureLock;
 				AGSCON::Graphics::Texture_Lock(tile->texture, &textureLock);
@@ -975,9 +955,9 @@ namespace AGS
 				AGSCON::Graphics::Texture_Unlock(tile->texture, &textureLock);
 			}
 
-			void D3DGraphicsDriver::UpdateDDBFromBitmap(IDriverDependantBitmap* bitmapToUpdate, Bitmap *bitmap, bool hasAlpha)
+			void ConsoleGraphicsDriver::UpdateDDBFromBitmap(IDriverDependantBitmap* bitmapToUpdate, Bitmap *bitmap, bool hasAlpha)
 			{
-				D3DBitmap *target = (D3DBitmap*)bitmapToUpdate;
+				DDBitmap *target = (DDBitmap*)bitmapToUpdate;
 				if (target->_width != bitmap->GetWidth() || target->_height != bitmap->GetHeight())
 					throw Ali3DException("UpdateDDBFromBitmap: mismatched bitmap size");
 				const int color_depth = bitmap->GetColorDepth();
@@ -997,7 +977,7 @@ namespace AGS
 					unselect_palette();
 			}
 
-			int D3DGraphicsDriver::GetCompatibleBitmapFormat(int color_depth)
+			int ConsoleGraphicsDriver::GetCompatibleBitmapFormat(int color_depth)
 			{
 				if (color_depth == 8)
 					return 8;
@@ -1006,7 +986,7 @@ namespace AGS
 				return 32;
 			}
 
-			void D3DGraphicsDriver::AdjustSizeToNearestSupportedByCard(int *width, int *height)
+			void ConsoleGraphicsDriver::AdjustSizeToNearestSupportedByCard(int *width, int *height)
 			{
 				int allocatedWidth = *width, allocatedHeight = *height;
 
@@ -1049,7 +1029,7 @@ namespace AGS
 			}
 
 
-			IDriverDependantBitmap* D3DGraphicsDriver::CreateDDBFromBitmap(Bitmap *bitmap, bool hasAlpha, bool opaque)
+			IDriverDependantBitmap* ConsoleGraphicsDriver::CreateDDBFromBitmap(Bitmap *bitmap, bool hasAlpha, bool opaque)
 			{
 				int allocatedWidth = bitmap->GetWidth();
 				int allocatedHeight = bitmap->GetHeight();
@@ -1057,7 +1037,7 @@ namespace AGS
 					throw Ali3DException("CreateDDBFromBitmap: bitmap colour depth not supported");
 				int colourDepth = bitmap->GetColorDepth();
 
-				D3DBitmap *ddb = new D3DBitmap(bitmap->GetWidth(), bitmap->GetHeight(), colourDepth, opaque);
+				DDBitmap *ddb = new DDBitmap(bitmap->GetWidth(), bitmap->GetHeight(), colourDepth, opaque);
 
 				AdjustSizeToNearestSupportedByCard(&allocatedWidth, &allocatedHeight);
 				int tilesAcross = 1, tilesDown = 1;
@@ -1089,8 +1069,8 @@ namespace AGS
 				AdjustSizeToNearestSupportedByCard(&tileAllocatedWidth, &tileAllocatedHeight);
 
 				int numTiles = tilesAcross * tilesDown;
-				D3DTextureTile *tiles = (D3DTextureTile*)malloc(sizeof(D3DTextureTile) * numTiles);
-				memset(tiles, 0, sizeof(D3DTextureTile) * numTiles);
+				DDTextureTile *tiles = (DDTextureTile*)malloc(sizeof(DDTextureTile) * numTiles);
+				memset(tiles, 0, sizeof(DDTextureTile) * numTiles);
 
 				COOLCUSTOMVERTEX *vertices = new COOLCUSTOMVERTEX[numTiles*4];
 
@@ -1098,7 +1078,7 @@ namespace AGS
 				{
 					for (int y = 0; y < tilesDown; y++)
 					{
-						D3DTextureTile *thisTile = &tiles[y * tilesAcross + x];
+						DDTextureTile *thisTile = &tiles[y * tilesAcross + x];
 						int thisAllocatedWidth = tileAllocatedWidth;
 						int thisAllocatedHeight = tileAllocatedHeight;
 						thisTile->x = x * tileWidth;
@@ -1146,7 +1126,7 @@ namespace AGS
 				return ddb;
 			}
 
-			void D3DGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, int targetColourGreen, int targetColourBlue)
+			void ConsoleGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, int targetColourGreen, int targetColourBlue)
 			{
 				//YUCK!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -1159,20 +1139,20 @@ namespace AGS
 
 				Bitmap *blackSquare = BitmapHelper::CreateBitmap(16, 16, 32);
 				blackSquare->Clear(makecol32(targetColourRed, targetColourGreen, targetColourBlue));
-				IDriverDependantBitmap *d3db = this->CreateDDBFromBitmap(blackSquare, false, false);
+				IDriverDependantBitmap *ddb = this->CreateDDBFromBitmap(blackSquare, false, false);
 				delete blackSquare;
 
 				BeginSpriteBatch(_srcRect, SpriteTransform());
-				d3db->SetStretch(_srcRect.GetWidth(), _srcRect.GetHeight(), false);
+				ddb->SetStretch(_srcRect.GetWidth(), _srcRect.GetHeight(), false);
 				// NOTE: what happens here is that we are trying to prevent global offset to be applied to this sprite :/
-				this->DrawSprite(-_globalViewOff.X, -_globalViewOff.Y, d3db);
+				this->DrawSprite(-_globalViewOff.X, -_globalViewOff.Y, ddb);
 
 				if (speed <= 0) speed = 16;
 				speed *= 2;  // harmonise speeds with software driver which is faster
 				for (int a = 1; a < 255; a += speed)
 				{
 					int timerValue = *_loopTimer;
-					d3db->SetTransparency(fadingOut ? a : (255 - a));
+					ddb->SetTransparency(fadingOut ? a : (255 - a));
 					this->_renderAndPresent(flipTypeLastTime, false);
 
 					//YUCK!!!!!!!!!!!!!!!
@@ -1189,25 +1169,25 @@ namespace AGS
 
 				if (fadingOut)
 				{
-					d3db->SetTransparency(0);
+					ddb->SetTransparency(0);
 					this->_renderAndPresent(flipTypeLastTime, false);
 				}
 
-				this->DestroyDDB(d3db);
+				this->DestroyDDB(ddb);
 				this->ClearDrawLists();
 			}
 
-			void D3DGraphicsDriver::FadeOut(int speed, int targetColourRed, int targetColourGreen, int targetColourBlue) 
+			void ConsoleGraphicsDriver::FadeOut(int speed, int targetColourRed, int targetColourGreen, int targetColourBlue) 
 			{
 				do_fade(true, speed, targetColourRed, targetColourGreen, targetColourBlue);
 			}
 
-			void D3DGraphicsDriver::FadeIn(int speed, PALLETE p, int targetColourRed, int targetColourGreen, int targetColourBlue) 
+			void ConsoleGraphicsDriver::FadeIn(int speed, PALLETE p, int targetColourRed, int targetColourGreen, int targetColourBlue) 
 			{
 				do_fade(false, speed, targetColourRed, targetColourGreen, targetColourBlue);
 			}
 
-			void D3DGraphicsDriver::BoxOutEffect(bool blackingOut, int speed, int delay)
+			void ConsoleGraphicsDriver::BoxOutEffect(bool blackingOut, int speed, int delay)
 			{
 				//YUCK!!!!!!!!!!!!!!!
 
@@ -1244,8 +1224,8 @@ namespace AGS
 				{
 					boxWidth += speed;
 					boxHeight += yspeed;
-					D3DSpriteBatch &batch = _spriteBatches.back();
-					std::vector<D3DDrawListEntry> &drawList = batch.List;
+					DDSpriteBatch &batch = _spriteBatches.back();
+					std::vector<DDDrawListEntry> &drawList = batch.List;
 					const size_t last = drawList.size() - 1;
 					if (blackingOut)
 					{
@@ -1273,12 +1253,12 @@ namespace AGS
 				this->ClearDrawLists();
 			}
 
-			bool D3DGraphicsDriver::PlayVideo(const char *filename, bool useAVISound, VideoSkipType skipType, bool stretchToFullScreen)
+			bool ConsoleGraphicsDriver::PlayVideo(const char *filename, bool useAVISound, VideoSkipType skipType, bool stretchToFullScreen)
 			{
 				return false;
 			}
 
-			void D3DGraphicsDriver::create_screen_tint_bitmap() 
+			void ConsoleGraphicsDriver::create_screen_tint_bitmap() 
 			{
 				// Some work on textures depends on current scaling filter, sadly
 				// TODO: find out if there is a workaround for that
@@ -1286,11 +1266,11 @@ namespace AGS
 					return;
 
 				_screenTintLayer = BitmapHelper::CreateBitmap(16, 16, this->_mode.ColorDepth);
-				_screenTintLayerDDB = (D3DBitmap*)this->CreateDDBFromBitmap(_screenTintLayer, false, false);
+				_screenTintLayerDDB = (DDBitmap*)this->CreateDDBFromBitmap(_screenTintLayer, false, false);
 				_screenTintSprite.bitmap = _screenTintLayerDDB;
 			}
 
-			void D3DGraphicsDriver::SetScreenTint(int red, int green, int blue)
+			void ConsoleGraphicsDriver::SetScreenTint(int red, int green, int blue)
 			{ 
 				if ((red != _tint_red) || (green != _tint_green) || (blue != _tint_blue))
 				{
@@ -1309,7 +1289,7 @@ namespace AGS
 
 
 
-			static class ConsoleGraphicsFactory : public GfxDriverFactoryBase<D3DGraphicsDriver, ConsoleGfxFilter>
+			static class ConsoleGraphicsFactory : public GfxDriverFactoryBase<ConsoleGraphicsDriver, ConsoleGfxFilter>
 			{
 			public:
 				virtual size_t               GetFilterCount() const { return 2; }
@@ -1343,11 +1323,11 @@ namespace AGS
 
 				virtual void DestroyDriver()
 				{
-					s_inst.~D3DGraphicsDriver();
+					s_inst.~ConsoleGraphicsDriver();
 					_driver = nullptr;
 				}
 
-				virtual D3DGraphicsDriver   *EnsureDriverCreated() {
+				virtual ConsoleGraphicsDriver   *EnsureDriverCreated() {
 					s_inst.Init();
 					return &s_inst;
 				}

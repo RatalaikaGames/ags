@@ -364,7 +364,9 @@ namespace AGS
 					pNativeSurface = NULL;
 				}
 				pNativeSurface = AGSCON::Graphics::RenderTarget_Create(_srcRect.GetWidth(), _srcRect.GetHeight());
+				
 				//TODO: clear to 0 (required semantics, probably)
+				//however, clearing may be trouble because we aren't drawing now.
 
 				// create initial stage screen for plugin raw drawing
 				_stageVirtualScreen = CreateStageScreen(0, _srcRect.GetSize());
@@ -593,9 +595,9 @@ namespace AGS
 					int useTintBlue = 255;
 					int useTransparency = 0xff;
 					
-					//in essence, we have:
-					//(TEX*TFACTOR)*CTL.x + (TEX+TFACTOR)*CTL.y
-					//this allows us to choose between the modulation and addition results
+					//control.x == 0 -> TEX+TFACTOR
+					//control.x == 1 -> TEX*TFACTOR
+					//control.y reserved for other things
 					float control[] = { 1.0f, 0.0f };
 
 					if ((bmpToDraw->_lightLevel > 0) && (bmpToDraw->_lightLevel < 256))

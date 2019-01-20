@@ -787,7 +787,6 @@ namespace AGS
 					
 					//TODO - uhhhh I guess this is the final presentation logic? that's pretty shoddy. need to re-engineer that
 					
-					AGSCON::Graphics::BindBackbufferRenderTarget();
 
 					// "use correct sampling method when stretching buffer to the final rect"
 					// it seems like this is a weak approximation of the intended real filtering capability
@@ -802,8 +801,6 @@ namespace AGS
 					//	throw Ali3DException("IDirect3DSurface9::StretchRect failed");
 					//}
 					//direct3ddevice->SetViewport(&pViewport);
-
-					//AGSCON::Graphics::BindBackbufferRenderTarget();
 
 					AGSCON::Graphics::PresentNative(pNativeSurface, &viewport_rect);
 				} 

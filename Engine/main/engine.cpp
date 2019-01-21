@@ -1518,13 +1518,13 @@ int _initialize_engine_common()
 
 //simplified game setup for console versions
 //we could modify this to pass config and ags filenames in here if needed
-void initialize_engine_console()
+void initialize_engine_console(const char* agsPath, const char* cfgPath)
 {
-    game_file_name = "game.ags";
+    game_file_name = agsPath;
 
     Debug::Printf(kDbgMsg_Init, "Initializing game data (console version");
     ConfigTree cfg;
-    IniUtil::Read("acsetup.cfg", cfg);
+    IniUtil::Read(cfgPath, cfg);
     usetup.data_files_dir = "";
     usetup.main_data_filename = game_file_name;
 

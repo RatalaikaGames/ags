@@ -25,7 +25,7 @@ int         initialize_engine(int argc,char*argv[]);
 int			initialize_engine_with_exception_handling(int argc,char*argv[]);
 
 // Special, simplified initialization for console builds
-void         initialize_engine_console();
+void         initialize_engine_console(const char* agsPath, const char* cfgPath);
 
 struct ScreenSetup;
 // Try to set new graphics mode deduced from given configuration;

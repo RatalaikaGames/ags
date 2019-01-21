@@ -28,6 +28,15 @@
 extern "C" char *_alemu_strlwr(char *string);
 extern "C" char *_alemu_strupr(char *string);
 
+char* ags_strdup(const char* str1)
+{
+    size_t len = strlen(str1);
+    char* ret = (char*)malloc(len+1);
+    if(!ret) return NULL;
+    memcpy(ret, str1, len+1);
+    return ret;
+}
+
 int ags_stricmp(const char *string1, const char *string2)
 {
     #ifdef _MSC_VER
@@ -49,7 +58,7 @@ int ags_strnicmp(const char *string1, const char *string2, int n)
 char *ags_strlwr(char *str)
 {
     #ifdef _MSC_VER
-    return strlwr(str);
+    return _strlwr(str);
     #else
     return _alemu_strlwr(str);
     #endif
@@ -58,7 +67,7 @@ char *ags_strlwr(char *str)
 char *ags_strupr(char *str)
 {
     #ifdef _MSC_VER
-    return strupr(str);
+    return _strupr(str);
     #else
     return _alemu_strupr(str);
     #endif

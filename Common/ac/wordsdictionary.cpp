@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <stdlib.h>
 #include <string.h>
+#include "util/posix.h"
 #include "ac/wordsdictionary.h"
 #include "ac/common.h"
 #include "ac/common_defines.h"
@@ -143,7 +144,7 @@ void write_string_encrypt(Stream *out, const char *s) {
   int stlent = (int)strlen(s) + 1;
 
   out->WriteInt32(stlent);
-  char *enc = strdup(s);
+  char *enc = ags_strdup(s);
   encrypt_text(enc);
   out->WriteArray(enc, stlent, 1);
   free(enc);

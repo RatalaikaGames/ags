@@ -24,6 +24,7 @@
 #include "game/main_game_file.h"
 #include "gui/guimain.h"
 #include "script/cc_error.h"
+#include "util/posix.h"
 #include "util/alignedstream.h"
 #include "util/path.h"
 #include "util/string_utils.h"
@@ -600,7 +601,7 @@ void SetDefaultGlmsg(GameSetupStruct &game, int msgnum, const char *val)
     // (or rather if we may pass correct index right away)
     msgnum -= 500;
     if (game.messages[msgnum] == NULL)
-        game.messages[msgnum] = strdup(val);
+        game.messages[msgnum] = ags_strdup(val);
 }
 
 // Sets up default global messages (these are used mainly in older games)

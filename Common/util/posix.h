@@ -29,4 +29,7 @@ char *ags_strlwr(char *str);
 char *ags_strupr(char *str);
 int ags_unlink(const char* path);
 
+//strdup is a total disaster on microsoft compilers. let's not use it
+char* ags_strdup(const char* str1);
+
 #endif // __AGS_CN_UTIL__POSIX_H

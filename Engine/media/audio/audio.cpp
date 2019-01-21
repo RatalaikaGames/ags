@@ -14,6 +14,7 @@
 
 #include <stdio.h>
 
+#include "core/types.h"
 #include "util/wgt2allg.h"
 #include "media/audio/audio.h"
 #include "ac/gamesetupstruct.h"

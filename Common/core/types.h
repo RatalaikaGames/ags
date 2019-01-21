@@ -108,4 +108,21 @@ enum
 #define AGS_HAS_RICH_GAME_MEDIA
 #endif
 
+#if defined(WINDOWS_VERSION) || defined(_MSC_VER)
+#define AGS_HAS_WINDOWS_SDK
+#endif
+
+#ifdef AGS_HAS_WINDOWS_SDK
+//allegro's "bodges to avoid conflicts between Allegro and Windows"
+#define BITMAP WINDOWS_BITMAP
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#define WINDOWS_RGB(r,g,b)  ((COLORREF)(((BYTE)(r)|((WORD)((BYTE)(g))<<8))|(((DWORD)(BYTE)(b))<<16)))
+#undef BITMAP
+#undef RGB
+#undef CreateFile
+struct BITMAP;
+#endif
+
 #endif // __AGS_CN_CORE__TYPES_H

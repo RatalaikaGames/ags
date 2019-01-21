@@ -301,10 +301,6 @@ namespace AGS
 					0.0f, 0.0f, 0.0f, 1.0f
 				};
 
-				//direct3ddevice->SetTransform(D3DTS_PROJECTION, &matOrtho);
-				//direct3ddevice->SetTransform(D3DTS_WORLD, &matIdentity);
-				//direct3ddevice->SetTransform(D3DTS_VIEW, &matIdentity);
-
 				//reminder if needed for testing on PC or d3d11
 				//_pixelRenderXOffset = ((float)_srcRect.GetWidth() / (float)_mode.Width) / 2.0f;
 				//_pixelRenderYOffset = ((float)_srcRect.GetHeight() / (float)_mode.Height) / 2.0f;

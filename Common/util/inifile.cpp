@@ -172,7 +172,7 @@ void IniFile::RemoveSection(SectionIterator sec)
 // Moves string pointer forward to the first non-space character
 const char *SkipSpace(const char *line, const char *endl)
 {
-    for (; line != endl && isspace(*line); ++line);
+    for (; line != endl && std::isspace(*line); ++line);
     return line;
 }
 
@@ -239,7 +239,7 @@ void IniFile::Read(Stream *in)
         if (*pstr == '[')
         {
             // Parse this as section
-            const char *pstr_end = strrchr(pstr, ']');
+            const char *pstr_end = std::strrchr(pstr, ']');
             if (pstr_end < pstr)
                 continue; // no closing bracket
             // Parse the section name
@@ -254,7 +254,7 @@ void IniFile::Read(Stream *in)
         else
         {
             // Parse this as a key-value pair
-            const char *pstr_end = strchr(pstr, '=');
+            const char *pstr_end = std::strchr(pstr, '=');
             if (pstr_end == pstr)
                 continue; // no key part, skip the line
             if (!pstr_end)

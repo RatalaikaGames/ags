@@ -40,7 +40,7 @@ inline size_t Hash_LowerCase(const char *data, const size_t len)
 {
     uint32_t hash = PRIME_NUMBER;
     for (size_t i = 0; i < len; ++i)
-        hash = (SECONDARY_NUMBER * hash) ^ (uint8_t)(tolower(data[i]));
+        hash = (SECONDARY_NUMBER * hash) ^ (uint8_t)(std::tolower(data[i]));
     return hash;
 }
 

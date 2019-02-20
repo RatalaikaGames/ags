@@ -12,7 +12,7 @@
 //
 //=============================================================================
 
-#include <memory.h>
+#include <string.h>
 #include "scriptuserobject.h"
 
 // return the type name of the object

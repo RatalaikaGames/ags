@@ -641,7 +641,7 @@ HRoomFileError UpdateRoomData(RoomStruct *room, RoomFileVersion data_ver, bool g
                 jibbledScriptName.Format("o%s", room->Objects[i].ScriptName.GetCStr());
                 jibbledScriptName.MakeLower();
                 if (jibbledScriptName.GetLength() >= 2)
-                    jibbledScriptName.SetAt(1, toupper(jibbledScriptName[1u]));
+                    jibbledScriptName.SetAt(1, std::toupper(jibbledScriptName[1u]));
                 room->Objects[i].ScriptName = jibbledScriptName;
             }
         }

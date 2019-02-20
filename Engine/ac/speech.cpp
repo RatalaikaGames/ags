@@ -12,6 +12,7 @@
 //
 //=============================================================================
 
+#include "core/types.h"
 #include "ac/common.h"
 #include "ac/runtime_defines.h"
 #include "ac/speech.h"

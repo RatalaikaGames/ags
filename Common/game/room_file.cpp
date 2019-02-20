@@ -12,6 +12,7 @@
 //
 //=============================================================================
 
+#include "core/types.h"
 #include "ac/common.h" // update_polled_stuff
 #include "ac/spritecache.h"
 #include "ac/wordsdictionary.h"

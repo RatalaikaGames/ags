@@ -13,6 +13,7 @@
 //=============================================================================
 
 #define USE_CLIB
+#include "core/types.h"
 #include "aldumb.h"
 #include "ac/asset_helper.h"
 #include "ac/file.h"

@@ -12,6 +12,7 @@
 //
 //=============================================================================
 
+#include "core/types.h"
 #include "ac/spritecache.h"
 #include "font/fonts.h"
 #include "gui/guibutton.h"

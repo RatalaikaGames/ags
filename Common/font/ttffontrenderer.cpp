@@ -16,6 +16,7 @@
 #define USE_ALFONT
 #endif
 
+#include "core/types.h"
 #include "alfont.h"
 #include "ac/gamestructdefines.h" //FONT_OUTLINE_AUTO
 #include "core/assetmanager.h"

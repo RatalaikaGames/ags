@@ -14,6 +14,7 @@
 
 #include <stdio.h>
 
+#include "core/types.h"
 #include "gui/guidialog.h"
 #include "ac/common.h"
 #include "ac/draw.h"
@@ -451,7 +452,7 @@ int roomSelectorWindow(int currentRoom, int numRooms, int*roomNumbers, char**roo
       if (mes.id == ctrlok) 
       {
         CSCISendControlMessage(ctrltbox, CTB_GETTEXT, 0, (long)&buffer2[0]);
-        if (isdigit(buffer2[0]))
+        if (std::isdigit(buffer2[0]))
         {
           toret = atoi(buffer2);
         }

@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 
+#include "core/types.h"
 #include "alfont.h"
 
 #include "ac/common.h"

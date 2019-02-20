@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <algorithm>
 
+#include "core/types.h"
 #include "aastr.h"
 #include "ac/common.h"
 #include "util/compress.h"

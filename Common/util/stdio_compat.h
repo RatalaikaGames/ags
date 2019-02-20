@@ -15,8 +15,12 @@
 #define __AGS_CN_UTIL__STDIOCOMPAT_H
 
 #include <stdio.h>
+
+//these arent stdio. they shouldnt be in a file named stdiocompat.
+#ifndef AGS_HAS_NO_SYS_TYPES_H
 #include <sys/types.h>
 #include <sys/stat.h>
+#endif
 
 // 64-bit fseek/ftell
 #if defined(HAVE_FSEEKO) // Contemporary POSIX libc

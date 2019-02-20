@@ -39,7 +39,8 @@
 #endif
 
 #include <stddef.h>
-#if !defined (WINDOWS_VERSION)
+#if !defined (WINDOWS_VERSION) || defined (AGS_HAS_NORMAL_BUILD_ENVIRONMENT_TYPE_HEADERS)
+#define __STDC_LIMIT_MACROS
 #include <stdint.h>
 #include <cstdlib> // for size_t
 #include <limits.h> // for _WORDSIZE

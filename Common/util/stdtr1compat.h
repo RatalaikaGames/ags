@@ -17,7 +17,7 @@
 #define MAKE_HEADER(arg) <arg>
 #define TR1INCLUDE(arg) MAKE_HEADER(arg) // default for C++11 compilers and MSVC (no tr1 folder)
 
-#if __cplusplus >= 201103L
+#if __cplusplus >= 201103L || defined(AGS_DOES_NOT_NEED_TR1)
 // C++11, doesn't need TR1
 namespace std {}
 namespace stdtr1compat = std;

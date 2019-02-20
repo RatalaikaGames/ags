@@ -14,6 +14,7 @@
 //=============================================================================
 
 #include <string.h>
+#include <stdlib.h>
 #include "posix.h"
 #include "core/types.h"
 

@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include <fcntl.h>
 #include <string.h>
 #include <setjmp.h>
 #include <math.h>

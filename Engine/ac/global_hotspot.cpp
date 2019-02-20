@@ -12,7 +12,6 @@
 //
 //=============================================================================
 
-#include "core/types.h"
 #include "ac/global_hotspot.h"
 #include "ac/common.h"
 #include "ac/common_defines.h"

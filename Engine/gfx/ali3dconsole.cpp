@@ -21,8 +21,6 @@
 #endif
 
 #include <allegro.h>
-#include <cmath>
-
 #include "main/main_allegro.h"
 #include "debug/assert.h"
 #include "debug/out.h"
@@ -80,10 +78,10 @@ namespace AGS
 			void MatrixRotateZ(Matrix44 &m, float angle)
 			{
 				MatrixIdentity(m);
-				m.m[0][0] = std::cos(angle);
-				m.m[1][1] = std::cos(angle);
-				m.m[0][1] = std::sin(angle);
-				m.m[1][0] = -std::sin(angle);
+				m.m[0][0] = cos(angle);
+				m.m[1][1] = cos(angle);
+				m.m[0][1] = sin(angle);
+				m.m[1][0] = -sin(angle);
 			}
 			// Matrix multiplication
 			void MatrixMultiply(Matrix44 &mr, const Matrix44 &m1, const Matrix44 &m2)

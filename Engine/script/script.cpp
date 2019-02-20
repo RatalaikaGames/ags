@@ -15,7 +15,6 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "core/types.h"
 #include "script/script.h"
 #include "ac/common.h"
 #include "ac/character.h"

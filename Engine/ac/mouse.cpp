@@ -12,7 +12,6 @@
 //
 //=============================================================================
 
-#include "core/types.h"
 #include "ac/mouse.h"
 #include "ac/common.h"
 #include "ac/characterinfo.h"

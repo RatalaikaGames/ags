@@ -12,7 +12,6 @@
 //
 //=============================================================================
 
-#include "core/types.h"
 #include "ac/common.h"
 #include "media/audio/audiodefines.h"
 #include "ac/draw.h"

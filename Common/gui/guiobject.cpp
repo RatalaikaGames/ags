@@ -12,7 +12,6 @@
 //
 //=============================================================================
 
-#include "core/types.h"
 #include "ac/common.h"
 #include "gui/guiobject.h"
 #include "gui/guimain.h"

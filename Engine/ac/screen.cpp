@@ -12,6 +12,7 @@
 //
 //=============================================================================
 
+#include "core/types.h"
 #include "ac/common.h"
 #include "ac/draw.h"
 #include "ac/gamesetupstruct.h"

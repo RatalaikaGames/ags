@@ -12,6 +12,7 @@
 //
 //=============================================================================
 
+#include "core/types.h"
 #include "ac/draw.h"
 #include "ac/game_version.h"
 #include "ac/gamestate.h"

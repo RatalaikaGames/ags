@@ -18,6 +18,7 @@
 
 // Headers, as they are in acgui.cpp
 #pragma unmanaged
+#include "core/types.h"
 #include "ac/game_version.h"
 #include "ac/system.h"
 #include "font/fonts.h"

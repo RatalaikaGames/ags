@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 
+#include "core/types.h"
 #include "ac/common.h"
 #include "ac/characterextras.h"
 #include "ac/characterinfo.h"

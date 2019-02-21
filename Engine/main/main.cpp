@@ -461,10 +461,6 @@ int not_really_main(int argc,char*argv[]) {
 int main(int argc,char*argv[]) { 
 #endif
 
-#ifdef _DEBUG
-    Test_DoAllTests();
-#endif
-    
     int res;
     main_init();
     

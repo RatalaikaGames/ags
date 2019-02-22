@@ -105,6 +105,11 @@ ALFONT_DLL_DECLSPEC int alfont_get_nof_available_fixed_sizes(ALFONT_FONT *f);
 ALFONT_DLL_DECLSPEC int alfont_get_char_extra_spacing(ALFONT_FONT *f);
 ALFONT_DLL_DECLSPEC void alfont_set_char_extra_spacing(ALFONT_FONT *f, int spacing);
 
+//MBG - some mismatch of alfont versions, I guess. need this here for the code we have
+#define ALFONT_TYPE_WIDECHAR 2
+void alfont_set_convert(ALFONT_FONT *f, int type);
+
+
 #ifdef __cplusplus
 }
 #endif

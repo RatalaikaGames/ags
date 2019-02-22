@@ -22,6 +22,8 @@
 
 using namespace AGS::Common;
 
+extern "C" int musl_mbtowc(wchar_t * wc, const char * src, size_t n);
+
 #define STD_BUFFER_SIZE 3000
 
 // Turn [ into \n and turn \[ into [
@@ -62,7 +64,11 @@ void split_lines(const char *todis, int wii, int fonnt) {
     // make a copy, since we change characters in the original string
     // and this might be in a read-only bit of memory
     char textCopyBuffer[STD_BUFFER_SIZE];
-    strcpy(textCopyBuffer, todis);
+    size_t len = strlen(todis);
+    if(len>=STD_BUFFER_SIZE)
+        len=STD_BUFFER_SIZE-1;
+    memcpy(textCopyBuffer, todis, len);
+    textCopyBuffer[len]=0;
     theline = textCopyBuffer;
     unescape(theline);
 
@@ -78,9 +84,15 @@ void split_lines(const char *todis, int wii, int fonnt) {
             break;
         }
 
+        //MBG - locale hacks
+        //figure out how this character is
+        int codesize = musl_mbtowc(nullptr, theline+i, len-i);
+        if(codesize == -1) break;
+        if(codesize+i>len) break;
+
         // temporarily terminate the line here and test its width
-        nextCharWas = theline[i + 1];
-        theline[i + 1] = 0;
+        nextCharWas = theline[i + codesize];
+        theline[i + codesize] = 0;
 
         // force end of line with the \n character
         if (theline[i] == '\n')
@@ -99,7 +111,7 @@ void split_lines(const char *todis, int wii, int fonnt) {
         }
 
         // restore the character that was there before
-        theline[i + 1] = nextCharWas;
+        theline[i + codesize] = nextCharWas;
 
         if (splitAt >= 0) {
             // add this line
@@ -120,7 +132,7 @@ void split_lines(const char *todis, int wii, int fonnt) {
             i = -1;
         }
 
-        i++;
+        i+=codesize;
     }
 }
 

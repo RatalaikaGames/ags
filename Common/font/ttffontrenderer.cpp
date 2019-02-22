@@ -105,6 +105,9 @@ bool TTFFontRenderer::LoadFromDiskEx(int fontNumber, int fontSize, const FontRen
   ALFONT_FONT *alfptr = alfont_load_font_from_mem(membuffer, lenof);
   free(membuffer);
 
+  //TEST
+  alfont_set_convert(alfptr, ALFONT_TYPE_WIDECHAR);
+
   if (alfptr == NULL)
     return false;
 

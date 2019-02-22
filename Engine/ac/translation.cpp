@@ -121,6 +121,10 @@ bool parse_translation(Stream *language_file, String &parse_error)
             while (1) {
                 read_string_decrypt (language_file, original, STD_BUFFER_SIZE);
                 read_string_decrypt (language_file, translation, STD_BUFFER_SIZE);
+                if(!strcmp(original,"English"))
+                {
+                    int zzz=9;
+                }
                 if ((strlen (original) < 1) && (strlen(translation) < 1))
                     break;
                 if (language_file->EOS())

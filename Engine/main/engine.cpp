@@ -1532,6 +1532,11 @@ void initialize_engine_console(const char* agsPath, const char* cfgPath)
     apply_config(cfg); //TODO - remove console hacks from here
     post_config(); //not really needed by console, developer can fix his configuration
 
+    //use token rather than empty for save game directories so we can catch it in the console backend
+    //(it's left as empty because SetSaveGameDirectoryPath isn't going to do anything)
+    extern char saveGameDirectory[260];
+    strcpy(saveGameDirectory,"$SAVEGAMEDIR$/");
+
     engine_init_allegro();
 
     _initialize_engine_common();

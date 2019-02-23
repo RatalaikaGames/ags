@@ -351,6 +351,12 @@ String String::Left(size_t count) const
     return count == GetLength() ? *this : String(GetCStr(), count);
 }
 
+bool String::StartsWith(const char* prefix) const
+{
+    int len = strlen(prefix);
+    return strcmp(Left(len),prefix) == 0;
+}
+
 String String::Mid(size_t from, size_t count) const
 {
     Math::ClampLength(from, count, (size_t)0, GetLength());

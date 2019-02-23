@@ -194,6 +194,9 @@ public:
     // Extract N rightmost characters
     String  Right(size_t count) const;
 
+    // Determines whether the string starts with the given prefix
+    bool StartsWith(const char* prefix) const;
+
     // Extract leftmost part, separated by the given char; if no separator was
     // found returns the whole string
     String  LeftSection(char separator, bool exclude_separator = true) const;

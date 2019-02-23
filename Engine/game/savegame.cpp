@@ -273,8 +273,10 @@ HSaveError OpenSavegameBase(const String &filename, SavegameSource *src, Savegam
         return new SavegameError(kSvgErr_FileOpenFailed, String::FromFormat("Requested filename: %s.", filename.GetCStr()));
 
     // Skip MS Windows Vista rich media header
+    #ifdef AGS_HAS_RICH_GAME_MEDIA
     RICH_GAME_MEDIA_HEADER rich_media_header;
     rich_media_header.ReadFromFile(in.get());
+    #endif
 
     // Check saved game signature
     bool is_new_save = false;

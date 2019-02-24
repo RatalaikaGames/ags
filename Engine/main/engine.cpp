@@ -16,6 +16,7 @@
 // Engine initialization
 //
 
+#include <stdio.h>
 #include "main/mainheader.h"
 #include "ac/asset_helper.h"
 #include "ac/common.h"

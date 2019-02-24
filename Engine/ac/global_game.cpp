@@ -12,6 +12,7 @@
 //
 //=============================================================================
 
+#include <stdio.h>
 #include "ac/audiocliptype.h"
 #include "ac/global_game.h"
 #include "ac/common.h"

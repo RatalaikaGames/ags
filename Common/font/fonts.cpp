@@ -13,6 +13,7 @@
 //=============================================================================
 
 #include <vector>
+#include <stdio.h>
 #include <alfont.h>
 #include "ac/common.h" // set_our_eip
 #include "ac/gamestructdefines.h"

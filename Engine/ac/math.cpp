@@ -13,6 +13,7 @@
 //=============================================================================
 
 #include <cmath>
+#include <cstdlib>
 #include "ac/math.h"
 #include "ac/common.h" // quit
 #include "platform/base/override_defines.h"
@@ -51,77 +52,77 @@ float IntToFloat(int value)
 
 float StringToFloat(const char *theString)
 {
-    return static_cast<float>(atof(theString));
+    return static_cast<float>(std::atof(theString));
 }
 
 float Math_Cos(float value)
 {
-    return cos(value);
+    return std::cos(value);
 }
 
 float Math_Sin(float value)
 {
-    return sin(value);
+    return std::sin(value);
 }
 
 float Math_Tan(float value)
 {
-    return tan(value);
+    return std::tan(value);
 }
 
 float Math_ArcCos(float value)
 {
-    return acos(value);
+    return std::acos(value);
 }
 
 float Math_ArcSin(float value)
 {
-    return asin(value);
+    return std::asin(value);
 }
 
 float Math_ArcTan(float value)
 {
-    return atan(value);
+    return std::atan(value);
 }
 
 float Math_ArcTan2(float yval, float xval)
 {
-    return atan2(yval, xval);
+    return std::atan2(yval, xval);
 }
 
 float Math_Log(float value)
 {
-    return log(value);
+    return std::log(value);
 }
 
 float Math_Log10(float value)
 {
-    return ::log10(value);
+    return std::log10(value);
 }
 
 float Math_Exp(float value)
 {
-    return exp(value);
+    return std::exp(value);
 }
 
 float Math_Cosh(float value)
 {
-    return cosh(value);
+    return std::cosh(value);
 }
 
 float Math_Sinh(float value)
 {
-    return sinh(value);
+    return std::sinh(value);
 }
 
 float Math_Tanh(float value)
 {
-    return tanh(value);
+    return std::tanh(value);
 }
 
 float Math_RaiseToPower(float base, float exp)
 {
-    return ::pow(base, exp);
+    return std::pow(base, exp);
 }
 
 float Math_DegreesToRadians(float value)
@@ -144,7 +145,7 @@ float Math_Sqrt(float value)
     if (value < 0.0)
         quit("!Sqrt: cannot perform square root of negative number");
 
-    return ::sqrt(value);
+    return std::sqrt(value);
 }
 
 int __Rand(int upto)
@@ -152,7 +153,7 @@ int __Rand(int upto)
     upto++;
     if (upto < 1)
         quit("!Random: invalid parameter passed -- must be at least 0.");
-    return rand()%upto;
+    return std::rand()%upto;
 }
 
 

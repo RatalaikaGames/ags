@@ -335,7 +335,8 @@ void Bitmap::Clear(color_t color)
 
 void Bitmap::ClearTransparent()
 {
-    clear_to_color(_alBitmap, bitmap_mask_color(_alBitmap));
+    memset(_alBitmap->line[0],0,GetBPP()*GetWidth()*GetHeight());
+    //clear_to_color(_alBitmap, bitmap_mask_color(_alBitmap));
 }
 
 void Bitmap::PutPixel(int x, int y, color_t color)

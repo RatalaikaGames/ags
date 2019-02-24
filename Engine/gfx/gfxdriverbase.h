@@ -196,6 +196,8 @@ protected:
     // Prepares bitmap to be applied to the texture, copies pixels to the provided buffer
     void BitmapToVideoMem(const Bitmap *bitmap, const bool has_alpha, const TextureTile *tile, const VideoMemDDB *target,
                             char *dst_ptr, const int dst_pitch, const bool usingLinearFiltering);
+    template<bool has_alpha, bool opaque> void BitmapToVideoMemFast(const Bitmap *bitmap, const TextureTile *tile, const VideoMemDDB *target,
+        char *dst_ptr, const int dst_pitch, const bool usingLinearFiltering);
 
     // Stage virtual screen is used to let plugins draw custom graphics
     // in between render stages (between room and GUI, after GUI, and so on)

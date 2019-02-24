@@ -285,6 +285,19 @@ __inline void get_pixel_if_not_transparent32(unsigned int *pixel, unsigned int *
 void VideoMemoryGraphicsDriver::BitmapToVideoMem(const Bitmap *bitmap, const bool has_alpha, const TextureTile *tile, const VideoMemDDB *target,
                                                  char *dst_ptr, const int dst_pitch, const bool usingLinearFiltering)
 {
+
+    if(has_alpha)
+        if(target->_opaque)
+            BitmapToVideoMemFast<true,true>(bitmap,tile, target,dst_ptr, dst_pitch, usingLinearFiltering);
+        else
+            BitmapToVideoMemFast<true,false>(bitmap,tile, target,dst_ptr, dst_pitch, usingLinearFiltering);
+    else
+        if(target->_opaque)
+            BitmapToVideoMemFast<false,true>(bitmap,tile, target,dst_ptr, dst_pitch, usingLinearFiltering);
+        else
+            BitmapToVideoMemFast<false,false>(bitmap,tile, target,dst_ptr, dst_pitch, usingLinearFiltering);
+    return;
+
   const int src_depth = bitmap->GetColorDepth();
   bool lastPixelWasTransparent = false;
   for (int y = 0; y < tile->height; y++)
@@ -429,6 +442,50 @@ void VideoMemoryGraphicsDriver::BitmapToVideoMem(const Bitmap *bitmap, const boo
 
     dst_ptr += dst_pitch;
   }
+}
+
+template<bool has_alpha, bool opaque>
+void VideoMemoryGraphicsDriver::BitmapToVideoMemFast(const Bitmap *bitmap,const TextureTile *tile, const VideoMemDDB *target,
+    char *dst_ptr, const int dst_pitch, const bool usingLinearFiltering)
+{
+    const int src_depth = bitmap->GetColorDepth();
+    bool lastPixelWasTransparent = false;
+
+    const uint8_t *srcPtr8 = bitmap->GetScanLine(tile->y);
+    srcPtr8 += tile->x * tile->width * 4;
+    unsigned int* memPtrLong = (unsigned int*)dst_ptr;
+    uint8_t* dstPtr8 = (uint8_t*)dst_ptr;
+    for(int y = 0; y < tile->height; y++)
+    {
+        for(int x = 0; x < tile->width; x++)
+        {
+            if(*(unsigned int*)srcPtr8 == MASK_COLOR_32)
+            {
+                if(target->_opaque)  // set to black if opaque
+                    *(int32_t*)dstPtr8 = 0xFF000000;
+                else if(!usingLinearFiltering)
+                    *(int32_t*)dstPtr8 = 0;
+                else
+                    *(int32_t*)dstPtr8 = 0;
+                dstPtr8 += 4;
+                srcPtr8 += 4;
+            }
+            else 
+            {
+                //TODO - it would be nice if we could swap this in the shader to save some time here
+                dstPtr8[3] = srcPtr8[3];
+                dstPtr8[0] = srcPtr8[2];
+                dstPtr8[1] = srcPtr8[1];
+                dstPtr8[2] = srcPtr8[0];
+                if(!has_alpha)
+                    dstPtr8[3] = 0xFF;
+                dstPtr8 += 4;
+                srcPtr8 += 4;
+            }
+        }
+        dstPtr8 += dst_pitch - tile->width*4;
+        srcPtr8 += 4*(bitmap->GetWidth() - tile->width);
+    } //Y loop
 }
 
 } // namespace Engine

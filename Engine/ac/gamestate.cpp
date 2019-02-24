@@ -40,6 +40,12 @@ GameState::GameState()
     _cameraHasChanged = false;
 }
 
+void GameState::Free()
+{
+    raw_drawing_surface.reset();
+    FreeProperties();
+}
+
 const Size &GameState::GetNativeSize() const
 {
     return _nativeSize;

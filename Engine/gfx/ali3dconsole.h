@@ -102,6 +102,7 @@ namespace AGS
 				int _lightLevel;
 				bool _hasAlpha;
 				int _transparency;
+				int _aging;
 				AGSCON::Graphics::VertexBuffer* _vertex;
 
 				DDTextureTile *_tiles;
@@ -124,10 +125,18 @@ namespace AGS
 					_vertex = NULL;
 					_tiles = NULL;
 					_numTiles = 0;
+					_aging = 0;
+				}
+
+				void Recycle()
+				{
+					_aging = 0;
 				}
 
 				int GetWidthToRender() { return (_stretchToWidth > 0) ? _stretchToWidth : _width; }
 				int GetHeightToRender() { return (_stretchToHeight > 0) ? _stretchToHeight : _height; }
+
+				bool GetOpaque() const { return _opaque; }
 
 				void Dispose();
 
@@ -202,11 +211,13 @@ namespace AGS
 				ConsoleGraphicsDriver();
 				virtual ~ConsoleGraphicsDriver();
 
+
 			private:
 
 				friend class ConsoleGraphicsFactory;
 
 				void Init();
+				DDBitmap* GetPooledDDB(Bitmap *bitmap, bool hasAlpha, bool opaque);
 
 				bool _initialized;
 				PConsoleFilter _filter;
@@ -236,6 +247,9 @@ namespace AGS
 				// find out if it's possible to reimplement these effects in main drawing routine.
 				SpriteBatchDescs _backupBatchDescs;
 				DDSpriteBatches _backupBatches;
+
+				//resource pooling
+				std::vector<DDBitmap*> ddbitmaps_pool;
 
 				// Called after new mode was successfully initialized
 				virtual void InitSpriteBatch(size_t index, const SpriteBatchDesc &desc);

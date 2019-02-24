@@ -733,6 +733,24 @@ namespace AGS
 				AGSCON::Graphics::BeginFrame();
 				_render(flip, clearDrawListAfterwards);
 				AGSCON::Graphics::EndFrame();
+
+				//age the contents of the pool to purge stale stuff
+				//anything older than ~0.2 seconds is assumed not likely to be reused soon
+				//ideally this would be pinged whenever the scene reloads (room change) so we could purge everything
+				//we want to avoid recreating resources for stuff that happens in cycles, but right now we can't handle very long cycles (else we get it confused with room changes)
+				//so for now i have it set to a small value which is not likely to exceed room fade-out time
+				//also note: this is done after EndFrame to ensure textures have finished rendering (and vertex buffers are done being used)
+				for(int i=0;i<(int)ddbitmaps_pool.size();i++)
+				{
+					DDBitmap* ddb = ddbitmaps_pool[i];
+					ddb->_aging++;
+					if(ddb->_aging>6)
+					{
+						std::swap(ddbitmaps_pool[ddbitmaps_pool.size()-1],ddbitmaps_pool[i]);
+						ddbitmaps_pool.resize(ddbitmaps_pool.size()-1);
+						delete ddb;
+					}
+				}
 			}
 
 			void ConsoleGraphicsDriver::_render(GlobalFlipType flip, bool clearDrawListAfterwards)
@@ -940,7 +958,8 @@ namespace AGS
 							drawlist[i].skip = true;
 					}
 				}
-				delete bitmap;
+
+				ddbitmaps_pool.push_back((DDBitmap*)bitmap);
 			}
 
 			void ConsoleGraphicsDriver::UpdateTextureRegion(DDTextureTile *tile, Bitmap *bitmap, DDBitmap *target, bool hasAlpha)
@@ -1028,6 +1047,25 @@ namespace AGS
 				*height = allocatedHeight;
 			}
 
+			DDBitmap* ConsoleGraphicsDriver::GetPooledDDB(Bitmap *bitmap, bool hasAlpha, bool opaque)
+			{
+				for(int i=0;i<(int)ddbitmaps_pool.size();i++)
+				{
+					DDBitmap* ddb = ddbitmaps_pool[i];
+					bool match = true;
+					match &= ddb->GetWidth() == bitmap->GetWidth();
+					match &= ddb->GetHeight() == bitmap->GetHeight();
+					match &= ddb->GetColorDepth() == bitmap->GetColorDepth();
+					match &= ddb->GetOpaque() == opaque;
+					if(match)
+					{
+						ddbitmaps_pool.erase(ddbitmaps_pool.begin()+i);
+						ddb->Recycle();
+						return ddb;
+					}
+				}
+				return nullptr;
+			}
 
 			IDriverDependantBitmap* ConsoleGraphicsDriver::CreateDDBFromBitmap(Bitmap *bitmap, bool hasAlpha, bool opaque)
 			{
@@ -1035,91 +1073,96 @@ namespace AGS
 				int allocatedHeight = bitmap->GetHeight();
 				if (bitmap->GetColorDepth() != GetCompatibleBitmapFormat(bitmap->GetColorDepth()))
 					throw Ali3DException("CreateDDBFromBitmap: bitmap colour depth not supported");
-				int colourDepth = bitmap->GetColorDepth();
+				int colorDepth = bitmap->GetColorDepth();
 
-				DDBitmap *ddb = new DDBitmap(bitmap->GetWidth(), bitmap->GetHeight(), colourDepth, opaque);
-
-				AdjustSizeToNearestSupportedByCard(&allocatedWidth, &allocatedHeight);
-				int tilesAcross = 1, tilesDown = 1;
-
-				AGSCON::Graphics::ImageRequest req;
-				AGSCON::Graphics::ImageReport report;
-				req.Width = allocatedWidth;
-				req.Height = allocatedHeight;
-
-				AGSCON::Graphics::MakeImageRequest(&req, &report);
-
-				int maxWidth = report.MaxWidth;
-				int maxHeight = report.MaxHeight;
-
-				//maxWidth = 64; //TEST: this is just for testing. why not?
-				//maxHeight = 64; //TEST: this is just for testing. why not?
-
-				// Calculate how many textures will be necessary to
-				// store this image
-				tilesAcross = (allocatedWidth + maxWidth - 1) / maxWidth;
-				tilesDown = (allocatedHeight + maxHeight - 1) / maxHeight;
-				int tileWidth = bitmap->GetWidth() / tilesAcross;
-				int lastTileExtraWidth = bitmap->GetWidth() % tilesAcross;
-				int tileHeight = bitmap->GetHeight() / tilesDown;
-				int lastTileExtraHeight = bitmap->GetHeight() % tilesDown;
-				int tileAllocatedWidth = tileWidth;
-				int tileAllocatedHeight = tileHeight;
-
-				AdjustSizeToNearestSupportedByCard(&tileAllocatedWidth, &tileAllocatedHeight);
-
-				int numTiles = tilesAcross * tilesDown;
-				DDTextureTile *tiles = (DDTextureTile*)malloc(sizeof(DDTextureTile) * numTiles);
-				memset(tiles, 0, sizeof(DDTextureTile) * numTiles);
-
-				COOLCUSTOMVERTEX *vertices = new COOLCUSTOMVERTEX[numTiles*4];
-
-				for (int x = 0; x < tilesAcross; x++)
+				//check pool for anything we can reuse
+				DDBitmap* ddb = GetPooledDDB(bitmap, hasAlpha,opaque);
+				if(!ddb)
 				{
-					for (int y = 0; y < tilesDown; y++)
+					ddb = new DDBitmap(bitmap->GetWidth(), bitmap->GetHeight(), colorDepth, opaque);
+
+					AdjustSizeToNearestSupportedByCard(&allocatedWidth, &allocatedHeight);
+					int tilesAcross = 1, tilesDown = 1;
+
+					AGSCON::Graphics::ImageRequest req;
+					AGSCON::Graphics::ImageReport report;
+					req.Width = allocatedWidth;
+					req.Height = allocatedHeight;
+
+					AGSCON::Graphics::MakeImageRequest(&req, &report);
+
+					int maxWidth = report.MaxWidth;
+					int maxHeight = report.MaxHeight;
+
+					//maxWidth = 64; //TEST: this is just for testing. why not?
+					//maxHeight = 64; //TEST: this is just for testing. why not?
+
+					// Calculate how many textures will be necessary to
+					// store this image
+					tilesAcross = (allocatedWidth + maxWidth - 1) / maxWidth;
+					tilesDown = (allocatedHeight + maxHeight - 1) / maxHeight;
+					int tileWidth = bitmap->GetWidth() / tilesAcross;
+					int lastTileExtraWidth = bitmap->GetWidth() % tilesAcross;
+					int tileHeight = bitmap->GetHeight() / tilesDown;
+					int lastTileExtraHeight = bitmap->GetHeight() % tilesDown;
+					int tileAllocatedWidth = tileWidth;
+					int tileAllocatedHeight = tileHeight;
+
+					AdjustSizeToNearestSupportedByCard(&tileAllocatedWidth, &tileAllocatedHeight);
+
+					int numTiles = tilesAcross * tilesDown;
+					DDTextureTile *tiles = (DDTextureTile*)malloc(sizeof(DDTextureTile) * numTiles);
+					memset(tiles, 0, sizeof(DDTextureTile) * numTiles);
+
+					COOLCUSTOMVERTEX *vertices = new COOLCUSTOMVERTEX[numTiles*4];
+
+					for (int x = 0; x < tilesAcross; x++)
 					{
-						DDTextureTile *thisTile = &tiles[y * tilesAcross + x];
-						int thisAllocatedWidth = tileAllocatedWidth;
-						int thisAllocatedHeight = tileAllocatedHeight;
-						thisTile->x = x * tileWidth;
-						thisTile->y = y * tileHeight;
-						thisTile->width = tileWidth;
-						thisTile->height = tileHeight;
-						if (x == tilesAcross - 1) 
+						for (int y = 0; y < tilesDown; y++)
 						{
-							thisTile->width += lastTileExtraWidth;
-							thisAllocatedWidth = thisTile->width;
-							AdjustSizeToNearestSupportedByCard(&thisAllocatedWidth, &thisAllocatedHeight);
-						}
-						if (y == tilesDown - 1) 
-						{
-							thisTile->height += lastTileExtraHeight;
-							thisAllocatedHeight = thisTile->height;
-							AdjustSizeToNearestSupportedByCard(&thisAllocatedWidth, &thisAllocatedHeight);
-						}
-
-						for (int vidx = 0; vidx < 4; vidx++)
-						{
-							int i = (y * tilesAcross + x) * 4 + vidx;
-							vertices[i] = defaultVertices[vidx];
-							if (vertices[i].tu > 0.0)
+							DDTextureTile *thisTile = &tiles[y * tilesAcross + x];
+							int thisAllocatedWidth = tileAllocatedWidth;
+							int thisAllocatedHeight = tileAllocatedHeight;
+							thisTile->x = x * tileWidth;
+							thisTile->y = y * tileHeight;
+							thisTile->width = tileWidth;
+							thisTile->height = tileHeight;
+							if (x == tilesAcross - 1) 
 							{
-								vertices[i].tu = (float)thisTile->width / (float)thisAllocatedWidth;
+								thisTile->width += lastTileExtraWidth;
+								thisAllocatedWidth = thisTile->width;
+								AdjustSizeToNearestSupportedByCard(&thisAllocatedWidth, &thisAllocatedHeight);
 							}
-							if (vertices[i].tv > 0.0)
+							if (y == tilesDown - 1) 
 							{
-								vertices[i].tv = (float)thisTile->height / (float)thisAllocatedHeight;
+								thisTile->height += lastTileExtraHeight;
+								thisAllocatedHeight = thisTile->height;
+								AdjustSizeToNearestSupportedByCard(&thisAllocatedWidth, &thisAllocatedHeight);
 							}
-						}
 
-						thisTile->texture = AGSCON::Graphics::Texture_Create(thisAllocatedWidth, thisAllocatedHeight);
+							for (int vidx = 0; vidx < 4; vidx++)
+							{
+								int i = (y * tilesAcross + x) * 4 + vidx;
+								vertices[i] = defaultVertices[vidx];
+								if (vertices[i].tu > 0.0)
+								{
+									vertices[i].tu = (float)thisTile->width / (float)thisAllocatedWidth;
+								}
+								if (vertices[i].tv > 0.0)
+								{
+									vertices[i].tv = (float)thisTile->height / (float)thisAllocatedHeight;
+								}
+							}
+
+							thisTile->texture = AGSCON::Graphics::Texture_Create(thisAllocatedWidth, thisAllocatedHeight);
+						}
 					}
+
+					ddb->_vertex = AGSCON::Graphics::VertexBuffer_Create(AGSCON::Graphics::shaders.standardVertexLayout, numTiles*4, vertices);
+
+					ddb->_numTiles = numTiles;
+					ddb->_tiles = tiles;
 				}
-
-				ddb->_vertex = AGSCON::Graphics::VertexBuffer_Create(AGSCON::Graphics::shaders.standardVertexLayout, numTiles*4, vertices);
-
-				ddb->_numTiles = numTiles;
-				ddb->_tiles = tiles;
 
 				UpdateDDBFromBitmap(ddb, bitmap, hasAlpha);
 

@@ -91,7 +91,20 @@ int File_Exists(const char *fnmm) {
   if (!ResolveScriptPath(fnmm, true, path, alt_path))
     return 0;
 
-  return (File::TestReadFile(path) || File::TestReadFile(alt_path)) ? 1 : 0;
+  if(File::TestReadFile(path))
+      return 1;
+
+  //alt_path is allowed to be empty, due to complex resolving rules
+  //empty paths look like directory names once combined with base directory names
+  //some systems allow fopen'ing directories
+  //thus, an empty path would always exist
+  //to avoid this, assume empty paths don't ever exist.
+  //If someone wants to test the existence of a directory, they'll need to do something else
+  if(alt_path.GetLength()==0)
+      return 0;
+
+  if(File::TestReadFile(alt_path))
+      return 1;
 }
 
 int File_Delete(const char *fnmm) {

@@ -14,9 +14,8 @@
 
 #include "core/types.h"
 #include "ac/spritecache.h"
-#include "font/fonts.h"
 #include "gui/guibutton.h"
-#include "gui/guimain.h"
+#include "gui/guimain.h" // TODO: extract helper functions
 #include "util/stream.h"
 #include "util/string_utils.h"
 

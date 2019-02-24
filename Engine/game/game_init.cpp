@@ -117,6 +117,8 @@ String GetGameInitErrorText(GameInitErrorType err)
         return "No fonts specified to be used in this game.";
     case kGameInitErr_TooManyAudioTypes:
         return "Too many audio types for this engine to handle.";
+    case kGameInitErr_EntityInitFail:
+        return "Failed to initialize game entities.";
     case kGameInitErr_TooManyPlugins:
         return "Too many plugins for this engine to handle.";
     case kGameInitErr_PluginNameInvalid:
@@ -198,7 +200,7 @@ void InitAndRegisterDialogOptions()
 }
 
 // Initializes gui and registers them in the script system
-void InitAndRegisterGUI()
+HError InitAndRegisterGUI()
 {
     scrGui = (ScriptGUI*)malloc(sizeof(ScriptGUI) * game.numgui);
     for (int i = 0; i < game.numgui; ++i)
@@ -210,7 +212,9 @@ void InitAndRegisterGUI()
     for (int i = 0; i < game.numgui; ++i)
     {
         // link controls to their parent guis
-        guis[i].RebuildArray();
+        HError err = guis[i].RebuildArray();
+        if (!err)
+            return err;
         // export all the GUI's controls
         export_gui_controls(i);
         // copy the script name to its own memory location
@@ -220,6 +224,7 @@ void InitAndRegisterGUI()
         ccAddExternalDynamicObject(guiScriptObjNames[i], &scrGui[i], &ccDynamicGUI);
         ccRegisterManagedObject(&scrGui[i], &ccDynamicGUI);
     }
+    return HError::None();
 }
 
 // Initializes inventory items and registers them in the script system
@@ -288,13 +293,15 @@ void RegisterStaticArrays()
 }
 
 // Initializes various game entities and registers them in the script system
-void InitAndRegisterGameEntities()
+HError InitAndRegisterGameEntities()
 {
     InitAndRegisterAudioObjects();
     InitAndRegisterCharacters();
     InitAndRegisterDialogs();
     InitAndRegisterDialogOptions();
-    InitAndRegisterGUI();
+    HError err = InitAndRegisterGUI();
+    if (!err)
+        return err;
     InitAndRegisterInvItems();
 
     InitAndRegisterHotspots();
@@ -306,6 +313,7 @@ void InitAndRegisterGameEntities()
     setup_player_character(game.playercharacter);
     if (loaded_game_file_version >= kGameVersion_270)
         ccAddExternalStaticObject("player", &_sc_PlayerCharPtr, &GlobalStaticManager);
+    return HError::None();
 }
 
 void LoadFonts()
@@ -352,7 +360,8 @@ HGameInitError InitGameState(const LoadedGameEntities &ents, GameDataVersion dat
     const ScriptAPIVersion compat_api = (ScriptAPIVersion)game.options[OPT_SCRIPTCOMPATLEV];
     if (data_ver >= kGameVersion_341)
     {
-        const char * const scapi_names[] = {"v3.2.1", "v3.3.0", "v3.3.4", "v3.3.5", "v3.4.0", "v3.4.1", "v3.5.0"};
+        // TODO: find a way to either automate this list of strings or make it more visible and safer to use!!
+        const char * const scapi_names[] = {"v3.2.1", "v3.3.0", "v3.3.4", "v3.3.5", "v3.4.0", "v3.4.1", "v3.5.0", "v3.5.0.7"};
         Debug::Printf(kDbgMsg_Init, "Requested script API: %s (%d), compat level: %s (%d)",
                     base_api >= 0 && base_api <= kScriptAPI_Current ? scapi_names[base_api] : "unknown", base_api,
                     compat_api >= 0 && compat_api <= kScriptAPI_Current ? scapi_names[compat_api] : "unknown", compat_api);
@@ -406,7 +415,9 @@ HGameInitError InitGameState(const LoadedGameEntities &ents, GameDataVersion dat
     play.charProps.resize(game.numcharacters);
     old_dialog_scripts = ents.OldDialogScripts;
     old_speech_lines = ents.OldSpeechLines;
-    InitAndRegisterGameEntities();
+    HError err = InitAndRegisterGameEntities();
+    if (!err)
+        return new GameInitError(kGameInitErr_EntityInitFail, err);
     LoadFonts();
 
     //

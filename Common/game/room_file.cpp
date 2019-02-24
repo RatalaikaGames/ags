@@ -14,15 +14,17 @@
 
 #include "core/types.h"
 #include "ac/common.h" // update_polled_stuff
-#include "ac/spritecache.h"
-#include "ac/wordsdictionary.h"
-#include "debug/out.h"
+#include "ac/common_defines.h"
+#include "ac/gamestructdefines.h"
+#include "ac/wordsdictionary.h" // TODO: extract string decryption
 #include "core/assetmanager.h"
+#include "debug/out.h"
 #include "game/customproperties.h"
-#include "game/roomstruct.h"
 #include "game/room_file.h"
+#include "game/roomstruct.h"
 #include "gfx/bitmap.h"
 #include "script/cc_error.h"
+#include "script/cc_script.h"
 #include "util/compress.h"
 #include "util/string_utils.h"
 
@@ -566,8 +568,8 @@ HRoomFileError ReadRoomBlock(RoomStruct *room, Stream *in, RoomFileBlock block, 
 
 void SkipRoomBlock(Stream *in, RoomFileVersion data_ver)
 {
-    size_t block_len = in->ReadInt32();
-    in->Seek(block_len, Common::kSeekCurrent);
+    soff_t block_len = data_ver < kRoomVersion_350 ? in->ReadInt32() : in->ReadInt64();
+    in->Seek(block_len);
 }
 
 
@@ -704,7 +706,7 @@ HRoomFileError UpdateRoomData(RoomStruct *room, RoomFileVersion data_ver, bool g
         }
     }
 
-    // Convert the old format tint saturation
+    // Convert the old format region tint saturation
     if (data_ver < kRoomVersion_3404)
     {
         for (size_t i = 0; i < room->RegionCount; ++i)
@@ -825,7 +827,7 @@ void WriteMainBlock(const RoomStruct *room, Stream *out)
 
     out->WriteInt32(0); // legacy interaction vars
     out->WriteInt32(MAX_ROOM_REGIONS);
-    
+
     WriteInteractionScripts(room->EventHandlers.get(), out);
     for (size_t i = 0; i < room->HotspotCount; ++i)
         WriteInteractionScripts(room->Hotspots[i].EventHandlers.get(), out);

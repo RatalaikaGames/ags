@@ -28,7 +28,7 @@
 #include "ac/gui.h"
 #include "ac/mouse.h"
 #include "ac/overlay.h"
-#include "ac/record.h"
+#include "ac/sys_events.h"
 #include "ac/screenoverlay.h"
 #include "ac/speech.h"
 #include "ac/string.h"
@@ -43,6 +43,8 @@
 #include "ac/spritecache.h"
 #include "gfx/gfx_util.h"
 #include "util/string_utils.h"
+#include "ac/mouse.h"
+#include "media/audio/soundclip.h"
 
 using AGS::Common::Bitmap;
 namespace BitmapHelper = AGS::Common::BitmapHelper;
@@ -260,7 +262,7 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
         remove_screen_overlay(OVER_TEXTMSG);*/
 
         if (!play.mouse_cursor_hidden)
-            domouse(1);
+            ags_domouse(DOMOUSE_ENABLE);
         // play.skip_display has same values as SetSkipSpeech:
         // 0 = click mouse or key to skip
         // 1 = key only
@@ -271,15 +273,14 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
         int skip_setting = user_to_internal_skip_speech((SkipSpeechStyle)play.skip_display);
         while (1) {
             timerloop = 0;
-            NEXT_ITERATION();
             /*      if (!play.mouse_cursor_hidden)
-            domouse(0);
+            ags_domouse(DOMOUSE_UPDATE);
             write_screen();*/
 
             render_graphics();
 
             update_polled_audio_and_crossfade();
-            if (mgetbutton()>NONE) {
+            if (ags_mgetbutton()>NONE) {
                 // If we're allowed, skip with mouse
                 if (skip_setting & SKIP_MOUSECLICK)
                     break;
@@ -299,7 +300,7 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
 
             if (channels[SCHAN_SPEECH] != NULL) {
                 // extend life of text if the voice hasn't finished yet
-                if ((!rec_isSpeechFinished()) && (play.fast_forward == 0)) {
+                if ((!channels[SCHAN_SPEECH]->done) && (play.fast_forward == 0)) {
                     if (countdown <= 1)
                         countdown = 1;
                 }
@@ -318,7 +319,7 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
                 break;
         }
         if (!play.mouse_cursor_hidden)
-            domouse(2);
+            ags_domouse(DOMOUSE_DISABLE);
         remove_screen_overlay(OVER_TEXTMSG);
 
         construct_virtual_screen(true);
@@ -332,9 +333,9 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
         if (!overlayPositionFixed)
         {
             screenover[nse].positionRelativeToScreen = false;
-            Point roompt = play.ScreenToRoom(screenover[nse].x, screenover[nse].y);
-            screenover[nse].x = roompt.X;
-            screenover[nse].y = roompt.Y;
+            VpPoint vpt = play.ScreenToRoom(screenover[nse].x, screenover[nse].y, false);
+            screenover[nse].x = vpt.first.X;
+            screenover[nse].y = vpt.first.Y;
         }
 
         GameLoopUntilEvent(UNTIL_NOOVERLAY,0);
@@ -371,11 +372,27 @@ void _display_at(int xx,int yy,int wii,const char*todis,int blocking,int asspch,
         stop_speech();
 }
 
-int   source_text_length = -1;
+// TODO: refactor this global variable out; currently it is set at the every get_translation call.
+// Be careful: a number of Say/Display functions expect it to be set beforehand.
+int source_text_length = -1;
 
-int GetTextDisplayTime (const char *text, int canberel) {
-    int uselen = strlen(text);
+int GetTextDisplayLength(const char *text)
+{
+    int len = (int)strlen(text);
+    if ((text[0] == '&') && (play.unfactor_speech_from_textlength != 0))
+    {
+        // if there's an "&12 text" type line, remove "&12 " from the source length
+        size_t j = 0;
+        while ((text[j] != ' ') && (text[j] != 0))
+            j++;
+        j++;
+        len -= j;
+    }
+    return len;
+}
 
+int GetTextDisplayTime(const char *text, int canberel) {
+    int uselen = 0;
     int fpstimer = frames_per_second;
 
     // if it's background speech, make it stay relative to game speed
@@ -389,16 +406,7 @@ int GetTextDisplayTime (const char *text, int canberel) {
         source_text_length = -1;
     }
     else {
-        if ((text[0] == '&') && (play.unfactor_speech_from_textlength != 0)) {
-            // if there's an "&12 text" type line, remove "&12 " from the source
-            // length
-            int j = 0;
-            while ((text[j] != ' ') && (text[j] != 0))
-                j++;
-            j++;
-            uselen -= j;
-        }
-
+        uselen = GetTextDisplayLength(text);
     }
 
     if (uselen <= 0)
@@ -529,8 +537,10 @@ void do_corner(Bitmap *ds, int sprn, int x, int y, int offx, int offy) {
     draw_gui_sprite_v330(ds, sprn, x, y);
 }
 
-int get_but_pic(GUIMain*guo,int indx) {
-    return guibuts[guo->CtrlRefs[indx] & 0x000ffff].Image;
+int get_but_pic(GUIMain*guo,int indx)
+{
+    int butid = guo->GetControlID(indx);
+    return butid >= 0 ? guibuts[butid].Image : 0;
 }
 
 void draw_button_background(Bitmap *ds, int xx1,int yy1,int xx2,int yy2,GUIMain*iep) {

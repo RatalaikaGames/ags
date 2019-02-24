@@ -25,7 +25,10 @@ using AGS::Common::GUIMain;
 int  _display_main(int xx,int yy,int wii,const char*todis,int blocking,int usingfont,int asspch, int isThought, int allowShrink, bool overlayPositionFixed);
 void _display_at(int xx,int yy,int wii,const char*todis,int blocking,int asspch, int isThought, int allowShrink, bool overlayPositionFixed);
 bool ShouldAntiAliasText();
-int GetTextDisplayTime (const char *text, int canberel=0);
+// Calculates meaningful length of the displayed text
+int GetTextDisplayLength(const char *text);
+// Calculates number of game loops for displaying a text on screen
+int GetTextDisplayTime(const char *text, int canberel = 0);
 void wouttext_outline(Common::Bitmap *ds, int xxp, int yyp, int usingfont, color_t text_color, const char *texx);
 void wouttext_aligned (Common::Bitmap *ds, int usexp, int yy, int oriwid, int usingfont, color_t text_color, const char *text, HorAlignment align);
 // TODO: GUI classes located in Common library do not make use of outlining,
@@ -40,6 +43,7 @@ int getfontlinegap(int font);
 int getheightoflines(int font, int numlines);
 int wgettextwidth_compensate(const char *tex, int font);
 void do_corner(Common::Bitmap *ds, int sprn,int xx1,int yy1,int typx,int typy);
+// Returns the image of a button control on the GUI under given child index
 int get_but_pic(GUIMain*guo,int indx);
 void draw_button_background(Common::Bitmap *ds, int xx1,int yy1,int xx2,int yy2,GUIMain*iep);
 // Calculate the width that the left and right border of the textwindow
@@ -56,5 +60,8 @@ void draw_text_window(Common::Bitmap **text_window_ds, bool should_free_ds, int*
 void draw_text_window_and_bar(Common::Bitmap **text_window_ds, bool should_free_ds,
                               int*xins,int*yins,int*xx,int*yy,int*wii,color_t *set_text_color,int ovrheight=0, int ifnum=-1);
 int get_textwindow_padding(int ifnum);
+
+// The efficient length of the last source text prepared for display
+extern int source_text_length;
 
 #endif // __AGS_EE_AC__DISPLAY_H

@@ -21,14 +21,18 @@
 #include "ac/gamestate.h"
 #include "ac/parser.h"
 #include "ac/string.h"
+#include "ac/wordsdictionary.h"
 #include "debug/debug_log.h"
+#include "util/string.h"
+
+using namespace AGS::Common;
 
 extern GameSetupStruct game;
 extern GameState play;
 
 int Parser_FindWordID(const char *wordToFind)
 {
-    return find_word_in_dictionary((char*)wordToFind);
+    return find_word_in_dictionary(wordToFind);
 }
 
 const char* Parser_SaidUnknownWord() {
@@ -52,7 +56,7 @@ int Said (const char *checkwords) {
 
 //=============================================================================
 
-int find_word_in_dictionary (char *lookfor) {
+int find_word_in_dictionary (const char *lookfor) {
     int j;
     if (game.dict == NULL)
         return -1;
@@ -65,20 +69,19 @@ int find_word_in_dictionary (char *lookfor) {
     if (lookfor[0] != 0) {
         // If the word wasn't found, but it ends in 'S', see if there's
         // a non-plural version
-        char *ptat = &lookfor[strlen(lookfor)-1];
+        const char *ptat = &lookfor[strlen(lookfor)-1];
         char lastletter = *ptat;
         if ((lastletter == 's') || (lastletter == 'S') || (lastletter == '\'')) {
-            *ptat = 0;
-            int reslt = find_word_in_dictionary (lookfor);
-            *ptat = lastletter;
-            return reslt;
+            String singular = lookfor;
+            singular.ClipRight(1);
+            return find_word_in_dictionary(singular);
         } 
     }
     return -1;
 }
 
 int is_valid_word_char(char theChar) {
-    if ((std::isalnum(theChar)) || (theChar == '\'') || (theChar == '-')) {
+    if ((std::isalnum((unsigned char)theChar)) || (theChar == '\'') || (theChar == '-')) {
         return 1;
     }
     return 0;
@@ -119,7 +122,7 @@ int FindMatchingMultiWordWord(char *thisword, const char **text) {
 
     if (word >= 0) {
         // yes, a word like "pick up" was found
-        *text = (char*)tempptrAtBestMatch;
+        *text = tempptrAtBestMatch;
         if (thisword != NULL)
             strcpy(thisword, tempword);
     }
@@ -129,7 +132,6 @@ int FindMatchingMultiWordWord(char *thisword, const char **text) {
 
 // parse_sentence: pass compareto as NULL to parse the sentence, or
 // compareto as non-null to check if it matches the passed sentence
-char gl_ParserBuffer[1024]; // FIXME: might need to refactor the whole parser
 int parse_sentence (const char *src_text, int *numwords, short*wordarray, short*compareto, int comparetonum) {
     char thisword[150] = "\0";
     int  i = 0, comparing = 0;
@@ -140,10 +142,9 @@ int parse_sentence (const char *src_text, int *numwords, short*wordarray, short*
     if (compareto == NULL)
         play.bad_parsed_word[0] = 0;
 
-    snprintf(gl_ParserBuffer, sizeof(gl_ParserBuffer) - 1, "%s", src_text);
-    strlwr(gl_ParserBuffer);
-    const char *text = gl_ParserBuffer;
-
+    String uniform_text = src_text;
+    uniform_text.MakeLower();
+    const char *text = uniform_text.GetCStr();
     while (1) {
         if ((compareto != NULL) && (compareto[comparing] == RESTOFLINE))
             return 1;
@@ -233,7 +234,7 @@ int parse_sentence (const char *src_text, int *numwords, short*wordarray, short*
 
                         const char *textStart = &text[1];
 
-                        while ((text[0] == ',') || (std::isalnum(text[0]) != 0))
+                        while ((text[0] == ',') || (std::isalnum((unsigned char)text[0]) != 0))
                             text++;
 
                         continueSearching = 0;

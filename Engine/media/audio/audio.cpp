@@ -17,6 +17,7 @@
 #include "core/types.h"
 #include "util/wgt2allg.h"
 #include "media/audio/audio.h"
+#include "ac/audiocliptype.h"
 #include "ac/gamesetupstruct.h"
 #include "ac/dynobj/cc_audioclip.h"
 #include "ac/dynobj/cc_audiochannel.h"

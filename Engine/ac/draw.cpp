@@ -36,7 +36,7 @@
 #include "ac/mouse.h"
 #include "ac/objectcache.h"
 #include "ac/overlay.h"
-#include "ac/record.h"
+#include "ac/sys_events.h"
 #include "ac/roomobject.h"
 #include "ac/roomstatus.h"
 #include "ac/runtime_defines.h"
@@ -115,7 +115,6 @@ extern int is_complete_overlay;
 extern int cur_mode,cur_cursor;
 extern int mouse_frame,mouse_delay;
 extern int lastmx,lastmy;
-extern int replay_time;
 extern IDriverDependantBitmap *mouseCursor;
 extern int hotx,hoty;
 extern int bg_just_changed;
@@ -1179,16 +1178,16 @@ void get_local_tint(int xpp, int ypp, int nolight,
         if ((play.ground_level_areas_disabled & GLED_EFFECTS) == 0) {
             // check if the player is on a region, to find its
             // light/tint level
-            onRegion = GetRegionAt (xpp, ypp);
+            onRegion = GetRegionIDAtRoom(xpp, ypp);
             if (onRegion == 0) {
                 // when walking, he might just be off a walkable area
-                onRegion = GetRegionAt (xpp - 3, ypp);
+                onRegion = GetRegionIDAtRoom(xpp - 3, ypp);
                 if (onRegion == 0)
-                    onRegion = GetRegionAt (xpp + 3, ypp);
+                    onRegion = GetRegionIDAtRoom(xpp + 3, ypp);
                 if (onRegion == 0)
-                    onRegion = GetRegionAt (xpp, ypp - 3);
+                    onRegion = GetRegionIDAtRoom(xpp, ypp - 3);
                 if (onRegion == 0)
-                    onRegion = GetRegionAt (xpp, ypp + 3);
+                    onRegion = GetRegionIDAtRoom(xpp, ypp + 3);
             }
         }
 
@@ -2318,7 +2317,7 @@ void update_screen() {
 
     // update animating mouse cursor
     if (game.mcurs[cur_cursor].view>=0) {
-        domouse (DOMOUSE_NOCURSOR);
+        ags_domouse(DOMOUSE_NOCURSOR);
         // only on mousemove, and it's not moving
         if (((game.mcurs[cur_cursor].flags & MCF_ANIMMOVE)!=0) &&
             (mousex==lastmx) && (mousey==lastmy)) ;
@@ -2377,7 +2376,7 @@ void update_screen() {
         invalidate_sprite(0, 0, debugConsole, false);
     }
 
-    domouse(DOMOUSE_NOCURSOR);
+    ags_domouse(DOMOUSE_NOCURSOR);
 
     if (!play.mouse_cursor_hidden)
     {
@@ -2386,11 +2385,11 @@ void update_screen() {
     }
 
     /*
-    domouse(1);
+    ags_domouse(DOMOUSE_ENABLE);
     // if the cursor is hidden, remove it again. However, it needs
     // to go on-off in order to update the stored mouse coordinates
     if (play.mouse_cursor_hidden)
-    domouse(2);*/
+    ags_domouse(DOMOUSE_DISABLE);*/
 
     write_screen();
 
@@ -2404,7 +2403,7 @@ void update_screen() {
     }
 
     //if (!play.mouse_cursor_hidden)
-    //    domouse(2);
+    //    ags_domouse(DOMOUSE_DISABLE);
 
     screen_is_dirty = false;
 }

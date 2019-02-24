@@ -54,6 +54,9 @@ typedef System::Drawing::Bitmap SysBitmap;
 typedef AGS::Common::Bitmap AGSBitmap;
 typedef AGS::Common::PBitmap PBitmap;
 
+typedef AGS::Common::Error AGSError;
+typedef AGS::Common::HError HAGSError;
+
 // TODO: do something with this later
 // (those are from 'cstretch' unit)
 extern void Cstretch_blit(BITMAP *src, BITMAP *dst, int sx, int sy, int sw, int sh, int dx, int dy, int dw, int dh);
@@ -586,7 +589,8 @@ const char* save_sprites(bool compressSprites)
 
     // reset the sprite cache
     spriteset.Reset();
-    if (spriteset.InitFile(sprsetname))
+    HAGSError err = spriteset.InitFile(sprsetname);
+    if (!err)
     {
       if (errorMsg == NULL)
         errorMsg = "Unable to re-initialize sprite file after save.";
@@ -1230,7 +1234,8 @@ bool initialize_native()
 	new_font();
 
 	spriteset.Reset();
-	if (spriteset.InitFile(sprsetname))
+	HAGSError err = spriteset.InitFile(sprsetname);
+	if (!err)
 	  return false;
 	spriteset.SetMaxCacheSize(100 * 1024 * 1024);  // 100 mb cache // TODO: set this up in preferences?
 
@@ -1443,18 +1448,19 @@ bool reload_font(int curFont)
   return wloadfont_size(curFont, fi);
 }
 
-bool reset_sprite_file() {
+HAGSError reset_sprite_file() {
   spriteset.Reset();
-  if (spriteset.InitFile(sprsetname))
-    return false;
+  HAGSError err = spriteset.InitFile(sprsetname);
+  if (!err)
+    return err;
   spriteset.SetMaxCacheSize(100 * 1024 * 1024);  // 100 mb cache // TODO: set in preferences?
-  return true;
+  return HAGSError::None();
 }
 
 Common::PluginInfo thisgamePlugins[MAX_PLUGINS];
 int numThisgamePlugins = 0;
 
-const char *init_game_after_import(const AGS::Common::LoadedGameEntities &ents, GameDataVersion data_ver)
+HAGSError init_game_after_import(const AGS::Common::LoadedGameEntities &ents, GameDataVersion data_ver)
 {
     dlgscript = ents.OldDialogSources;
     numNewViews = thisgame.numviews;
@@ -1477,7 +1483,9 @@ const char *init_game_after_import(const AGS::Common::LoadedGameEntities &ents, 
 
     for (int i = 0; i < thisgame.numgui; ++i)
     {
-        guis[i].RebuildArray();
+        HAGSError err = guis[i].RebuildArray();
+        if (!err)
+            return err;
     }
 
     // reset colour 0, it's possible for it to get corrupted
@@ -1486,8 +1494,9 @@ const char *init_game_after_import(const AGS::Common::LoadedGameEntities &ents, 
     palette[0].b = 0;
     set_palette_range(palette, 0, 255, 0);
 
-    if (!reset_sprite_file())
-        return "The sprite file could not be loaded. Ensure that all your game files are intact and not corrupt. The game may require a newer version of AGS.";
+    HAGSError err = reset_sprite_file();
+    if (!err)
+        return err;
 
     for (int i = 0; i < thisgame.numfonts; ++i)
         wfreefont(i);
@@ -1497,10 +1506,10 @@ const char *init_game_after_import(const AGS::Common::LoadedGameEntities &ents, 
     update_abuf_coldepth();
     spritesModified = false;
     thisgame.filever = data_ver;
-    return NULL;
+    return HAGSError::None();
 }
 
-const char *load_dta_file_into_thisgame(const char *fileName)
+HAGSError load_dta_file_into_thisgame(const char *fileName)
 {
     AGS::Common::MainGameSource src;
     AGS::Common::LoadedGameEntities ents(thisgame, dialog, newViews);
@@ -1512,9 +1521,7 @@ const char *load_dta_file_into_thisgame(const char *fileName)
             load_err = AGS::Common::UpdateGameData(ents, src.DataVersion);
     }
     if (!load_err)
-    {
-        return load_err->FullMessage();
-    }
+        return HAGSError(load_err);
     return init_game_after_import(ents, src.DataVersion);
 }
 
@@ -1538,23 +1545,10 @@ void free_script_modules() {
 void free_old_game_data()
 {
   int bb;
-  for (bb=0;bb<MAXGLOBALMES;bb++) {
-    if (thisgame.messages[bb] != NULL)
-      free(thisgame.messages[bb]);
-  }
   for (bb = 0; bb < thisgame.numdialog; bb++) 
   {
 	  if (dialog[bb].optionscripts != NULL)
 		  free(dialog[bb].optionscripts);
-  }
-  thisgame.charProps.clear();
-  if (thisgame.intrChar != NULL)
-  {
-    for (bb = 0; bb < thisgame.numcharacters; bb++)
-      delete thisgame.intrChar[bb];
-    
-    free(thisgame.intrChar);
-    thisgame.intrChar = NULL;
   }
   for (bb = 0; bb < numNewViews; bb++)
   {
@@ -1564,14 +1558,13 @@ void free_old_game_data()
     }
     newViews[bb].Dispose();
   }
-  thisgame.viewNames.clear();
   free(newViews);
   guis.clear();
-  free(thisgame.chars);
-  thisgame.dict->free_memory();
-  free(thisgame.dict);
   free(dialog);
   free_script_modules();
+
+  // free game struct last because it contains object counts
+  thisgame.Free();
 }
 
 // remap the scene, from its current palette oldpale to palette
@@ -1920,7 +1913,7 @@ const char* make_data_file(int numFiles, char * const*fileNames, long splitSize,
   long sizeSoFar = 0;
   bool doSplitting = false;
 
-  for (size_t a = 0; a < numFiles; a++)
+  for (int a = 0; a < numFiles; a++)
   {
 	  if (splitSize > 0)
 	  {
@@ -2010,7 +2003,7 @@ const char* make_data_file(int numFiles, char * const*fileNames, long splitSize,
   {
 	  if (makeFileNameAssumptionsForEXE) 
 	  {
-		  sprintf(outputFileName, "Compiled\\%s", lib.LibFileNames[a]);
+		  sprintf(outputFileName, "Compiled\\%s", lib.LibFileNames[a].GetCStr());
 	  }
 	  else 
 	  {
@@ -2728,9 +2721,7 @@ void ConvertGUIToBinaryFormat(GUI ^guiObj, GUIMain *gui)
   
   gui->Name = ConvertStringToNativeString(guiObj->Name);
 
-  gui->ControlCount = 0;
-  gui->CtrlRefs.resize(guiObj->Controls->Count);
-  gui->Controls.resize(guiObj->Controls->Count);
+  gui->RemoveAllControls();
 
   for each (GUIControl^ control in guiObj->Controls)
   {
@@ -2757,9 +2748,7 @@ void ConvertGUIToBinaryFormat(GUI ^guiObj, GUIMain *gui)
           guibuts[numguibuts].SetText(ConvertStringToNativeString(button->Text));
           guibuts[numguibuts].EventHandlers[0] = ConvertStringToNativeString(button->OnClick);
 		  
-          gui->CtrlRefs[gui->ControlCount] = (Common::kGUIButton << 16) | numguibuts;
-		  gui->Controls[gui->ControlCount] = &guibuts[numguibuts];
-		  gui->ControlCount++;
+          gui->AddControl(Common::kGUIButton, numguibuts, &guibuts[numguibuts]);
 		  numguibuts++;
 	  }
 	  else if (label)
@@ -2771,9 +2760,7 @@ void ConvertGUIToBinaryFormat(GUI ^guiObj, GUIMain *gui)
           Common::String text = ConvertStringToNativeString(label->Text);
 		  guilabels[numguilabels].SetText(text);
 
-		  gui->CtrlRefs[gui->ControlCount] = (Common::kGUILabel << 16) | numguilabels;
-		  gui->Controls[gui->ControlCount] = &guilabels[numguilabels];
-		  gui->ControlCount++;
+          gui->AddControl(Common::kGUILabel, numguilabels, &guilabels[numguilabels]);
 		  numguilabels++;
 	  }
 	  else if (textbox)
@@ -2784,9 +2771,7 @@ void ConvertGUIToBinaryFormat(GUI ^guiObj, GUIMain *gui)
           guitext[numguitext].SetShowBorder(textbox->ShowBorder);
           guitext[numguitext].EventHandlers[0] = ConvertStringToNativeString(textbox->OnActivate);
 
-		  gui->CtrlRefs[gui->ControlCount] = (Common::kGUITextBox << 16) | numguitext;
-		  gui->Controls[gui->ControlCount] = &guitext[numguitext];
-		  gui->ControlCount++;
+          gui->AddControl(Common::kGUITextBox, numguitext, &guitext[numguitext]);
 		  numguitext++;
 	  }
 	  else if (listbox)
@@ -2802,9 +2787,7 @@ void ConvertGUIToBinaryFormat(GUI ^guiObj, GUIMain *gui)
 		  guilist[numguilist].SetShowArrows(listbox->ShowScrollArrows);
           guilist[numguilist].EventHandlers[0] = ConvertStringToNativeString(listbox->OnSelectionChanged);
 
-		  gui->CtrlRefs[gui->ControlCount] = (Common::kGUIListBox << 16) | numguilist;
-		  gui->Controls[gui->ControlCount] = &guilist[numguilist];
-		  gui->ControlCount++;
+          gui->AddControl(Common::kGUIListBox, numguilist, &guilist[numguilist]);
 		  numguilist++;
 	  }
 	  else if (slider)
@@ -2818,9 +2801,7 @@ void ConvertGUIToBinaryFormat(GUI ^guiObj, GUIMain *gui)
 		  guislider[numguislider].BgImage = slider->BackgroundImage;
           guislider[numguislider].EventHandlers[0] = ConvertStringToNativeString(slider->OnChange);
 
-		  gui->CtrlRefs[gui->ControlCount] = (Common::kGUISlider << 16) | numguislider;
-		  gui->Controls[gui->ControlCount] = &guislider[numguislider];
-		  gui->ControlCount++;
+          gui->AddControl(Common::kGUISlider, numguislider, &guislider[numguislider]);
 		  numguislider++;
 	  }
 	  else if (invwindow)
@@ -2830,9 +2811,7 @@ void ConvertGUIToBinaryFormat(GUI ^guiObj, GUIMain *gui)
 		  guiinv[numguiinv].ItemWidth = invwindow->ItemWidth;
 		  guiinv[numguiinv].ItemHeight = invwindow->ItemHeight;
 
-		  gui->CtrlRefs[gui->ControlCount] = (Common::kGUIInvWindow << 16) | numguiinv;
-		  gui->Controls[gui->ControlCount] = &guiinv[numguiinv];
-		  gui->ControlCount++;
+          gui->AddControl(Common::kGUIInvWindow, numguiinv, &guiinv[numguiinv]);
 		  numguiinv++;
 	  }
 	  else if (textwindowedge)
@@ -2841,13 +2820,11 @@ void ConvertGUIToBinaryFormat(GUI ^guiObj, GUIMain *gui)
 		  guibuts[numguibuts].Image = textwindowedge->Image;
 		  guibuts[numguibuts].CurrentImage = guibuts[numguibuts].Image;
 		  
-		  gui->CtrlRefs[gui->ControlCount] = (Common::kGUIButton << 16) | numguibuts;
-		  gui->Controls[gui->ControlCount] = &guibuts[numguibuts];
-		  gui->ControlCount++;
+          gui->AddControl(Common::kGUIButton, numguibuts, &guibuts[numguibuts]);
 		  numguibuts++;
 	  }
 
-      Common::GUIObject *newObj = gui->Controls[gui->ControlCount - 1];
+      Common::GUIObject *newObj = gui->GetControl(gui->GetControlCount() - 1);
 	  newObj->X = control->Left;
 	  newObj->Y = control->Top;
 	  newObj->Width = control->Width;
@@ -3084,7 +3061,8 @@ void ConvertInteractionToScript(System::Text::StringBuilder ^sb, InteractionComm
 		else
 		{
 			OldInteractionVariable^ variableToCheck = game->OldInteractionVariables[intrcmd->Data[0].Value];
-			sprintf(scriptCode, "if (%s == %d) {", variableToCheck->ScriptName, valueToCheck);
+			AGSString str = ConvertStringToNativeString(variableToCheck->ScriptName);
+			sprintf(scriptCode, "if (%s == %d) {", str.GetCStr(), valueToCheck);
 		}
 		sb->AppendLine(gcnew String(scriptCode));
 		break;
@@ -3100,7 +3078,8 @@ void ConvertInteractionToScript(System::Text::StringBuilder ^sb, InteractionComm
 		else
 		{
 			OldInteractionVariable^ variableToCheck = game->OldInteractionVariables[intrcmd->Data[0].Value];
-			sprintf(scriptCode, "%s = %d;", variableToCheck->ScriptName, valueToCheck);
+			AGSString str = ConvertStringToNativeString(variableToCheck->ScriptName);
+			sprintf(scriptCode, "%s = %d;", str.GetCStr(), valueToCheck);
 		}
 		sb->AppendLine(gcnew String(scriptCode));
 		break;
@@ -3200,11 +3179,11 @@ void ConvertInteractions(AGS::Types::Interactions ^interactions, Interaction *in
 // which version is being loaded.
 Game^ import_compiled_game_dta(const char *fileName)
 {
-	const char *errorMsg = load_dta_file_into_thisgame(fileName);
+	HAGSError err = load_dta_file_into_thisgame(fileName);
     loaded_game_file_version = kGameVersion_Current;
-	if (errorMsg != NULL)
+	if (!err)
 	{
-		throw gcnew AGS::Types::AGSEditorException(gcnew String(errorMsg));
+		throw gcnew AGS::Types::AGSEditorException(gcnew String(err->FullMessage()));
 	}
 
 	Game^ game = gcnew Game();
@@ -3534,11 +3513,12 @@ Game^ import_compiled_game_dta(const char *fileName)
 		newGui->ID = i;
 		newGui->Name = gcnew String(guis[i].Name);
 
-		for (int j = 0; j < guis[i].ControlCount; j++)
+		for (int j = 0; j < guis[i].GetControlCount(); j++)
 		{
-            Common::GUIObject* curObj = guis[i].Controls[j];
+            Common::GUIObject* curObj = guis[i].GetControl(j);
 			GUIControl ^newControl = nullptr;
-			switch (guis[i].CtrlRefs[j] >> 16)
+            Common::GUIControlType ctrl_type = guis[i].GetControlType(j);
+			switch (ctrl_type)
 			{
 			case Common::kGUIButton:
 				{
@@ -3632,7 +3612,7 @@ Game^ import_compiled_game_dta(const char *fileName)
 					break;
 				}
 			default:
-				throw gcnew AGSEditorException("Unknown control type found: " + (guis[i].CtrlRefs[j] >> 16));
+				throw gcnew AGSEditorException("Unknown control type found: " + ((int)ctrl_type).ToString());
 			}
 			newControl->Width = (curObj->Width > 0) ? curObj->Width : 1;
 			newControl->Height = (curObj->Height > 0) ? curObj->Height : 1;
@@ -3751,7 +3731,6 @@ AGS::Types::Room^ load_crm_file(UnloadedRoom ^roomToLoad)
 		obj->UseRoomAreaLighting = ((thisroom.Objects[i].Flags & OBJF_USEREGIONTINTS) != 0);
 		ConvertCustomProperties(obj->Properties, &thisroom.Objects[i].Properties);
 
-		CopyInteractions(obj->Interactions, thisroom.Objects[i].EventHandlers.get());
 		if (thisroom.DataVersion < kRoomVersion_300a)
 		{
 			char scriptFuncPrefix[100];
@@ -3775,7 +3754,6 @@ AGS::Types::Room^ load_crm_file(UnloadedRoom ^roomToLoad)
         hotspot->WalkToPoint = System::Drawing::Point(thisroom.Hotspots[i].WalkTo.X, thisroom.Hotspots[i].WalkTo.Y);
 		ConvertCustomProperties(hotspot->Properties, &thisroom.Hotspots[i].Properties);
 
-		CopyInteractions(hotspot->Interactions, thisroom.Hotspots[i].EventHandlers.get());
 		if (thisroom.DataVersion < kRoomVersion_300a)
 		{
 			char scriptFuncPrefix[100];
@@ -3833,7 +3811,6 @@ AGS::Types::Room^ load_crm_file(UnloadedRoom ^roomToLoad)
 		area->TintLuminance = area->UseColourTint ? luminance :
 			Utilities::GetDefaultValue(area->GetType(), "TintLuminance", 0);
 
-		CopyInteractions(area->Interactions, thisroom.Regions[i].EventHandlers.get());
 		if (thisroom.DataVersion < kRoomVersion_300a)
 		{
 			char scriptFuncPrefix[100];
@@ -3850,7 +3827,6 @@ AGS::Types::Room^ load_crm_file(UnloadedRoom ^roomToLoad)
 
 	ConvertCustomProperties(room->Properties, &thisroom.Properties);
 
-	CopyInteractions(room->Interactions, thisroom.EventHandlers.get());
 	if (thisroom.DataVersion < kRoomVersion_300a)
 	{
 		ConvertInteractions(room->Interactions, thisroom.Interaction.get(), "room_", nullptr, 0);

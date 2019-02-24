@@ -19,7 +19,7 @@
 #define __AGS_CN_UTIL__FILESTREAM_H
 
 #include "util/datastream.h"
-#include "util/file.h"
+#include "util/file.h" // TODO: extract filestream mode constants
 #include "util/stdio_compat.h"
 
 namespace AGS
@@ -37,14 +37,6 @@ public:
     virtual bool    HasErrors() const;
     virtual void    Close();
     virtual bool    Flush();
-
-    // TODO
-    // Temporary solution for cases when the code can't live without
-    // having direct access to FILE pointer
-    inline FILE     *GetHandle() const
-    {
-        return _file;
-    }
 
     // Is stream valid (underlying data initialized properly)
     virtual bool    IsValid() const;

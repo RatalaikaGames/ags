@@ -19,6 +19,8 @@
 
 ScriptDateTime* DateTime_Now_Core() {
     ScriptDateTime *sdt = new ScriptDateTime();
+    // TODO: check if it's okay to use larger storage for time() result
+    sdt->rawUnixTime = static_cast<int>(time(NULL));
 
     platform->GetSystemTime(sdt);
 

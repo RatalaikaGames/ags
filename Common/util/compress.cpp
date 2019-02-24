@@ -12,31 +12,21 @@
 //
 //=============================================================================
 
-#include <stdlib.h>
-#include "ac/common.h"	// quit()
-#include "util/compress.h"
-#include "util/lzw.h"
-#include "util/misc.h"
-#include "util/bbop.h"
-#include "util/posix.h"
-
 #ifdef _MANAGED
 // ensure this doesn't get compiled to .NET IL
 #pragma unmanaged
 #endif
 
+#include <stdlib.h>
+#include "ac/common.h"	// quit, update_polled_stuff
+#include "gfx/bitmap.h"
+#include "util/compress.h"
+#include "util/lzw.h"
 #include "util/misc.h"
 #include "util/stream.h"
-#include "gfx/bitmap.h"
+#include "util/posix.h"
 
 using namespace AGS::Common;
-
-#ifndef __WGT4_H
-struct color
-{
-  unsigned char r, g, b;
-};
-#endif
 
 void cpackbitl(unsigned char *line, int size, Stream *out)
 {
@@ -150,7 +140,6 @@ void cpackbitl32(unsigned int *line, int size, Stream *out)
 void csavecompressed(Stream *out, const unsigned char * tobesaved, const color pala[256])
 {
   int widt, hit;
-  soff_t ofes;
   widt = *tobesaved++;
   widt += (*tobesaved++) * 256;
   hit = *tobesaved++;
@@ -175,8 +164,6 @@ void csavecompressed(Stream *out, const unsigned char * tobesaved, const color p
       out->WriteInt8(pala[ww].g);
       out->WriteInt8(pala[ww].b);
   }
-
-  ofes = out->GetPosition();
   free(ress);
 }
 
@@ -296,7 +283,7 @@ int cunpackbitl32(unsigned int *line, int size, Stream *in)
 
 //=============================================================================
 
-char *lztempfnm = "~aclzw.tmp";
+const char *lztempfnm = "~aclzw.tmp";
 
 void save_lzw(Stream *out, const Bitmap *bmpp, const color *pall)
 {
@@ -309,17 +296,17 @@ void save_lzw(Stream *out, const Bitmap *bmpp, const color *pall)
 
   // Now open same file for reading, and begin writing compressed data into required output stream
   lz_temp_s = ci_fopen(lztempfnm);
-  size_t temp_sz = lz_temp_s->GetLength();
+  soff_t temp_sz = lz_temp_s->GetLength();
   out->WriteArray(&pall[0], sizeof(color), 256);
   out->WriteInt32(temp_sz);
-  size_t gobacto = out->GetPosition();
+  soff_t gobacto = out->GetPosition();
 
   // reserve space for compressed size
   out->WriteInt32(temp_sz);
   lzwcompress(lz_temp_s, out);
-  size_t toret = out->GetPosition();
+  soff_t toret = out->GetPosition();
   out->Seek(gobacto, kSeekBegin);
-  size_t compressed_sz = (toret - gobacto) - 4;
+  soff_t compressed_sz = (toret - gobacto) - 4;
   out->WriteInt32(compressed_sz);      // write compressed size
 
   // Delete temp file

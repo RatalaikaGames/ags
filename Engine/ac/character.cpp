@@ -74,7 +74,6 @@ extern ScreenOverlay screenover[MAX_SCREEN_OVERLAYS];
 extern Bitmap *walkable_areas_temp;
 extern IGraphicsDriver *gfxDriver;
 extern Bitmap **actsps;
-extern int source_text_length;
 extern int is_text_overlay;
 extern int said_speech_line;
 extern int numscreenover;
@@ -826,7 +825,7 @@ void Character_SetAsPlayer(CharacterInfo *chaa) {
     if (displayed_room != playerchar->room)
         NewRoom(playerchar->room);
     else   // make sure it doesn't run the region interactions
-        play.player_on_region = GetRegionAt (playerchar->x, playerchar->y);
+        play.player_on_region = GetRegionIDAtRoom(playerchar->x, playerchar->y);
 
     if ((playerchar->activeinv >= 0) && (playerchar->inv[playerchar->activeinv] < 1))
         playerchar->activeinv = -1;
@@ -2199,8 +2198,16 @@ Bitmap *GetCharacterImage(int charid, int *isFlipped)
     return spriteset[sppic];
 }
 
-CharacterInfo *GetCharacterAtLocation(int xx, int yy) {
-    int hsnum = GetCharacterAt(xx, yy);
+CharacterInfo *GetCharacterAtScreen(int xx, int yy) {
+    int hsnum = GetCharIDAtScreen(xx, yy);
+    if (hsnum < 0)
+        return NULL;
+    return &game.chars[hsnum];
+}
+
+CharacterInfo *GetCharacterAtRoom(int x, int y)
+{
+    int hsnum = is_pos_on_character(x, y);
     if (hsnum < 0)
         return NULL;
     return &game.chars[hsnum];
@@ -2332,8 +2339,9 @@ void _DisplaySpeechCore(int chid, const char *displbuf) {
 
     // adjust timing of text (so that DisplaySpeech("%s", str) pauses
     // for the length of the string not 2 frames)
-    if ((int)strlen(displbuf) > source_text_length + 3)
-        source_text_length = strlen(displbuf);
+    int len = (int)strlen(displbuf);
+    if (len > source_text_length + 3)
+        source_text_length = len;
 
     DisplaySpeech(displbuf, chid);
 }
@@ -2341,8 +2349,9 @@ void _DisplaySpeechCore(int chid, const char *displbuf) {
 void _DisplayThoughtCore(int chid, const char *displbuf) {
     // adjust timing of text (so that DisplayThought("%s", str) pauses
     // for the length of the string not 2 frames)
-    if ((int)strlen(displbuf) > source_text_length + 3)
-        source_text_length = strlen(displbuf);
+    int len = (int)strlen(displbuf);
+    if (len > source_text_length + 3)
+        source_text_length = len;
 
     int xpp = -1, ypp = -1, width = -1;
 
@@ -3145,7 +3154,7 @@ RuntimeScriptValue Sc_Character_Say(void *self, const RuntimeScriptValue *params
 {
     API_OBJCALL_SCRIPT_SPRINTF(Character_Say, 1);
     Character_Say((CharacterInfo*)self, scsf_buffer);
-    return RuntimeScriptValue();
+    return RuntimeScriptValue((int32_t)0);
 }
 
 // void (CharacterInfo *chaa, int x, int y, int width, const char *texx)
@@ -3235,7 +3244,7 @@ RuntimeScriptValue Sc_Character_Think(void *self, const RuntimeScriptValue *para
 {
     API_OBJCALL_SCRIPT_SPRINTF(Character_Think, 1);
     Character_Think((CharacterInfo*)self, scsf_buffer);
-    return RuntimeScriptValue();
+    return RuntimeScriptValue((int32_t)0);
 }
 
 //void (CharacterInfo *chaa, int red, int green, int blue, int opacity, int luminance)
@@ -3268,10 +3277,15 @@ RuntimeScriptValue Sc_Character_WalkStraight(void *self, const RuntimeScriptValu
     API_OBJCALL_VOID_PINT3(CharacterInfo, Character_WalkStraight);
 }
 
-// CharacterInfo *(int xx, int yy)
-RuntimeScriptValue Sc_GetCharacterAtLocation(const RuntimeScriptValue *params, int32_t param_count)
+RuntimeScriptValue Sc_GetCharacterAtRoom(const RuntimeScriptValue *params, int32_t param_count)
 {
-    API_SCALL_OBJ_PINT2(CharacterInfo, ccDynamicCharacter, GetCharacterAtLocation);
+    API_SCALL_OBJ_PINT2(CharacterInfo, ccDynamicCharacter, GetCharacterAtRoom);
+}
+
+// CharacterInfo *(int xx, int yy)
+RuntimeScriptValue Sc_GetCharacterAtScreen(const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_SCALL_OBJ_PINT2(CharacterInfo, ccDynamicCharacter, GetCharacterAtScreen);
 }
 
 // ScriptInvItem* (CharacterInfo *chaa)
@@ -3836,7 +3850,8 @@ void RegisterCharacterAPI(ScriptAPIVersion base_api, ScriptAPIVersion compat_api
 	ccAddExternalObjectFunction("Character::Walk^4",                    Sc_Character_Walk);
 	ccAddExternalObjectFunction("Character::WalkStraight^3",            Sc_Character_WalkStraight);
 
-	ccAddExternalStaticFunction("Character::GetAtScreenXY^2",           Sc_GetCharacterAtLocation);
+    ccAddExternalStaticFunction("Character::GetAtRoomXY^2",             Sc_GetCharacterAtRoom);
+	ccAddExternalStaticFunction("Character::GetAtScreenXY^2",           Sc_GetCharacterAtScreen);
 
 	ccAddExternalObjectFunction("Character::get_ActiveInventory",       Sc_Character_GetActiveInventory);
 	ccAddExternalObjectFunction("Character::set_ActiveInventory",       Sc_Character_SetActiveInventory);
@@ -3991,7 +4006,8 @@ void RegisterCharacterAPI(ScriptAPIVersion base_api, ScriptAPIVersion compat_api
     ccAddExternalFunctionForPlugin("Character::UnlockView^1",              (void*)Character_UnlockViewEx);
     ccAddExternalFunctionForPlugin("Character::Walk^4",                    (void*)Character_Walk);
     ccAddExternalFunctionForPlugin("Character::WalkStraight^3",            (void*)Character_WalkStraight);
-    ccAddExternalFunctionForPlugin("Character::GetAtScreenXY^2",           (void*)GetCharacterAtLocation);
+    ccAddExternalFunctionForPlugin("Character::GetAtRoomXY^2",             (void*)GetCharacterAtRoom);
+    ccAddExternalFunctionForPlugin("Character::GetAtScreenXY^2",           (void*)GetCharacterAtScreen);
     ccAddExternalFunctionForPlugin("Character::get_ActiveInventory",       (void*)Character_GetActiveInventory);
     ccAddExternalFunctionForPlugin("Character::set_ActiveInventory",       (void*)Character_SetActiveInventory);
     ccAddExternalFunctionForPlugin("Character::get_Animating",             (void*)Character_GetAnimating);

@@ -37,7 +37,7 @@ extern GameState play;
 extern IGraphicsDriver *gfxDriver;
 extern AGSPlatformDriver *platform;
 
-void my_fade_in(PALLETE p, int speed) {
+void my_fade_in(PALETTE p, int speed) {
     if (game.color_depth > 1) {
         set_palette (p);
 
@@ -147,13 +147,12 @@ ScriptUserObject* Screen_ScreenToRoomPoint(int scrx, int scry)
 {
     multiply_up_coordinates(&scrx, &scry);
 
-    const Rect &view = play.GetRoomViewport();
-    if (!view.IsInside(scrx, scry))
+    VpPoint vpt = play.ScreenToRoom(scrx, scry);
+    if (vpt.second < 0)
         return NULL;
-    Point pt = play.ScreenToRoom(scrx, scry);
 
-    divide_down_coordinates(pt.X, pt.Y);
-    return ScriptStructHelpers::CreatePoint(pt.X, pt.Y);
+    divide_down_coordinates(vpt.first.X, vpt.first.Y);
+    return ScriptStructHelpers::CreatePoint(vpt.first.X, vpt.first.Y);
 }
 
 RuntimeScriptValue Sc_Screen_GetScreenHeight(const RuntimeScriptValue *params, int32_t param_count)

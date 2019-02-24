@@ -12,9 +12,7 @@
 //
 //=============================================================================
 
-#include <stdio.h>
-
-#define USE_CLIB
+#include "ac/audiocliptype.h"
 #include "ac/global_game.h"
 #include "ac/common.h"
 #include "ac/view.h"
@@ -37,7 +35,7 @@
 #include "ac/mouse.h"
 #include "ac/object.h"
 #include "ac/path_helper.h"
-#include "ac/record.h"
+#include "ac/sys_events.h"
 #include "ac/room.h"
 #include "ac/roomstatus.h"
 #include "ac/string.h"
@@ -53,6 +51,7 @@
 #include "script/script.h"
 #include "script/script_runtime.h"
 #include "ac/spritecache.h"
+#include "gfx/bitmap.h"
 #include "gfx/graphicsdriver.h"
 #include "core/assetmanager.h"
 #include "main/game_file.h"
@@ -261,8 +260,9 @@ int RunAGSGame (const char *newgame, unsigned int mode, int data) {
         quitprintf("!RunAGSGame: error loading new game file:\n%s", err->FullMessage().GetCStr());
 
     spriteset.Reset();
-    if (spriteset.InitFile("acsprset.spr"))
-        quit("!RunAGSGame: error loading new sprites");
+    err = spriteset.InitFile("acsprset.spr");
+    if (!err)
+        quitprintf("!RunAGSGame: error loading new sprites:\n%s", err->FullMessage().GetCStr());
 
     if ((mode & RAGMODE_PRESERVEGLOBALINT) == 0) {
         // reset GlobalInts
@@ -535,9 +535,11 @@ void GetLocationName(int xxx,int yyy,char*tempo) {
         return;
     }
     int loctype = GetLocationType (xxx, yyy);
-    Point roompt = play.ScreenToRoomDivDown(xxx, yyy);
-    xxx = roompt.X;
-    yyy = roompt.Y;
+    VpPoint vpt = play.ScreenToRoomDivDown(xxx, yyy);
+    if (vpt.second < 0)
+        return;
+    xxx = vpt.first.X;
+    yyy = vpt.first.Y;
     tempo[0]=0;
     if ((xxx>=thisroom.Width) | (xxx<0) | (yyy<0) | (yyy>=thisroom.Height))
         return;
@@ -622,31 +624,31 @@ int IsKeyPressed (int keycode) {
         else if (keycode == 407) keycode = KEY_ALT;
         else keycode -= AGS_EXT_KEY_SHIFT;
 
-        if (rec_iskeypressed(keycode))
+        if (ags_iskeypressed(keycode))
             return 1;
         // deal with numeric pad keys having different codes to arrow keys
-        if ((keycode == KEY_LEFT) && (rec_iskeypressed(KEY_4_PAD) != 0))
+        if ((keycode == KEY_LEFT) && (ags_iskeypressed(KEY_4_PAD) != 0))
             return 1;
-        if ((keycode == KEY_RIGHT) && (rec_iskeypressed(KEY_6_PAD) != 0))
+        if ((keycode == KEY_RIGHT) && (ags_iskeypressed(KEY_6_PAD) != 0))
             return 1;
-        if ((keycode == KEY_UP) && (rec_iskeypressed(KEY_8_PAD) != 0))
+        if ((keycode == KEY_UP) && (ags_iskeypressed(KEY_8_PAD) != 0))
             return 1;
-        if ((keycode == KEY_DOWN) && (rec_iskeypressed(KEY_2_PAD) != 0))
+        if ((keycode == KEY_DOWN) && (ags_iskeypressed(KEY_2_PAD) != 0))
             return 1;
         // PgDn/PgUp are equivalent to 3 and 9 on numeric pad
-        if ((keycode == KEY_9_PAD) && (rec_iskeypressed(KEY_PGUP) != 0))
+        if ((keycode == KEY_9_PAD) && (ags_iskeypressed(KEY_PGUP) != 0))
             return 1;
-        if ((keycode == KEY_3_PAD) && (rec_iskeypressed(KEY_PGDN) != 0))
+        if ((keycode == KEY_3_PAD) && (ags_iskeypressed(KEY_PGDN) != 0))
             return 1;
         // Home/End are equivalent to 7 and 1
-        if ((keycode == KEY_7_PAD) && (rec_iskeypressed(KEY_HOME) != 0))
+        if ((keycode == KEY_7_PAD) && (ags_iskeypressed(KEY_HOME) != 0))
             return 1;
-        if ((keycode == KEY_1_PAD) && (rec_iskeypressed(KEY_END) != 0))
+        if ((keycode == KEY_1_PAD) && (ags_iskeypressed(KEY_END) != 0))
             return 1;
         // insert/delete have numpad equivalents
-        if ((keycode == KEY_INSERT) && (rec_iskeypressed(KEY_0_PAD) != 0))
+        if ((keycode == KEY_INSERT) && (ags_iskeypressed(KEY_0_PAD) != 0))
             return 1;
-        if ((keycode == KEY_DEL) && (rec_iskeypressed(KEY_DEL_PAD) != 0))
+        if ((keycode == KEY_DEL) && (ags_iskeypressed(KEY_DEL_PAD) != 0))
             return 1;
 
         return 0;
@@ -664,7 +666,7 @@ int IsKeyPressed (int keycode) {
         keycode = KEY_TAB;
     else if (keycode == 13) {
         // check both the main return key and the numeric pad enter
-        if (rec_iskeypressed(KEY_ENTER))
+        if (ags_iskeypressed(KEY_ENTER))
             return 1;
         keycode = KEY_ENTER_PAD;
     }
@@ -674,19 +676,19 @@ int IsKeyPressed (int keycode) {
         keycode = KEY_ESC;
     else if (keycode == '-') {
         // check both the main - key and the numeric pad
-        if (rec_iskeypressed(KEY_MINUS))
+        if (ags_iskeypressed(KEY_MINUS))
             return 1;
         keycode = KEY_MINUS_PAD;
     }
     else if (keycode == '+') {
         // check both the main + key and the numeric pad
-        if (rec_iskeypressed(KEY_EQUALS))
+        if (ags_iskeypressed(KEY_EQUALS))
             return 1;
         keycode = KEY_PLUS_PAD;
     }
     else if (keycode == '/') {
         // check both the main / key and the numeric pad
-        if (rec_iskeypressed(KEY_SLASH))
+        if (ags_iskeypressed(KEY_SLASH))
             return 1;
         keycode = KEY_SLASH_PAD;
     }
@@ -711,7 +713,7 @@ int IsKeyPressed (int keycode) {
         return 0;
     }
 
-    if (rec_iskeypressed(keycode))
+    if (ags_iskeypressed(keycode))
         return 1;
     return 0;
 #else
@@ -768,12 +770,14 @@ void SetMultitasking (int mode) {
 
 extern int getloctype_throughgui, getloctype_index;
 
-void ProcessClick(int xx,int yy,int mood) {
+void RoomProcessClick(int xx,int yy,int mood) {
     getloctype_throughgui = 1;
     int loctype = GetLocationType (xx, yy);
-    Point roompt = play.ScreenToRoomDivDown(xx, yy);
-    xx = roompt.X;
-    yy = roompt.Y;
+    VpPoint vpt = play.ScreenToRoomDivDown(xx, yy);
+    if (vpt.second < 0)
+        return;
+    xx = vpt.first.X;
+    yy = vpt.first.Y;
 
     if ((mood==MODE_WALK) && (game.options[OPT_NOWALKMODE]==0)) {
         int hsnum=get_hotspot_at(xx,yy);
@@ -809,9 +813,11 @@ void ProcessClick(int xx,int yy,int mood) {
 int IsInteractionAvailable (int xx,int yy,int mood) {
     getloctype_throughgui = 1;
     int loctype = GetLocationType (xx, yy);
-    Point roompt = play.ScreenToRoomDivDown(xx, yy);
-    xx = roompt.X;
-    yy = roompt.Y;
+    VpPoint vpt = play.ScreenToRoomDivDown(xx, yy);
+    if (vpt.second < 0)
+        return 0;
+    xx = vpt.first.X;
+    yy = vpt.first.Y;
 
     // You can always walk places
     if ((mood==MODE_WALK) && (game.options[OPT_NOWALKMODE]==0))

@@ -14,6 +14,7 @@
 
 #include "ac/common.h"
 #include "ac/view.h"
+#include "ac/audiocliptype.h"
 #include "ac/audiochannel.h"
 #include "ac/character.h"
 #include "ac/charactercache.h"
@@ -41,7 +42,7 @@
 #include "ac/objectcache.h"
 #include "ac/overlay.h"
 #include "ac/path_helper.h"
-#include "ac/record.h"
+#include "ac/sys_events.h"
 #include "ac/region.h"
 #include "ac/richgamemedia.h"
 #include "ac/room.h"
@@ -65,6 +66,7 @@
 #include "game/savegame.h"
 #include "game/savegame_internal.h"
 #include "gui/animatingguibutton.h"
+#include "gfx/bitmap.h"
 #include "gfx/graphicsdriver.h"
 #include "gfx/gfxfilter.h"
 #include "gui/guidialog.h"
@@ -83,6 +85,7 @@
 #include "util/filestream.h" // TODO: needed only because plugins expect file handle
 #include "util/path.h"
 #include "util/string_utils.h"
+#include "ac/mouse.h"
 #include "util/posix.h"
 
 using namespace AGS::Common;
@@ -201,6 +204,7 @@ char pexbuf[STD_BUFFER_SIZE];
 unsigned int load_new_game = 0;
 int load_new_game_restore = -1;
 
+// TODO: refactor these global vars into function arguments
 int getloctype_index = 0, getloctype_throughgui = 0;
 
 //=============================================================================
@@ -332,13 +336,13 @@ void setup_for_dialog() {
     cbuttfont = play.normal_font;
     acdialog_font = play.normal_font;
     if (!play.mouse_cursor_hidden)
-        domouse(1);
+        ags_domouse(DOMOUSE_ENABLE);
     oldmouse=cur_cursor; set_mouse_cursor(CURS_ARROW);
 }
 void restore_after_dialog() {
     set_mouse_cursor(oldmouse);
     if (!play.mouse_cursor_hidden)
-        domouse(2);
+        ags_domouse(DOMOUSE_DISABLE);
     construct_virtual_screen(true);
 }
 
@@ -513,25 +517,8 @@ void free_do_once_tokens()
 
 
 // Free all the memory associated with the game
-void unload_game_file() {
-    int bb, ee;
-
-    for (bb = 0; bb < game.numcharacters; bb++) {
-        if (game.charScripts != NULL)
-            delete game.charScripts[bb];
-
-        if (game.intrChar != NULL)
-        {
-            if (game.intrChar[bb] != NULL)
-                delete game.intrChar[bb];
-            game.intrChar[bb] = NULL;
-        }
-    }
-    if (game.intrChar != NULL)
-    {
-        free(game.intrChar);
-        game.intrChar = NULL;
-    }
+void unload_game_file()
+{
     characterScriptObjNames.clear();
     free(charextra);
     free(mls);
@@ -540,34 +527,13 @@ void unload_game_file() {
     free(actspswb);
     free(actspswbbmp);
     free(actspswbcache);
-    game.charProps.clear();
-
-    for (bb = 1; bb < game.numinvitems; bb++) {
-        if (game.invScripts != NULL)
-            delete game.invScripts[bb];
-        if (game.intrInv[bb] != NULL)
-            delete game.intrInv[bb];
-        game.intrInv[bb] = NULL;
-    }
-
-    if (game.charScripts != NULL)
-    {
-        delete game.charScripts;
-        delete game.invScripts;
-        game.charScripts = NULL;
-        game.invScripts = NULL;
-    }
-
-    if (game.dict != NULL) {
-        game.dict->free_memory();
-        free (game.dict);
-        game.dict = NULL;
-    }
 
     if ((gameinst != NULL) && (gameinst->pc != 0))
+    {
         quit("Error: unload_game called while script still running");
-    //->AbortAndDestroy (gameinst);
-    else {
+    }
+    else
+    {
         delete gameinstFork;
         delete gameinst;
         gameinstFork = NULL;
@@ -577,7 +543,9 @@ void unload_game_file() {
     gamescript.reset();
 
     if ((dialogScriptsInst != NULL) && (dialogScriptsInst->pc != 0))
+    {
         quit("Error: unload_game called while dialog script still running");
+    }
     else if (dialogScriptsInst != NULL)
     {
         delete dialogScriptsInst;
@@ -586,10 +554,11 @@ void unload_game_file() {
 
     dialogScriptsScript.reset();
 
-    for (ee = 0; ee < numScriptModules; ee++) {
-        delete moduleInstFork[ee];
-        delete moduleInst[ee];
-        scriptModules[ee].reset();
+    for (int i = 0; i < numScriptModules; ++i)
+    {
+        delete moduleInstFork[i];
+        delete moduleInst[i];
+        scriptModules[i].reset();
     }
     moduleInstFork.resize(0);
     moduleInst.resize(0);
@@ -604,30 +573,18 @@ void unload_game_file() {
     runDialogOptionRepExecFunc.moduleHasFunction.resize(0);
     numScriptModules = 0;
 
-    if (game.audioClipCount > 0)
-    {
-        free(game.audioClips);
-        game.audioClipCount = 0;
-        free(game.audioClipTypes);
-        game.audioClipTypeCount = 0;
-    }
-
-    game.viewNames.clear();
-    free (views);
+    free(views);
     views = NULL;
 
-    free (game.chars);
-    game.chars = NULL;
-
-    free (charcache);
+    free(charcache);
     charcache = NULL;
 
     if (splipsync != NULL)
     {
-        for (ee = 0; ee < numLipLines; ee++)
+        for (int i = 0; i < numLipLines; ++i)
         {
-            free(splipsync[ee].endtimeoffs);
-            free(splipsync[ee].frame);
+            free(splipsync[i].endtimeoffs);
+            free(splipsync[i].frame);
         }
         free(splipsync);
         splipsync = NULL;
@@ -635,36 +592,20 @@ void unload_game_file() {
         curLipLine = -1;
     }
 
-    for (ee=0;ee < MAXGLOBALMES;ee++) {
-        if (game.messages[ee]==NULL) continue;
-        free (game.messages[ee]);
-        game.messages[ee] = NULL;
-    }
-
-    for (ee = 0; ee < game.roomCount; ee++)
+    for (int i = 0; i < game.numdialog; ++i)
     {
-        free(game.roomNames[ee]);
+        if (dialog[i].optionscripts != NULL)
+            free(dialog[i].optionscripts);
+        dialog[i].optionscripts = NULL;
     }
-    if (game.roomCount > 0)
-    {
-        free(game.roomNames);
-        free(game.roomNumbers);
-        game.roomCount = 0;
-    }
-
-    for (ee=0;ee<game.numdialog;ee++) {
-        if (dialog[ee].optionscripts!=NULL)
-            free (dialog[ee].optionscripts);
-        dialog[ee].optionscripts = NULL;
-    }
-    free (dialog);
+    free(dialog);
     dialog = NULL;
-    delete [] scrDialog;
+    delete[] scrDialog;
     scrDialog = NULL;
 
-    for (ee = 0; ee < game.numgui; ee++) {
-        free (guibg[ee]);
-        guibg[ee] = NULL;
+    for (int i = 0; i < game.numgui; ++i) {
+        free(guibg[i]);
+        guibg[i] = NULL;
     }
 
     guiScriptObjNames.clear();
@@ -676,14 +617,16 @@ void unload_game_file() {
     ccRemoveAllSymbols();
     ccUnregisterAllObjects();
 
-    for (ee=0;ee<game.numfonts;ee++)
-        wfreefont(ee);
+    for (int i = 0; i < game.numfonts; ++i)
+        wfreefont(i);
 
     free_do_once_tokens();
     free(play.gui_draw_order);
 
     resetRoomStatuses();
 
+    // free game struct last because it contains object counts
+    game.Free();
 }
 
 
@@ -1288,9 +1231,6 @@ void restore_game_play_ex_data(Stream *in)
 
 void restore_game_play(Stream *in)
 {
-    // preserve the replay settings
-    int playback_was = play.playback, recording_was = play.recording;
-    int gamestep_was = play.gamestep;
     int screenfadedout_was = play.screen_is_faded_out;
     int roomchanges_was = play.room_changes;
     // make sure the pointer is preserved
@@ -1299,9 +1239,6 @@ void restore_game_play(Stream *in)
     ReadGameState_Aligned(in);
 
     play.screen_is_faded_out = screenfadedout_was;
-    play.playback = playback_was;
-    play.recording = recording_was;
-    play.gamestep = gamestep_was;
     play.room_changes = roomchanges_was;
     play.gui_draw_order = gui_draw_order_was;
 
@@ -1367,7 +1304,9 @@ void ReadAnimatedButtons_Aligned(Stream *in)
 
 HSaveError restore_game_gui(Stream *in, int numGuisWas)
 {
-    GUI::ReadGUI(guis, in, true);
+    HError err = GUI::ReadGUI(guis, in, true);
+    if (!err)
+        return new SavegameError(kSvgErr_GameObjectInitFailed, err);
     game.numgui = guis.size();
 
     if (numGuisWas != game.numgui)
@@ -1660,8 +1599,10 @@ HSaveError restore_game_data(Stream *in, SavegameVersion svg_version, const Pres
     if (!err)
         return err;
 
-    // [IKM] Plugins expect FILE pointer! // TODO something with this later
-    pl_run_plugin_hooks(AGSE_RESTOREGAME, (long)((Common::FileStream*)in)->GetHandle());
+    auto pluginFileHandle = AGSE_RESTOREGAME;
+    pl_set_file_handle(pluginFileHandle, in);
+    pl_run_plugin_hooks(AGSE_RESTOREGAME, pluginFileHandle);
+    pl_clear_file_handle();
     if (in->ReadInt32() != (unsigned)MAGICNUMBER)
         return new SavegameError(kSvgErr_InconsistentPlugin);
 
@@ -1762,9 +1703,7 @@ HSaveError load_game(const String &path, int slotNumber, bool &data_overwritten)
     our_eip = oldeip;
 
     // ensure keyboard buffer is clean
-    // use the raw versions rather than the rec_ versions so we don't
-    // interfere with the replay sync
-    while (keypressed()) readkey();
+    ags_clear_input_buffer();
     // call "After Restore" event callback
     run_on_event(GE_RESTORE_GAME, RuntimeScriptValue().SetInt32(slotNumber));
     return HSaveError::None();
@@ -1855,9 +1794,11 @@ int __GetLocationType(int xxx,int yyy, int allowHotspot0) {
 
     const int scrx = xxx;
     const int scry = yyy;
-    Point roompt = play.ScreenToRoomDivDown(xxx, yyy);
-    xxx = roompt.X;
-    yyy = roompt.Y;
+    VpPoint vpt = play.ScreenToRoomDivDown(xxx, yyy);
+    if (vpt.second < 0)
+        return 0;
+    xxx = vpt.first.X;
+    yyy = vpt.first.Y;
     if ((xxx>=thisroom.Width) | (xxx<0) | (yyy<0) | (yyy>=thisroom.Height))
         return 0;
 
@@ -1865,7 +1806,7 @@ int __GetLocationType(int xxx,int yyy, int allowHotspot0) {
     // foremost visible to the player
     int charat = is_pos_on_character(xxx,yyy);
     int hsat = get_hotspot_at(xxx,yyy);
-    int objat = GetObjectAt(scrx, scry);
+    int objat = GetObjectIDAtScreen(scrx, scry);
 
     multiply_up_coordinates(&xxx, &yyy);
 
@@ -1924,7 +1865,7 @@ int __GetLocationType(int xxx,int yyy, int allowHotspot0) {
 void display_switch_out()
 {
     switched_away = true;
-    clear_input_buffer();
+    ags_clear_input_buffer();
     // Always unlock mouse when switching out from the game
     Mouse::UnlockFromWindow();
     platform->DisplaySwitchOut();
@@ -1971,7 +1912,7 @@ void display_switch_in()
             platform->EnterFullscreenMode(mode);
     }
     platform->DisplaySwitchIn();
-    clear_input_buffer();
+    ags_clear_input_buffer();
     // If auto lock option is set, lock mouse to the game window
     if (usetup.mouse_auto_lock && scsystem.windowed)
         Mouse::TryLockToWindow();
@@ -1987,11 +1928,9 @@ void display_switch_in_resume()
         }
     }
 
-    // This can cause a segfault on Linux
-#if !defined (LINUX_VERSION)
-    if (gfxDriver->UsesMemoryBackBuffer())  // make sure all borders are cleared
+    // clear the screen if necessary
+    if (gfxDriver && gfxDriver->UsesMemoryBackBuffer())
         gfxDriver->ClearRectangle(0, 0, game.size.Width - 1, game.size.Height - 1, NULL);
-#endif
 
     platform->ResumeApplication();
 }

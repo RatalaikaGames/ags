@@ -15,15 +15,22 @@
 //
 //
 //=============================================================================
-#ifndef __AGS_EE_DYNOBJ__CCAUDIOCLIP_H
-#define __AGS_EE_DYNOBJ__CCAUDIOCLIP_H
+#ifndef __AGS_EE_AC__SYS_EVENTS_H
+#define __AGS_EE_AC__SYS_EVENTS_H
 
-#include "ac/dynobj/cc_agsdynamicobject.h"
+int  ags_getch ();
+int  ags_kbhit ();
+int  ags_iskeypressed (int keycode);
 
-struct CCAudioClip final : AGSCCDynamicObject {
-    virtual const char *GetType();
-    virtual int Serialize(const char *address, char *buffer, int bufsize);
-    virtual void Unserialize(int index, const char *serializedData, int dataSize);
-};
+int  ags_misbuttondown (int but);
+int  ags_mgetbutton();
+void ags_domouse (int what);
+int  ags_check_mouse_wheel ();
 
-#endif // __AGS_EE_DYNOBJ__CCAUDIOCLIP_H
+// Clears buffered keypresses and mouse clicks, if any
+void ags_clear_input_buffer();
+// Halts execution until any user input
+// TODO: seriously not a good design, replace with event listening
+void ags_wait_until_keypress();
+
+#endif // __AGS_EE_AC__SYS_EVENTS_H

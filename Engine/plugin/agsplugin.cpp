@@ -12,10 +12,8 @@
 //
 //=============================================================================
 
-#include <stdio.h>
 #include <vector>
 
-#include "core/types.h"
 #include "util/wgt2allg.h"
 #include "ac/common.h"
 #include "ac/view.h"
@@ -34,7 +32,6 @@
 #include "ac/objectcache.h"
 #include "ac/parser.h"
 #include "ac/path_helper.h"
-#include "ac/record.h"
 #include "ac/roomstatus.h"
 #include "ac/string.h"
 #include "font/fonts.h"
@@ -62,8 +59,11 @@
 #include "ac/dynobj/scriptstring.h"
 #include "main/graphics_mode.h"
 #include "gfx/gfx_util.h"
+#include "util/memory.h"
+#include "util/filestream.h"
 
 using namespace AGS::Common;
+using namespace AGS::Common::Memory;
 using namespace AGS::Engine;
 
 
@@ -312,15 +312,40 @@ void IAGSEngine::GetBitmapDimensions (BITMAP *bmp, int32 *width, int32 *height, 
         coldepth[0] = bitmap_color_depth(bmp);
 }
 
-//These are intended for use by AGSE_SAVEGAME and AGSE_RESTOREGAME events (the file handle will be passed)
-//(see https://www.adventuregamestudio.co.uk/site/ags/plugins/engine/ )
-//Note that these are woefully inadequate services (handles declared as 32bit ints and casted to FILE*, hilariously) 
-//We should deprecate these (spew warnings when used) disable them on non-win32 (and possibly the file-handle passing to AGSE_SAVEGAME etc.), and replace them
-int IAGSEngine::FRead (void *buffer, int32 len, int32 handle) {
-    return fread (buffer, 1, len, (FILE*)handle);
+// On save/restore, the Engine will provide the plugin with a handle. Because we only ever save to one file at a time,
+// we can reuse the same handle.
+
+static long pl_file_handle = -1;
+static Stream *pl_file_stream = nullptr;
+
+void pl_set_file_handle(long data, Stream *stream) {
+    pl_file_handle = data;
+    pl_file_stream = stream;
 }
+
+void pl_clear_file_handle() {
+    pl_file_handle = -1;
+    pl_file_stream = nullptr;
+}
+
+int IAGSEngine::FRead (void *buffer, int32 len, int32 handle) {
+    if (handle != pl_file_handle) {
+        quitprintf("IAGSEngine::FRead: invalid file handle: %d", handle);
+    }
+    if (!pl_file_stream) {
+        quit("IAGSEngine::FRead: file stream not set");
+    }
+    return pl_file_stream->Read(buffer, len);
+}
+
 int IAGSEngine::FWrite (void *buffer, int32 len, int32 handle) {
-    return fwrite (buffer, 1, len, (FILE*)handle);
+    if (handle != pl_file_handle) {
+        quitprintf("IAGSEngine::FWrite: invalid file handle: %d", handle);
+    }
+    if (!pl_file_stream) {
+        quit("IAGSEngine::FWrite: file stream not set");
+    }
+    return pl_file_stream->Write(buffer, len);
 }
 
 void IAGSEngine::DrawTextWrapped (int32 xx, int32 yy, int32 wid, int32 font, int32 color, const char*text)
@@ -399,7 +424,6 @@ extern int  mgetbutton();
 
 void IAGSEngine::PollSystem () {
 
-    NEXT_ITERATION();
     domouse(DOMOUSE_NOCURSOR);
     update_polled_stuff_if_runtime();
     int mbut = mgetbutton();
@@ -441,11 +465,11 @@ void IAGSEngine::RoomToViewport (int32 *x, int32 *y) {
         *y = scrp.Y;
 }
 void IAGSEngine::ViewportToRoom (int32 *x, int32 *y) {
-    Point scrp = play.ScreenToRoom(x ? divide_down_coordinate(*x) : 0, y ? divide_down_coordinate(*y) : 0);
+    VpPoint vpt = play.ScreenToRoom(x ? divide_down_coordinate(*x) : 0, y ? divide_down_coordinate(*y) : 0, false);
     if (x)
-        *x = scrp.X;
+        *x = vpt.first.X;
     if (y)
-        *y = scrp.Y;
+        *y = vpt.first.Y;
 }
 int IAGSEngine::GetNumObjects () {
     return croom->numobj;
@@ -857,7 +881,7 @@ void pl_startup_plugins() {
     }
 }
 
-int pl_run_plugin_hooks (int event, long data) {
+int pl_run_plugin_hooks (int event, int data) {
     int i, retval = 0;
     for (i = 0; i < numPlugins; i++) {
         if (plugins[i].wantHook & event) {

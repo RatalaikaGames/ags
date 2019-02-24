@@ -21,7 +21,6 @@
 #include "ac/cdaudio.h"
 #include "ac/gamesetup.h"
 #include "ac/gamesetupstruct.h"
-#include "ac/record.h"
 #include "ac/roomstatus.h"
 #include "ac/translation.h"
 #include "debug/agseditordebugger.h"
@@ -276,8 +275,6 @@ void quit(const char *quitmsg)
     quit_tell_editor_debugger(qmsg, qreason);
 
     our_eip = 9900;
-
-    stop_recording();
 
     quit_stop_cd();
 

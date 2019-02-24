@@ -12,15 +12,15 @@
 //
 //=============================================================================
 
-#include <stdio.h>
-
+#include "ac/audiocliptype.h"
 #include "ac/dialogtopic.h"
 #include "ac/gamesetupstruct.h"
 #include "ac/spritecache.h"
 #include "ac/view.h"
+#include "ac/wordsdictionary.h"
+#include "ac/dynobj/scriptaudioclip.h"
 #include "core/asset.h"
 #include "core/assetmanager.h"
-#include "debug/out.h"
 #include "game/main_game_file.h"
 #include "gui/guimain.h"
 #include "script/cc_error.h"
@@ -58,7 +58,7 @@ String GetMainGameFileErrorText(MainGameFileErrorType err)
     case kMGFErr_FormatVersionNotSupported:
         return "Format version not supported.";
     case kMGFErr_CapsNotSupported:
-        return "Required engine caps are not supported.";
+        return "The game requires extended capabilities which aren't supported by the engine.";
     case kMGFErr_InvalidNativeResolution:
         return "Unable to determine native game resolution.";
     case kMGFErr_TooManySprites:
@@ -77,6 +77,8 @@ String GetMainGameFileErrorText(MainGameFileErrorType err)
         return "Failed to load dialog script.";
     case kMGFErr_CreateScriptModuleFailed:
         return "Failed to load script module.";
+    case kMGFErr_GameEntityFailed:
+        return "Failed to load one or more game entities.";
     case kMGFErr_PluginDataFmtNotSupported:
         return "Format version of plugin data is not supported.";
     case kMGFErr_PluginDataSizeTooLarge:
@@ -125,9 +127,10 @@ HGameFileError OpenMainGameFileBase(PStream &in, MainGameSource &src)
         return new MainGameFileError(kMGFErr_SignatureFailed);
     // Read data format version and requested engine version
     src.DataVersion = (GameDataVersion)in->ReadInt32();
+    if (src.DataVersion >= kGameVersion_230)
+        src.CompiledWith = StrUtil::ReadString(in.get());
     if (src.DataVersion < kGameVersion_250)
         return new MainGameFileError(kMGFErr_FormatVersionTooOld, String::FromFormat("Required format version: %d, supported %d - %d", src.DataVersion, kGameVersion_250, kGameVersion_Current));
-    src.CompiledWith = StrUtil::ReadString(in.get());
     if (src.DataVersion > kGameVersion_Current)
         return new MainGameFileError(kMGFErr_FormatVersionNotSupported,
             String::FromFormat("Game was compiled with %s. Required format version: %d, supported %d - %d", src.CompiledWith.GetCStr(), src.DataVersion, kGameVersion_250, kGameVersion_Current));
@@ -489,10 +492,10 @@ void UpgradeAudio(GameSetupStruct &game, GameDataVersion data_ver)
     audioClipCount = 1000;
     audioClipTypeCount = 4;
 
-    audioClipTypes = (AudioClipType*)malloc(audioClipTypeCount * sizeof(AudioClipType));
+    audioClipTypes = new AudioClipType[audioClipTypeCount];
     memset(audioClipTypes, 0, audioClipTypeCount * sizeof(AudioClipType));
 
-    audioClips = (ScriptAudioClip*)malloc(audioClipCount * sizeof(ScriptAudioClip));
+    audioClips = new ScriptAudioClip[audioClipCount];
     memset(audioClips, 0, audioClipCount * sizeof(ScriptAudioClip));
 
     // TODO: find out what is 4
@@ -503,7 +506,6 @@ void UpgradeAudio(GameSetupStruct &game, GameDataVersion data_ver)
         audioClipTypes[i].volume_reduction_while_speech_playing = 10;
     }
     audioClipTypes[3].reservedChannels = 0;
-
 
     audioClipCount = 0;
 
@@ -519,7 +521,10 @@ void UpgradeAudio(GameSetupStruct &game, GameDataVersion data_ver)
     if (game_lib)
         BuildAudioClipArray(game, *game_lib);
 
-    audioClips = (ScriptAudioClip*)realloc(audioClips, audioClipCount * sizeof(ScriptAudioClip));
+    ScriptAudioClip *real_clips = new ScriptAudioClip[audioClipCount];
+    memcpy(real_clips, audioClips, audioClipCount);
+    delete[] audioClips;
+    audioClips = real_clips;
     game.scoreClipID = -1;
 }
 
@@ -708,7 +713,9 @@ HGameFileError ReadGameData(LoadedGameEntities &ents, Stream *in, GameDataVersio
 
     ReadDialogs(ents.Dialogs, ents.OldDialogScripts, ents.OldDialogSources, ents.OldSpeechLines,
                 in, data_ver, game.numdialog);
-    GUI::ReadGUI(guis, in);
+    HError err2 = GUI::ReadGUI(guis, in);
+    if (!err2)
+        return new MainGameFileError(kMGFErr_GameEntityFailed, err2);
     game.numgui = guis.size();
 
     if (data_ver >= kGameVersion_260)

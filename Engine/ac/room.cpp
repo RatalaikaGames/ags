@@ -12,7 +12,6 @@
 //
 //=============================================================================
 
-#define USE_CLIB
 #include "util/string_utils.h" //strlwr()
 #include "ac/common.h"
 #include "media/audio/audiodefines.h"
@@ -34,7 +33,7 @@
 #include "ac/overlay.h"
 #include "ac/properties.h"
 #include "ac/region.h"
-#include "ac/record.h"
+#include "ac/sys_events.h"
 #include "ac/room.h"
 #include "ac/roomobject.h"
 #include "ac/roomstatus.h"
@@ -872,7 +871,7 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
     play.gscript_timer=-1;  // avoid screw-ups with changing screens
     play.player_on_region = 0;
     // trash any input which they might have done while it was loading
-    clear_input_buffer();
+    ags_clear_input_buffer();
     // no fade in, so set the palette immediately in case of 256-col sprites
     if (game.color_depth > 1)
         setpal();
@@ -1141,9 +1140,9 @@ RuntimeScriptValue Sc_Room_GetWidth(const RuntimeScriptValue *params, int32_t pa
 }
 
 // void (int xx,int yy,int mood)
-RuntimeScriptValue Sc_ProcessClick(const RuntimeScriptValue *params, int32_t param_count)
+RuntimeScriptValue Sc_RoomProcessClick(const RuntimeScriptValue *params, int32_t param_count)
 {
-    API_SCALL_VOID_PINT3(ProcessClick);
+    API_SCALL_VOID_PINT3(RoomProcessClick);
 }
 
 RuntimeScriptValue Sc_Room_GetCamera(const RuntimeScriptValue *params, int32_t param_count)
@@ -1159,8 +1158,8 @@ void RegisterRoomAPI()
     ccAddExternalStaticFunction("Room::GetTextProperty^1",                  Sc_Room_GetTextProperty);
     ccAddExternalStaticFunction("Room::SetProperty^2",                      Sc_Room_SetProperty);
     ccAddExternalStaticFunction("Room::SetTextProperty^2",                  Sc_Room_SetTextProperty);
-    ccAddExternalStaticFunction("Room::ProcessClick^3",                     Sc_ProcessClick);
-    ccAddExternalStaticFunction("ProcessClick",                             Sc_ProcessClick);
+    ccAddExternalStaticFunction("Room::ProcessClick^3",                     Sc_RoomProcessClick);
+    ccAddExternalStaticFunction("ProcessClick",                             Sc_RoomProcessClick);
     ccAddExternalStaticFunction("Room::get_BottomEdge",                     Sc_Room_GetBottomEdge);
     ccAddExternalStaticFunction("Room::get_ColorDepth",                     Sc_Room_GetColorDepth);
     ccAddExternalStaticFunction("Room::get_Height",                         Sc_Room_GetHeight);

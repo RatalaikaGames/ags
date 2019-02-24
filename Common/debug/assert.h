@@ -18,39 +18,10 @@
 #ifndef __AGS_CN_DEBUG__ASSERT_H
 #define __AGS_CN_DEBUG__ASSERT_H
 
-#ifdef CONSOLE_VERSION
-//what? just #include assert.h if you want assert
-#include <assert.h>
-
-#else
-
-#ifdef _DEBUG
-
-// TODO: revise this later (add platform-specific output maybe?)
-#if defined(WINDOWS_VERSION)
-
-inline void assert(bool expr)
-{
-    if (!expr) {
-        _asm {
-            int 3
-        }
-    }
-}
-
-#else // !WINDOWS_VERSION
-
-#include <assert.h>
-
+#if !defined(_DEBUG) && !defined(NDEBUG)
+#define NDEBUG
 #endif
 
-#else // !_DEBUG
-
-// JJS: GCC has trouble with macro overloading
-inline void assert(bool expr) {}
-
-#endif // !_DEBUG
-
-#endif
+#include <assert.h>
 
 #endif // __AGS_CN_DEBUG__ASSERT_H

@@ -77,7 +77,7 @@ RuntimeScriptValue Sc_sc_AbortGame(const RuntimeScriptValue *params, int32_t par
 {
     API_SCALL_SCRIPT_SPRINTF(_sc_AbortGame, 1);
     _sc_AbortGame(scsf_buffer);
-    return RuntimeScriptValue();
+    return RuntimeScriptValue((int32_t)0);
 }
 
 // void (int inum)
@@ -250,7 +250,7 @@ RuntimeScriptValue Sc_Display(const RuntimeScriptValue *params, int32_t param_co
 {
     API_SCALL_SCRIPT_SPRINTF(Display, 1);
     DisplaySimple(scsf_buffer);
-    return RuntimeScriptValue();
+    return RuntimeScriptValue((int32_t)0);
 }
 
 // void (int xxp,int yyp,int widd,char*texx, ...)
@@ -258,7 +258,7 @@ RuntimeScriptValue Sc_DisplayAt(const RuntimeScriptValue *params, int32_t param_
 {
     API_SCALL_SCRIPT_SPRINTF(DisplayAt, 4);
     DisplayAt(params[0].IValue, params[1].IValue, params[2].IValue, scsf_buffer);
-    return RuntimeScriptValue();
+    return RuntimeScriptValue((int32_t)0);
 }
 
 // void  (int ypos, char *texx)
@@ -290,7 +290,7 @@ RuntimeScriptValue Sc_sc_displayspeech(const RuntimeScriptValue *params, int32_t
 {
     API_SCALL_SCRIPT_SPRINTF(DisplayAt, 2);
     __sc_displayspeech(params[0].IValue, scsf_buffer);
-    return RuntimeScriptValue();
+    return RuntimeScriptValue((int32_t)0);
 }
 
 // void  (int xx, int yy, int wii, int aschar, char*spch)
@@ -310,7 +310,7 @@ RuntimeScriptValue Sc_DisplayThought(const RuntimeScriptValue *params, int32_t p
 {
     API_SCALL_SCRIPT_SPRINTF(DisplayThought, 2);
     DisplayThought(params[0].IValue, scsf_buffer);
-    return RuntimeScriptValue();
+    return RuntimeScriptValue((int32_t)0);
 }
 
 // void (int ypos, int ttexcol, int backcol, char *title, char*texx, ...)
@@ -318,7 +318,7 @@ RuntimeScriptValue Sc_DisplayTopBar(const RuntimeScriptValue *params, int32_t pa
 {
     API_SCALL_SCRIPT_SPRINTF(DisplayTopBar, 5);
     DisplayTopBar(params[0].IValue, params[1].IValue, params[2].IValue, params[3].Ptr, scsf_buffer);
-    return RuntimeScriptValue();
+    return RuntimeScriptValue((int32_t)0);
 }
 
 extern RuntimeScriptValue Sc_enable_cursor_mode(const RuntimeScriptValue *params, int32_t param_count);
@@ -464,7 +464,7 @@ RuntimeScriptValue Sc_FlipScreen(const RuntimeScriptValue *params, int32_t param
 // int (SCRIPT_FLOAT(value), int roundDirection)
 RuntimeScriptValue Sc_FloatToInt(const RuntimeScriptValue *params, int32_t param_count)
 {
-    API_SCALL_INT_PINT2(FloatToInt);
+    API_SCALL_INT_PFLOAT_PINT(FloatToInt);
 }
 
 // void (int who, int tofollow)
@@ -492,9 +492,9 @@ RuntimeScriptValue Sc_GetButtonPic(const RuntimeScriptValue *params, int32_t par
 }
 
 // int  (int xx, int yy)
-RuntimeScriptValue Sc_GetCharacterAt(const RuntimeScriptValue *params, int32_t param_count)
+RuntimeScriptValue Sc_GetCharIDAtScreen(const RuntimeScriptValue *params, int32_t param_count)
 {
-    API_SCALL_INT_PINT2(GetCharacterAt);
+    API_SCALL_INT_PINT2(GetCharIDAtScreen);
 }
 
 // int  (int cha, const char *property)
@@ -572,9 +572,9 @@ RuntimeScriptValue Sc_GetGUIObjectAt(const RuntimeScriptValue *params, int32_t p
 }
 
 // int (int xxx,int yyy)
-RuntimeScriptValue Sc_GetHotspotAt(const RuntimeScriptValue *params, int32_t param_count)
+RuntimeScriptValue Sc_GetHotspotIDAtScreen(const RuntimeScriptValue *params, int32_t param_count)
 {
-    API_SCALL_INT_PINT2(GetHotspotAt);
+    API_SCALL_INT_PINT2(GetHotspotIDAtScreen);
 }
 
 // void (int hotspot, char *buffer)
@@ -668,9 +668,9 @@ RuntimeScriptValue Sc_GetMP3PosMillis(const RuntimeScriptValue *params, int32_t 
 }
 
 // int (int xx,int yy)
-RuntimeScriptValue Sc_GetObjectAt(const RuntimeScriptValue *params, int32_t param_count)
+RuntimeScriptValue Sc_GetObjectIDAtScreen(const RuntimeScriptValue *params, int32_t param_count)
 {
-    API_SCALL_INT_PINT2(GetObjectAt);
+    API_SCALL_INT_PINT2(GetObjectIDAtScreen);
 }
 
 // int (int obn)
@@ -728,9 +728,9 @@ RuntimeScriptValue Sc_GetRawTime(const RuntimeScriptValue *params, int32_t param
 }
 
 // int  (int xxx, int yyy)
-RuntimeScriptValue Sc_GetRegionAt(const RuntimeScriptValue *params, int32_t param_count)
+RuntimeScriptValue Sc_GetRegionIDAtRoom(const RuntimeScriptValue *params, int32_t param_count)
 {
-    API_SCALL_INT_PINT2(GetRegionAt);
+    API_SCALL_INT_PINT2(GetRegionIDAtRoom);
 }
 
 // void  (const char *property, char *bufer)
@@ -815,10 +815,15 @@ RuntimeScriptValue Sc_GetViewportY(const RuntimeScriptValue *params, int32_t par
     API_SCALL_INT(GetViewportY);
 }
 
-// int (int xxx,int yyy)
-RuntimeScriptValue Sc_GetWalkableAreaAt(const RuntimeScriptValue *params, int32_t param_count)
+RuntimeScriptValue Sc_GetWalkableAreaAtRoom(const RuntimeScriptValue *params, int32_t param_count)
 {
-    API_SCALL_INT_PINT2(GetWalkableAreaAt);
+    API_SCALL_INT_PINT2(GetWalkableAreaAtRoom);
+}
+
+// int (int xxx,int yyy)
+RuntimeScriptValue Sc_GetWalkableAreaAtScreen(const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_SCALL_INT_PINT2(GetWalkableAreaAtScreen);
 }
 
 // void (int amnt) 
@@ -860,7 +865,7 @@ RuntimeScriptValue Sc_InterfaceOn(const RuntimeScriptValue *params, int32_t para
 // FLOAT_RETURN_TYPE (int value) 
 RuntimeScriptValue Sc_IntToFloat(const RuntimeScriptValue *params, int32_t param_count)
 {
-    API_SCALL_INT_PINT(IntToFloat);
+    API_SCALL_FLOAT_PINT(IntToFloat);
 }
 
 // void ()
@@ -1304,7 +1309,7 @@ RuntimeScriptValue Sc_RawPrint(const RuntimeScriptValue *params, int32_t param_c
 {
     API_SCALL_SCRIPT_SPRINTF(RawPrint, 3);
     RawPrint(params[0].IValue, params[1].IValue, scsf_buffer);
-    return RuntimeScriptValue();
+    return RuntimeScriptValue((int32_t)0);
 }
 
 // void  (int xx, int yy, int wid, int font, int msgm)
@@ -1906,7 +1911,7 @@ RuntimeScriptValue Sc_SetSkipSpeech(const RuntimeScriptValue *params, int32_t pa
 {
     ASSERT_PARAM_COUNT(SetSkipSpeech, 1);
     SetSkipSpeech((SkipSpeechStyle)params[0].IValue);
-    return RuntimeScriptValue();
+    return RuntimeScriptValue((int32_t)0);
 }
 
 // void (int guin,int objn, int valn)
@@ -1959,7 +1964,7 @@ RuntimeScriptValue Sc_SetTextOverlay(const RuntimeScriptValue *params, int32_t p
     API_SCALL_SCRIPT_SPRINTF(SetTextOverlay, 7);
     SetTextOverlay(params[0].IValue, params[1].IValue, params[2].IValue, params[3].IValue,
                    params[4].IValue, params[5].IValue, scsf_buffer);
-    return RuntimeScriptValue();
+    return RuntimeScriptValue((int32_t)0);
 }
 
 // void  (int guinum)
@@ -2342,7 +2347,7 @@ void RegisterGlobalAPI()
 	ccAddExternalStaticFunction("FollowCharacterEx",        Sc_FollowCharacterEx);
 	ccAddExternalStaticFunction("GetBackgroundFrame",       Sc_GetBackgroundFrame);
 	ccAddExternalStaticFunction("GetButtonPic",             Sc_GetButtonPic);
-	ccAddExternalStaticFunction("GetCharacterAt",           Sc_GetCharacterAt);
+	ccAddExternalStaticFunction("GetCharacterAt",           Sc_GetCharIDAtScreen);
 	ccAddExternalStaticFunction("GetCharacterProperty",     Sc_GetCharacterProperty);
 	ccAddExternalStaticFunction("GetCharacterPropertyText", Sc_GetCharacterPropertyText);
 	ccAddExternalStaticFunction("GetCurrentMusic",          Sc_GetCurrentMusic);
@@ -2356,7 +2361,7 @@ void RegisterGlobalAPI()
 	ccAddExternalStaticFunction("GetGraphicalVariable",     Sc_GetGraphicalVariable);
 	ccAddExternalStaticFunction("GetGUIAt",                 Sc_GetGUIAt);
 	ccAddExternalStaticFunction("GetGUIObjectAt",           Sc_GetGUIObjectAt);
-	ccAddExternalStaticFunction("GetHotspotAt",             Sc_GetHotspotAt);
+	ccAddExternalStaticFunction("GetHotspotAt",             Sc_GetHotspotIDAtScreen);
 	ccAddExternalStaticFunction("GetHotspotName",           Sc_GetHotspotName);
 	ccAddExternalStaticFunction("GetHotspotPointX",         Sc_GetHotspotPointX);
 	ccAddExternalStaticFunction("GetHotspotPointY",         Sc_GetHotspotPointY);
@@ -2373,7 +2378,7 @@ void RegisterGlobalAPI()
 	ccAddExternalStaticFunction("GetMessageText",           Sc_GetMessageText);
 	ccAddExternalStaticFunction("GetMIDIPosition",          Sc_GetMIDIPosition);
 	ccAddExternalStaticFunction("GetMP3PosMillis",          Sc_GetMP3PosMillis);
-	ccAddExternalStaticFunction("GetObjectAt",              Sc_GetObjectAt);
+	ccAddExternalStaticFunction("GetObjectAt",              Sc_GetObjectIDAtScreen);
 	ccAddExternalStaticFunction("GetObjectBaseline",        Sc_GetObjectBaseline);
 	ccAddExternalStaticFunction("GetObjectGraphic",         Sc_GetObjectGraphic);
 	ccAddExternalStaticFunction("GetObjectName",            Sc_GetObjectName);
@@ -2384,7 +2389,7 @@ void RegisterGlobalAPI()
 	//  ccAddExternalStaticFunction("GetPalette",           Sc_scGetPal);
 	ccAddExternalStaticFunction("GetPlayerCharacter",       Sc_GetPlayerCharacter);
 	ccAddExternalStaticFunction("GetRawTime",               Sc_GetRawTime);
-	ccAddExternalStaticFunction("GetRegionAt",              Sc_GetRegionAt);
+	ccAddExternalStaticFunction("GetRegionAt",              Sc_GetRegionIDAtRoom);
 	ccAddExternalStaticFunction("GetRoomProperty",          Sc_Room_GetProperty);
 	ccAddExternalStaticFunction("GetRoomPropertyText",      Sc_GetRoomPropertyText);
 	ccAddExternalStaticFunction("GetSaveSlotDescription",   Sc_GetSaveSlotDescription);
@@ -2400,7 +2405,9 @@ void RegisterGlobalAPI()
 	ccAddExternalStaticFunction("GetTranslationName",       Sc_GetTranslationName);
 	ccAddExternalStaticFunction("GetViewportX",             Sc_GetViewportX);
 	ccAddExternalStaticFunction("GetViewportY",             Sc_GetViewportY);
-	ccAddExternalStaticFunction("GetWalkableAreaAt",        Sc_GetWalkableAreaAt);
+    ccAddExternalStaticFunction("GetWalkableAreaAtRoom",    Sc_GetWalkableAreaAtRoom);
+	ccAddExternalStaticFunction("GetWalkableAreaAt",        Sc_GetWalkableAreaAtScreen);
+    ccAddExternalStaticFunction("GetWalkableAreaAtScreen",  Sc_GetWalkableAreaAtScreen);
 	ccAddExternalStaticFunction("GiveScore",                Sc_GiveScore);
 	ccAddExternalStaticFunction("HasPlayerBeenInRoom",      Sc_HasPlayerBeenInRoom);
 	ccAddExternalStaticFunction("HideMouseCursor",          Sc_HideMouseCursor);
@@ -2711,7 +2718,7 @@ void RegisterGlobalAPI()
     ccAddExternalFunctionForPlugin("FollowCharacterEx",        (void*)FollowCharacterEx);
     ccAddExternalFunctionForPlugin("GetBackgroundFrame",       (void*)GetBackgroundFrame);
     ccAddExternalFunctionForPlugin("GetButtonPic",             (void*)GetButtonPic);
-    ccAddExternalFunctionForPlugin("GetCharacterAt",           (void*)GetCharacterAt);
+    ccAddExternalFunctionForPlugin("GetCharacterAt",           (void*)GetCharIDAtScreen);
     ccAddExternalFunctionForPlugin("GetCharacterProperty",     (void*)GetCharacterProperty);
     ccAddExternalFunctionForPlugin("GetCharacterPropertyText", (void*)GetCharacterPropertyText);
     ccAddExternalFunctionForPlugin("GetCurrentMusic",          (void*)GetCurrentMusic);
@@ -2725,7 +2732,7 @@ void RegisterGlobalAPI()
     ccAddExternalFunctionForPlugin("GetGraphicalVariable",     (void*)GetGraphicalVariable);
     ccAddExternalFunctionForPlugin("GetGUIAt",                 (void*)GetGUIAt);
     ccAddExternalFunctionForPlugin("GetGUIObjectAt",           (void*)GetGUIObjectAt);
-    ccAddExternalFunctionForPlugin("GetHotspotAt",             (void*)GetHotspotAt);
+    ccAddExternalFunctionForPlugin("GetHotspotAt",             (void*)GetHotspotIDAtScreen);
     ccAddExternalFunctionForPlugin("GetHotspotName",           (void*)GetHotspotName);
     ccAddExternalFunctionForPlugin("GetHotspotPointX",         (void*)GetHotspotPointX);
     ccAddExternalFunctionForPlugin("GetHotspotPointY",         (void*)GetHotspotPointY);
@@ -2742,7 +2749,7 @@ void RegisterGlobalAPI()
     ccAddExternalFunctionForPlugin("GetMessageText",           (void*)GetMessageText);
     ccAddExternalFunctionForPlugin("GetMIDIPosition",          (void*)GetMIDIPosition);
     ccAddExternalFunctionForPlugin("GetMP3PosMillis",          (void*)GetMP3PosMillis);
-    ccAddExternalFunctionForPlugin("GetObjectAt",              (void*)GetObjectAt);
+    ccAddExternalFunctionForPlugin("GetObjectAt",              (void*)GetObjectIDAtScreen);
     ccAddExternalFunctionForPlugin("GetObjectBaseline",        (void*)GetObjectBaseline);
     ccAddExternalFunctionForPlugin("GetObjectGraphic",         (void*)GetObjectGraphic);
     ccAddExternalFunctionForPlugin("GetObjectName",            (void*)GetObjectName);
@@ -2753,7 +2760,7 @@ void RegisterGlobalAPI()
     //  ccAddExternalFunctionForPlugin("GetPalette",           (void*)scGetPal);
     ccAddExternalFunctionForPlugin("GetPlayerCharacter",       (void*)GetPlayerCharacter);
     ccAddExternalFunctionForPlugin("GetRawTime",               (void*)GetRawTime);
-    ccAddExternalFunctionForPlugin("GetRegionAt",              (void*)GetRegionAt);
+    ccAddExternalFunctionForPlugin("GetRegionAt",              (void*)GetRegionIDAtRoom);
     ccAddExternalFunctionForPlugin("GetRoomProperty",          (void*)Room_GetProperty);
     ccAddExternalFunctionForPlugin("GetRoomPropertyText",      (void*)GetRoomPropertyText);
     ccAddExternalFunctionForPlugin("GetSaveSlotDescription",   (void*)GetSaveSlotDescription);
@@ -2767,7 +2774,9 @@ void RegisterGlobalAPI()
     ccAddExternalFunctionForPlugin("GetTranslationName",       (void*)GetTranslationName);
     ccAddExternalFunctionForPlugin("GetViewportX",             (void*)GetViewportX);
     ccAddExternalFunctionForPlugin("GetViewportY",             (void*)GetViewportY);
-    ccAddExternalFunctionForPlugin("GetWalkableAreaAt",        (void*)GetWalkableAreaAt);
+    ccAddExternalFunctionForPlugin("GetWalkableAreaAtRoom",    (void*)GetWalkableAreaAtRoom);
+    ccAddExternalFunctionForPlugin("GetWalkableAreaAt",        (void*)GetWalkableAreaAtScreen);
+    ccAddExternalFunctionForPlugin("GetWalkableAreaAtScreen",  (void*)GetWalkableAreaAtScreen);
     ccAddExternalFunctionForPlugin("GiveScore",                (void*)GiveScore);
     ccAddExternalFunctionForPlugin("HasPlayerBeenInRoom",      (void*)HasPlayerBeenInRoom);
     ccAddExternalFunctionForPlugin("HideMouseCursor",          (void*)HideMouseCursor);
@@ -2837,7 +2846,7 @@ void RegisterGlobalAPI()
     ccAddExternalFunctionForPlugin("PlaySoundEx",              (void*)PlaySoundEx);
     ccAddExternalFunctionForPlugin("PlaySpeech",               (void*)__scr_play_speech);
     ccAddExternalFunctionForPlugin("PlayVideo",                (void*)scrPlayVideo);
-    ccAddExternalFunctionForPlugin("ProcessClick",             (void*)ProcessClick);
+    ccAddExternalFunctionForPlugin("ProcessClick",             (void*)RoomProcessClick);
     ccAddExternalFunctionForPlugin("QuitGame",                 (void*)QuitGame);
     ccAddExternalFunctionForPlugin("Random",                   (void*)__Rand);
     ccAddExternalFunctionForPlugin("RawClearScreen",           (void*)RawClear);

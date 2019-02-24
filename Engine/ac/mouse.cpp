@@ -46,6 +46,9 @@ extern SpriteCache spriteset;
 extern CharacterInfo*playerchar;
 extern IGraphicsDriver *gfxDriver;
 
+extern void ags_domouse(int str);
+extern int misbuttondown(int buno);
+
 ScriptMouse scmouse;
 int cur_mode,cur_cursor;
 int mouse_frame=0,mouse_delay=0;
@@ -235,9 +238,9 @@ void enable_cursor_mode(int modd) {
     int uu,ww;
 
     for (uu=0;uu<game.numgui;uu++) {
-        for (ww=0;ww<guis[uu].ControlCount;ww++) {
-            if ((guis[uu].CtrlRefs[ww] >> 16)!=kGUIButton) continue;
-            GUIButton*gbpt=(GUIButton*)guis[uu].Controls[ww];
+        for (ww=0;ww<guis[uu].GetControlCount();ww++) {
+            if (guis[uu].GetControlType(ww) != kGUIButton) continue;
+            GUIButton*gbpt=(GUIButton*)guis[uu].GetControl(ww);
             if (gbpt->ClickAction[kMouseLeft]!=kGUIAction_SetMode) continue;
             if (gbpt->ClickData[kMouseLeft]!=modd) continue;
             gbpt->SetEnabled(true);
@@ -252,9 +255,9 @@ void disable_cursor_mode(int modd) {
     int uu,ww;
 
     for (uu=0;uu<game.numgui;uu++) {
-        for (ww=0;ww<guis[uu].ControlCount;ww++) {
-            if ((guis[uu].CtrlRefs[ww] >> 16)!=kGUIButton) continue;
-            GUIButton*gbpt=(GUIButton*)guis[uu].Controls[ww];
+        for (ww=0;ww<guis[uu].GetControlCount();ww++) {
+            if (guis[uu].GetControlType(ww) != kGUIButton) continue;
+            GUIButton*gbpt=(GUIButton*)guis[uu].GetControl(ww);
             if (gbpt->ClickAction[kMouseLeft]!=kGUIAction_SetMode) continue;
             if (gbpt->ClickData[kMouseLeft]!=modd) continue;
             gbpt->SetEnabled(false);
@@ -265,7 +268,7 @@ void disable_cursor_mode(int modd) {
 }
 
 void RefreshMouse() {
-    domouse(DOMOUSE_NOCURSOR);
+    ags_domouse(DOMOUSE_NOCURSOR);
     scmouse.x = divide_down_coordinate(mousex);
     scmouse.y = divide_down_coordinate(mousey);
 }

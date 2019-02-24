@@ -105,6 +105,8 @@ int File_Exists(const char *fnmm) {
 
   if(File::TestReadFile(alt_path))
       return 1;
+
+  return 0;
 }
 
 int File_Delete(const char *fnmm) {

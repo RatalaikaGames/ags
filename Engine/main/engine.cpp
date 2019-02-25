@@ -1521,6 +1521,8 @@ void initialize_engine_console(const char* agsPath, const char* cfgPath)
     usetup.data_files_dir = "";
     usetup.main_data_filename = game_file_name;
 
+    AssetManager::SetDataFile(agsPath);
+
     Debug::Printf(kDbgMsg_Init, "Setting up game configuration");
     apply_config(cfg); //TODO - remove console hacks from here
     post_config(); //not really needed by console, developer can fix his configuration

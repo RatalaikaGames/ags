@@ -1502,6 +1502,12 @@ int _initialize_engine_common()
 
 	allegro_bitmap_test_init();
 
+    //give the console engine one last chance to set some things up before gameplay begins
+    #ifdef CONSOLE_VERSION
+    void console_engine_about_to_start();
+    console_engine_about_to_start();
+    #endif
+
     initialize_start_and_play_game(override_start_room, loadSaveGameOnStartup);
 
     quit("|bye!");

@@ -71,6 +71,9 @@ void split_lines(const char *todis, int wii, int fonnt) {
     theline = textCopyBuffer;
     unescape(theline);
 
+    //MBG HACK: undo line splitting
+    //wii = 1000000;
+
     while (1) {
         splitAt = -1;
 
@@ -99,12 +102,35 @@ void split_lines(const char *todis, int wii, int fonnt) {
         // otherwise, see if we are too wide
         else if (wgettextwidth_compensate(theline, fonnt) >= wii) {
             int endline = i;
-            while ((theline[endline] != ' ') && (endline > 0))
+
+            //ORIGINAL
+            //while ((theline[endline] != ' ') && (endline > 0))
+            //    endline--;
+
+            //UTF-8:
+            for(;;)
+            {
+                if(endline<=0)
+                    break;
+
+                //get the current character
+                wchar_t wc;
+                musl_mbtowc(&wc, theline+endline,len-endline);
+
+                //bail if we could break here
+                if(wc == ' ')
+                    break;
+
+                //work back until we find a valid character
                 endline--;
+                while(-1==musl_mbtowc(&wc, theline+endline,len-endline))
+                    endline--;
+            }
+
 
             // single very wide word, display as much as possible
             if (endline == 0)
-                endline = i - 1;
+                endline = i - musl_mbtowc(nullptr, theline+i,len-i);
 
             splitAt = endline;
         }
@@ -128,10 +154,10 @@ void split_lines(const char *todis, int wii, int fonnt) {
             // skip the space or new line that caused the line break
             if ((theline[0] == ' ') || (theline[0] == '\n'))
                 theline++;
-            i = -1;
+            i = 0;
         }
-
-        i+=codesize;
+        else 
+            i+=codesize;
     }
 }
 

@@ -21,7 +21,16 @@
 
 using namespace AGS::Common;
 
+#ifdef AGS_UTF8
 extern "C" int musl_mbtowc(wchar_t * wc, const char * src, size_t n);
+#define thisfile_mbtowc musl_mbstowcs
+#else
+inline int thisfile_mbtowc(wchar_t * wc, const char * src, size_t n) { 
+    if(n==0) return -1;  //not completely sure about this return value
+    if(wc) *wc = *src; 
+    return 1;
+}
+#endif
 
 #define STD_BUFFER_SIZE 3000
 
@@ -86,11 +95,10 @@ void split_lines(const char *todis, int wii, int fonnt) {
             break;
         }
 
-        //MBG - locale hacks
         //figure out how this character is
-        int codesize = musl_mbtowc(nullptr, theline+i, len-i);
+        int codesize = thisfile_mbtowc(nullptr, theline+i, len-i);
         if(codesize == -1) break;
-        if(codesize+i>len) break;
+        if(codesize+i>(int)len) break;
 
         // temporarily terminate the line here and test its width
         nextCharWas = theline[i + codesize];
@@ -115,7 +123,7 @@ void split_lines(const char *todis, int wii, int fonnt) {
 
                 //get the current character
                 wchar_t wc;
-                musl_mbtowc(&wc, theline+endline,len-endline);
+                thisfile_mbtowc(&wc, theline+endline,len-endline);
 
                 //bail if we could break here
                 if(wc == ' ')
@@ -123,14 +131,14 @@ void split_lines(const char *todis, int wii, int fonnt) {
 
                 //work back until we find a valid character
                 endline--;
-                while(-1==musl_mbtowc(&wc, theline+endline,len-endline))
+                while(-1==thisfile_mbtowc(&wc, theline+endline,len-endline))
                     endline--;
             }
 
 
             // single very wide word, display as much as possible
             if (endline == 0)
-                endline = i - musl_mbtowc(nullptr, theline+i,len-i);
+                endline = i - thisfile_mbtowc(nullptr, theline+i,len-i);
 
             splitAt = endline;
         }

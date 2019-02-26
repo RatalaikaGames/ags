@@ -28,7 +28,10 @@
 //MBG - NEW TEXT ENCODE HANDLING
 //we should ingest nothing but UTF-8; everything else is obsolete
 //MUSL is mit licensed.
+#ifdef AGS_UTF8
 size_t musl_mbstowcs(wchar_t * ws, const char * s, size_t wn);
+#define mbstowcs musl_mbstowcs
+#endif
 //--------------------------------------------
 
 
@@ -834,7 +837,7 @@ void alfont_textout_aa_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen);
-		ret = musl_mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
+		ret = mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
 
 		s_pointer_temp = s_pointer;
 
@@ -930,7 +933,7 @@ void alfont_textout_aa_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int
 	lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 	memset(lpszW, 0, nLen);
 	lpszW_pointer = lpszW;
-    musl_mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
+    mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
 	#endif
   }
   else {
@@ -1996,7 +1999,7 @@ void alfont_textout_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int y,
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen);
-		ret = musl_mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
+		ret = mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
 
 		s_pointer_temp = s_pointer;
 
@@ -2093,7 +2096,7 @@ void alfont_textout_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int y,
 	lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 	memset(lpszW, 0, nLen);
 	lpszW_pointer = lpszW;
-    musl_mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
+    mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
 	#endif
   }
   else {
@@ -2849,7 +2852,7 @@ int alfont_text_length(ALFONT_FONT *f, const char *str) {
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen);
-		ret = musl_mbstowcs((wchar_t *)lpszW, str_pointer, nLen);
+		ret = mbstowcs((wchar_t *)lpszW, str_pointer, nLen);
 
 		str_pointer_temp = str_pointer;
 
@@ -2947,7 +2950,7 @@ int alfont_text_length(ALFONT_FONT *f, const char *str) {
 	lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 	memset(lpszW, 0, nLen);
 	lpszW_pointer = lpszW;
-    musl_mbstowcs((wchar_t *)lpszW, str_pointer, nLen);
+    mbstowcs((wchar_t *)lpszW, str_pointer, nLen);
 	#endif
   }
   else {
@@ -3246,7 +3249,7 @@ int alfont_text_count(ALFONT_FONT *f, const char *str) {
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen);
-		ret = musl_mbstowcs((wchar_t *)lpszW, str_pointer, nLen);
+		ret = mbstowcs((wchar_t *)lpszW, str_pointer, nLen);
 
 		str_pointer_temp = str_pointer;
 
@@ -3348,7 +3351,7 @@ int alfont_text_count(ALFONT_FONT *f, const char *str) {
 	lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 	memset(lpszW, 0, nLen);
 	lpszW_pointer = lpszW;
-	string_count = musl_mbstowcs((wchar_t *)lpszW, str_pointer, nLen);
+	string_count = mbstowcs((wchar_t *)lpszW, str_pointer, nLen);
 	#endif
   }
   else {
@@ -3500,7 +3503,7 @@ int alfont_ugetc(ALFONT_FONT *f, const char *s) {
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen);
-		ret = musl_mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
+		ret = mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
 
 		s_pointer_temp = s_pointer;
 
@@ -3594,7 +3597,7 @@ int alfont_ugetc(ALFONT_FONT *f, const char *s) {
 
 	lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 	memset(lpszW, 0, nLen);
-    musl_mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
+    mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
 	#endif
   }
   else {
@@ -3753,7 +3756,7 @@ int alfont_ugetx(ALFONT_FONT *f, char **s) {
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen);
-		ret = musl_mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
+		ret = mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
 
 		s_pointer_temp = s_pointer;
 
@@ -3847,7 +3850,7 @@ int alfont_ugetx(ALFONT_FONT *f, char **s) {
 
 	lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 	memset(lpszW, 0, nLen);
-    musl_mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
+    mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
 	#endif
   }
   else {
@@ -4069,7 +4072,7 @@ int alfont_ugetxc(ALFONT_FONT *f, const char **s) {
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen);
-		ret = musl_mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
+		ret = mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
 
 		s_pointer_temp = s_pointer;
 
@@ -4163,7 +4166,7 @@ int alfont_ugetxc(ALFONT_FONT *f, const char **s) {
 
 	lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 	memset(lpszW, 0, nLen);
-    musl_mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
+    mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
 	#endif
   }
   else {
@@ -4382,7 +4385,7 @@ void alfont_get_string(ALFONT_FONT *f, const char *s , char **out){
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen);
-		ret = musl_mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
+		ret = mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
 
 		s_pointer_temp = s_pointer;
 
@@ -4476,7 +4479,7 @@ void alfont_get_string(ALFONT_FONT *f, const char *s , char **out){
 
 	lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 	memset(lpszW, 0, nLen);
-    musl_mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
+    mbstowcs((wchar_t *)lpszW, s_pointer, nLen);
 	#endif
   }
   else {
@@ -4633,7 +4636,7 @@ int alfont_need_uconvert(ALFONT_FONT *f, const char *str) {
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen);
-		ret = musl_mbstowcs((wchar_t *)lpszW, str_pointer, nLen);
+		ret = mbstowcs((wchar_t *)lpszW, str_pointer, nLen);
 
 		str_pointer_temp = str_pointer;
 

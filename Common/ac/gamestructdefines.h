@@ -205,6 +205,9 @@ struct FontInfo
     // custom line spacing between two lines of text (0 = use font height)
     int           LineSpacing;
 
+    // Alternative fonts.. so we can add alternatives for different languages
+    int Alternatives[8];
+
     FontInfo();
 };
 

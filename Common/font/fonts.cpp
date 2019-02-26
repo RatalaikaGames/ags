@@ -25,6 +25,7 @@
 using namespace AGS::Common;
 
 int wtext_multiply = 1;
+static int alternative = 0;
 
 namespace AGS
 {
@@ -51,7 +52,14 @@ Font::Font()
 static std::vector<Font> fonts;
 static TTFFontRenderer ttfRenderer;
 static WFNFontRenderer wfnRenderer;
-
+static int remap(int fontNumber)
+{
+    if (fontNumber >= fonts.size() || fontNumber<0)
+        return fontNumber;
+    int test = fonts[fontNumber].Info.Alternatives[alternative];
+    if(test == -1) return fontNumber;
+    return test;
+}
 
 FontInfo::FontInfo()
     : Flags(0)
@@ -59,8 +67,9 @@ FontInfo::FontInfo()
     , Outline(FONT_OUTLINE_NONE)
     , YOffset(0)
     , LineSpacing(0)
-{}
-
+{
+    memset(Alternatives,-1,sizeof(Alternatives));
+}
 
 void init_font_renderer()
 {
@@ -76,6 +85,7 @@ void shutdown_font_renderer()
 
 void adjust_y_coordinate_for_text(int* ypos, size_t fontnum)
 {
+    fontnum = remap(fontnum);
   if (fontnum >= fonts.size() || !fonts[fontnum].Renderer)
     return;
   fonts[fontnum].Renderer->AdjustYCoordinateForFont(ypos, fontnum);
@@ -98,6 +108,7 @@ IAGSFontRenderer* font_replace_renderer(size_t fontNumber, IAGSFontRenderer* ren
 
 bool font_supports_extended_characters(size_t fontNumber)
 {
+    fontNumber = remap(fontNumber);
   if (fontNumber >= fonts.size() || !fonts[fontNumber].Renderer)
     return false;
   return fonts[fontNumber].Renderer->SupportsExtendedCharacters(fontNumber);
@@ -105,6 +116,7 @@ bool font_supports_extended_characters(size_t fontNumber)
 
 void ensure_text_valid_for_font(char *text, size_t fontnum)
 {
+    fontnum = remap(fontnum);
   if (fontnum >= fonts.size() || !fonts[fontnum].Renderer)
     return;
   fonts[fontnum].Renderer->EnsureTextValidForFont(text, fontnum);
@@ -112,6 +124,7 @@ void ensure_text_valid_for_font(char *text, size_t fontnum)
 
 int wgettextwidth(const char *texx, size_t fontNumber)
 {
+    fontNumber = remap(fontNumber);
   if (fontNumber >= fonts.size() || !fonts[fontNumber].Renderer)
     return 0;
   return fonts[fontNumber].Renderer->GetTextWidth(texx, fontNumber);
@@ -119,6 +132,7 @@ int wgettextwidth(const char *texx, size_t fontNumber)
 
 int wgettextheight(const char *text, size_t fontNumber)
 {
+    fontNumber = remap(fontNumber);
   if (fontNumber >= fonts.size() || !fonts[fontNumber].Renderer)
     return 0;
   return fonts[fontNumber].Renderer->GetTextHeight(text, fontNumber);
@@ -126,6 +140,7 @@ int wgettextheight(const char *text, size_t fontNumber)
 
 int get_font_outline(size_t font_number)
 {
+    font_number = remap(font_number);
     if (font_number >= fonts.size())
         return FONT_OUTLINE_NONE;
     return fonts[font_number].Info.Outline;
@@ -140,6 +155,7 @@ void set_font_outline(size_t font_number, int outline_type)
 
 int getfontheight(size_t fontNumber)
 {
+    fontNumber = remap(fontNumber);
   if (fontNumber >= fonts.size() || !fonts[fontNumber].Renderer)
     return 0;
   // There is no explicit method for getting maximal possible height of any
@@ -152,6 +168,7 @@ int getfontheight(size_t fontNumber)
 
 int getfontlinespacing(size_t fontNumber)
 {
+    fontNumber = remap(fontNumber);
   if (fontNumber >= fonts.size())
     return 0;
   int spacing = fonts[fontNumber].Info.LineSpacing;
@@ -162,6 +179,7 @@ int getfontlinespacing(size_t fontNumber)
 
 bool use_default_linespacing(size_t fontNumber)
 {
+    fontNumber = remap(fontNumber);
     if (fontNumber >= fonts.size())
         return false;
     return fonts[fontNumber].Info.LineSpacing == 0;
@@ -169,6 +187,7 @@ bool use_default_linespacing(size_t fontNumber)
 
 void wouttextxy(Common::Bitmap *ds, int xxx, int yyy, size_t fontNumber, color_t text_color, const char *texx)
 {
+    fontNumber = remap(fontNumber);
   if (fontNumber >= fonts.size())
     return;
   yyy += fonts[fontNumber].Info.YOffset;
@@ -212,6 +231,7 @@ bool wloadfont_size(size_t fontNumber, const FontInfo &font_info, const FontRend
 
 void wgtprintf(Common::Bitmap *ds, int xxx, int yyy, size_t fontNumber, color_t text_color, char *fmt, ...)
 {
+    fontNumber = remap(fontNumber);
   if (fontNumber >= fonts.size())
     return;
 
@@ -233,4 +253,15 @@ void wfreefont(size_t fontNumber)
     fonts[fontNumber].Renderer->FreeMemory(fontNumber);
 
   fonts[fontNumber].Renderer = NULL;
+}
+
+void font_select_alternative(int alternative)
+{
+    ::alternative = alternative;
+}
+
+// sets a font alternative--when 'alternative' is active, font number 'font' will use font number 'target' instead
+void font_set_alternative(int fontNumber, int alternative, int targetNumber)
+{
+    fonts[fontNumber].Info.Alternatives[alternative] = targetNumber;
 }

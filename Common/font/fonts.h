@@ -61,6 +61,12 @@ bool wloadfont_size(size_t fontNumber, const FontInfo &font_info, const FontRend
 void wgtprintf(Common::Bitmap *ds, int xxx, int yyy, size_t fontNumber, color_t text_color, char *fmt, ...);
 void wfreefont(size_t fontNumber);
 
+// chooses the alternative setting that's currently active for all functions in this file
+void font_select_alternative(int alternative);
+
+// sets a font alternative--when 'alternative' is active, font number 'font' will use font number 'target' instead
+void font_set_alternative(int fontNumber, int alternative, int targetNumber);
+
 extern int wtext_multiply;
 
 #endif // __AC_FONT_H

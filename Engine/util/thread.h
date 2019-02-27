@@ -26,6 +26,11 @@ class BaseThread
 public:
   typedef void(* AGSThreadEntry)();
 
+  enum Purpose
+  {
+      Purpose_AudioThread
+  };
+
   BaseThread()
   {
   };
@@ -38,8 +43,9 @@ public:
   virtual bool Start() = 0;
   virtual bool Stop() = 0;
 
-  inline bool CreateAndStart(AGSThreadEntry entryPoint, bool looping)
+  inline bool CreateAndStart(Purpose purpose, AGSThreadEntry entryPoint, bool looping)
   {
+      this->purpose;
     if (Create(entryPoint, looping))
     {
       if (Start())
@@ -50,6 +56,9 @@ public:
 
     return false;
   }
+
+private:
+    Purpose purpose;
 };
 
 

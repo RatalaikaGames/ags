@@ -1252,7 +1252,7 @@ void engine_start_multithreaded_audio()
   // Create sound update thread. This is a workaround for sound stuttering.
   if (psp_audio_multithreaded)
   {
-    if (!audioThread.CreateAndStart(engine_update_mp3_thread, true))
+    if (!audioThread.CreateAndStart(BaseThread::Purpose_AudioThread, engine_update_mp3_thread, true))
     {
       Debug::Printf(kDbgMsg_Init, "Failed to start audio thread, audio will be processed on the main thread");
       psp_audio_multithreaded = 0;

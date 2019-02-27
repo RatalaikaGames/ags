@@ -1236,7 +1236,12 @@ void engine_setup_scsystem_auxiliary()
 void engine_update_mp3_thread()
 {
   update_mp3_thread();
-  platform->Delay(50);
+  
+  //do not delay very long! 
+  //it's too hard to know what the buffer size is (ok, it's 32KB today, but it's configurable--and does this function know it?) 
+  //but it's also too hard to know how all the timing stuff will interact with other factors
+  //besides this the overhead of checking a few streams for buffering is very small. so there's no reason to delay long here
+  platform->Delay(1);
 }
 
 void engine_start_multithreaded_audio()
@@ -1532,6 +1537,9 @@ void initialize_engine_console(const char* agsPath, const char* cfgPath)
     Debug::Printf(kDbgMsg_Init, "Setting up game configuration");
     apply_config(cfg); //TODO - remove console hacks from here
     post_config(); //not really needed by console, developer can fix his configuration
+
+    //consoles can always do this, i guess 
+    psp_audio_multithreaded = 1;
 
     //use token rather than empty for save game directories so we can catch it in the console backend
     //(it's left as empty because SetSaveGameDirectoryPath isn't going to do anything)

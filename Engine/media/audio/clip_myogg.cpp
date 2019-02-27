@@ -20,6 +20,7 @@
 
 #include "platform/base/agsplatformdriver.h"
 
+extern AGS::Engine::Mutex _audio_mutex;
 
 extern "C" {
     extern int alogg_is_end_of_oggstream(ALOGG_OGGSTREAM *ogg);
@@ -30,7 +31,7 @@ extern "C" {
 
 int MYOGG::poll()
 {
-    AGS::Engine::MutexLock _lock(_mutex);
+    AGS::Engine::MutexLock _lock(_audio_mutex);
 
     if (!done && _destroyThis)
     {
@@ -122,7 +123,7 @@ void MYOGG::internal_destroy()
 
 void MYOGG::destroy()
 {
-	AGS::Engine::MutexLock _lock(_mutex);
+	AGS::Engine::MutexLock _lock(_audio_mutex);
 
     if (psp_audio_multithreaded && _playing && !_audio_doing_crossfade)
       _destroyThis = true;

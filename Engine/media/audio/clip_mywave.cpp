@@ -21,10 +21,11 @@
 
 #include "platform/base/agsplatformdriver.h"
 
+extern AGS::Engine::Mutex _audio_mutex;
 
 int MYWAVE::poll()
 {
-    AGS::Engine::MutexLock _lock(_mutex);
+    AGS::Engine::MutexLock _lock(_audio_mutex);
 
     if (!done && _destroyThis)
     {
@@ -82,7 +83,7 @@ void MYWAVE::internal_destroy()
 
 void MYWAVE::destroy()
 {
-    AGS::Engine::MutexLock _lock(_mutex);
+    AGS::Engine::MutexLock _lock(_audio_mutex);
 
     if (psp_audio_multithreaded && _playing && !_audio_doing_crossfade)
       _destroyThis = true;

@@ -57,7 +57,6 @@ struct SOUNDCLIP
     bool repeat;
     void *sourceClip;
     bool ready;
-    AGS::Engine::Mutex _mutex;
 
     virtual int poll() = 0;
     virtual void destroy() = 0;

@@ -20,16 +20,6 @@
 #ifndef __AGS_EE_PLATFORM__AGSCON_H
 #define __AGS_EE_PLATFORM__AGSCON_H
 
-class TextureTile;
-
-namespace AGS
-{
-	namespace Common
-	{
-		class Bitmap;
-	}
-}
-
 namespace AGSCON
 {
 	namespace Graphics
@@ -156,8 +146,6 @@ namespace AGSCON
 		void Texture_Lock(Texture* texture, TextureLock* lockData);
 		void Texture_Unlock(Texture* texture, TextureLock* lockData);
 		void Texture_Destroy(Texture* tex);
-
-		bool FastImportBitmap(TextureTile *tile, AGS::Common::Bitmap *bitmap, bool hasAlpha, bool usingLinearFiltering);
 
 		VertexLayout* VertexLayout_Create(const VertexLayoutDescr* layoutDescr);
 		void VertexLayout_Destroy(VertexLayout* layout);

@@ -964,16 +964,14 @@ namespace AGS
 
 			void ConsoleGraphicsDriver::UpdateTextureRegion(DDTextureTile *tile, Bitmap *bitmap, DDBitmap *target, bool hasAlpha)
 			{
+				AGSCON::Graphics::TextureLock textureLock;
+				AGSCON::Graphics::Texture_Lock(tile->texture, &textureLock);
+
 				bool usingLinearFiltering = _filter->NeedToColourEdgeLines();
 
-				//TODO: bad. put locking inside AGSCON
-				if(!AGSCON::Graphics::FastImportBitmap((::TextureTile*)tile,bitmap,hasAlpha,usingLinearFiltering))
-				{
-					AGSCON::Graphics::TextureLock textureLock;
-					AGSCON::Graphics::Texture_Lock(tile->texture, &textureLock);
-					BitmapToVideoMem(bitmap, hasAlpha, tile, target, (char*)textureLock.Ptr, textureLock.StrideBytes, usingLinearFiltering);
-					AGSCON::Graphics::Texture_Unlock(tile->texture, &textureLock);
-				}
+				BitmapToVideoMem(bitmap, hasAlpha, tile, target, (char*)textureLock.Ptr, textureLock.StrideBytes, usingLinearFiltering);
+
+				AGSCON::Graphics::Texture_Unlock(tile->texture, &textureLock);
 			}
 
 			void ConsoleGraphicsDriver::UpdateDDBFromBitmap(IDriverDependantBitmap* bitmapToUpdate, Bitmap *bitmap, bool hasAlpha)

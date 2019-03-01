@@ -288,14 +288,26 @@ void VideoMemoryGraphicsDriver::BitmapToVideoMem(const Bitmap *bitmap, const boo
 
     if(has_alpha)
         if(target->_opaque)
-            BitmapToVideoMemFast<true,true>(bitmap,tile, target,dst_ptr, dst_pitch, usingLinearFiltering);
+            if(usingLinearFiltering)
+                BitmapToVideoMemFast<true,true,true>(bitmap,tile, target,dst_ptr, dst_pitch);
+            else 
+                BitmapToVideoMemFast<true,true,false>(bitmap,tile, target,dst_ptr, dst_pitch);
         else
-            BitmapToVideoMemFast<true,false>(bitmap,tile, target,dst_ptr, dst_pitch, usingLinearFiltering);
+            if(usingLinearFiltering)
+                BitmapToVideoMemFast<true,false,true>(bitmap,tile, target,dst_ptr, dst_pitch);
+            else 
+                BitmapToVideoMemFast<true,false,false>(bitmap,tile, target,dst_ptr, dst_pitch);
     else
         if(target->_opaque)
-            BitmapToVideoMemFast<false,true>(bitmap,tile, target,dst_ptr, dst_pitch, usingLinearFiltering);
+            if(usingLinearFiltering)
+                BitmapToVideoMemFast<false,true,true>(bitmap,tile, target,dst_ptr, dst_pitch);
+            else 
+                BitmapToVideoMemFast<false,true,false>(bitmap,tile, target,dst_ptr, dst_pitch);
         else
-            BitmapToVideoMemFast<false,false>(bitmap,tile, target,dst_ptr, dst_pitch, usingLinearFiltering);
+            if(usingLinearFiltering)
+                BitmapToVideoMemFast<false,false,true>(bitmap,tile, target,dst_ptr, dst_pitch);
+            else
+                BitmapToVideoMemFast<false,false,false>(bitmap,tile, target,dst_ptr, dst_pitch);
     return;
 
   const int src_depth = bitmap->GetColorDepth();
@@ -444,9 +456,8 @@ void VideoMemoryGraphicsDriver::BitmapToVideoMem(const Bitmap *bitmap, const boo
   }
 }
 
-template<bool has_alpha, bool opaque>
-void VideoMemoryGraphicsDriver::BitmapToVideoMemFast(const Bitmap *bitmap,const TextureTile *tile, const VideoMemDDB *target,
-    char *dst_ptr, const int dst_pitch, const bool usingLinearFiltering)
+template<bool has_alpha, bool opaque, bool usingLinearFiltering>
+void VideoMemoryGraphicsDriver::BitmapToVideoMemFast(const Bitmap *bitmap,const TextureTile *tile, const VideoMemDDB *target, char *dst_ptr, const int dst_pitch)
 {
     const int src_depth = bitmap->GetColorDepth();
     bool lastPixelWasTransparent = false;
@@ -461,7 +472,7 @@ void VideoMemoryGraphicsDriver::BitmapToVideoMemFast(const Bitmap *bitmap,const 
         {
             if(*(unsigned int*)srcPtr8 == MASK_COLOR_32)
             {
-                if(target->_opaque)  // set to black if opaque
+                if(opaque)  // set to black if opaque
                     *(int32_t*)dstPtr8 = 0xFF000000;
                 else if(!usingLinearFiltering)
                     *(int32_t*)dstPtr8 = 0;

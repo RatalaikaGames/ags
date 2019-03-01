@@ -807,7 +807,7 @@ void update_volume_drop_if_voiceover()
 extern volatile char want_exit;
 extern int frames_per_second;
 
-void update_mp3_thread()
+void update_mp3_work()
 {
 	while (switching_away_from_game) { }
 	AGS::Engine::MutexLock _lock(_audio_mutex);
@@ -820,7 +820,8 @@ void update_mp3_thread()
 
 void update_mp3()
 {
-	if (!psp_audio_multithreaded) update_mp3_thread();
+	if (!psp_audio_multithreaded) 
+        update_mp3_work();
 }
 
 void update_polled_mp3() {

@@ -96,7 +96,7 @@ extern SOUNDCLIP *channels[MAX_SOUND_CHANNELS+1]; // needed for update_mp3_threa
 extern volatile int psp_audio_multithreaded;
 
 void update_mp3();
-void update_mp3_thread();
+void update_mp3_work();
 
 extern volatile int mvolcounter;
 extern int update_music_at;

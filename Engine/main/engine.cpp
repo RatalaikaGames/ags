@@ -1232,9 +1232,9 @@ void engine_setup_scsystem_auxiliary()
     }
 }
 
-void engine_update_mp3_thread()
+void engine_update_mp3_threadproc()
 {
-  update_mp3_thread();
+  update_mp3_work();
   
   //do not delay very long! 
   //it's too hard to know what the buffer size is (ok, it's 32KB today, but it's configurable--and does this function know it?) 
@@ -1251,7 +1251,7 @@ void engine_start_multithreaded_audio()
   // Create sound update thread. This is a workaround for sound stuttering.
   if (psp_audio_multithreaded)
   {
-    if (!audioThread.CreateAndStart(BaseThread::Purpose_AudioThread, engine_update_mp3_thread, true))
+    if (!audioThread.CreateAndStart(BaseThread::Purpose_AudioThread, engine_update_mp3_threadproc, true))
     {
       Debug::Printf(kDbgMsg_Init, "Failed to start audio thread, audio will be processed on the main thread");
       psp_audio_multithreaded = 0;

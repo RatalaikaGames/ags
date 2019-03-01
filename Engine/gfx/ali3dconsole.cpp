@@ -193,12 +193,11 @@ namespace AGS
 				_renderSprAtScreenRes = false;
 				flipTypeLastTime = kFlip_None;
 
-				// Shifts comply to D3DFMT_A8R8G8B8
-				// TODO - probably needs to be configurable by console
-				_vmem_a_shift_32 = 24;
-				_vmem_r_shift_32 = 0;
-				_vmem_g_shift_32 = 8;
-				_vmem_b_shift_32 = 16;
+				const int* shifts = AGSCON::Graphics::GetColorShifts();
+				_vmem_a_shift_32 = shifts[0];
+				_vmem_r_shift_32 = shifts[1];
+				_vmem_g_shift_32 = shifts[2];
+				_vmem_b_shift_32 = shifts[3];
 
 				// Initialize default sprite batch, it will be used when no other batch was activated
 				InitSpriteBatch(0, _spriteBatchDesc[0]);
@@ -721,7 +720,7 @@ namespace AGS
 						sampler = AGSCON::Graphics::samplers.nearest;
 					}
 					
-					AGSCON::Graphics::BindFragmentTexture(selectedProgram->tex, bmpToDraw->_tiles[ti].texture, sampler);
+					AGSCON::Graphics::BindFragmentTexture(selectedProgram->tex, bmpToDraw->_tiles[ti].texture, sampler, selectedProgram->uTextureControl);
 
 					AGSCON::Graphics::DrawVertices(ti*4,4, AGSCON::Graphics::PrimitiveType::TriangleStrip);
 				}
@@ -964,14 +963,14 @@ namespace AGS
 
 			void ConsoleGraphicsDriver::UpdateTextureRegion(DDTextureTile *tile, Bitmap *bitmap, DDBitmap *target, bool hasAlpha)
 			{
-				AGSCON::Graphics::TextureLock textureLock;
-				AGSCON::Graphics::Texture_Lock(tile->texture, &textureLock);
-
 				bool usingLinearFiltering = _filter->NeedToColourEdgeLines();
-
-				BitmapToVideoMem(bitmap, hasAlpha, tile, target, (char*)textureLock.Ptr, textureLock.StrideBytes, usingLinearFiltering);
-
-				AGSCON::Graphics::Texture_Unlock(tile->texture, &textureLock);
+				if(!AGSCON::Graphics::BitmapToVideoMem(target,tile,bitmap,hasAlpha,usingLinearFiltering))
+				{
+					AGSCON::Graphics::TextureLock textureLock;
+					AGSCON::Graphics::Texture_Lock(tile->texture, &textureLock);
+					BitmapToVideoMem(bitmap, hasAlpha, tile, target, (char*)textureLock.Ptr, textureLock.StrideBytes, usingLinearFiltering);
+					AGSCON::Graphics::Texture_Unlock(tile->texture, &textureLock);
+				}
 			}
 
 			void ConsoleGraphicsDriver::UpdateDDBFromBitmap(IDriverDependantBitmap* bitmapToUpdate, Bitmap *bitmap, bool hasAlpha)
@@ -1192,22 +1191,16 @@ namespace AGS
 
 				if (speed <= 0) speed = 16;
 				speed *= 2;  // harmonise speeds with software driver which is faster
-				for (int a = 1; a < 255; a += speed)
+
+				int timerValue = *_loopTimer;
+				for(;;)
 				{
-					int timerValue = *_loopTimer;
+					int elapsed = *_loopTimer - timerValue;
+					int a = speed * elapsed + 1;
+					if(a>255) break;
+
 					ddb->SetTransparency(fadingOut ? a : (255 - a));
 					this->_renderAndPresent(flipTypeLastTime, false);
-
-					//YUCK!!!!!!!!!!!!!!!
-					do
-					{
-						if (_pollingCallback)
-							_pollingCallback();
-
-						platform->YieldCPU();
-					}
-					while (timerValue == *_loopTimer);
-
 				}
 
 				if (fadingOut)

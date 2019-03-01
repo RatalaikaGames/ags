@@ -20,6 +20,24 @@
 #ifndef __AGS_EE_PLATFORM__AGSCON_H
 #define __AGS_EE_PLATFORM__AGSCON_H
 
+class TextureTile;
+
+namespace AGS
+{
+	namespace Common
+	{
+		class Bitmap;
+	}
+	namespace Engine
+	{
+		namespace AL3DConsole
+		{
+			struct DDTextureTile;
+			class DDBitmap;
+		}
+	}
+}
+
 namespace AGSCON
 {
 	namespace Graphics
@@ -134,6 +152,7 @@ namespace AGSCON
 		};
 
 		void Initialize();
+		const int* GetColorShifts();
 
 		void MakeImageRequest(const ImageRequest* request, ImageReport* report);
 
@@ -146,6 +165,13 @@ namespace AGSCON
 		void Texture_Lock(Texture* texture, TextureLock* lockData);
 		void Texture_Unlock(Texture* texture, TextureLock* lockData);
 		void Texture_Destroy(Texture* tex);
+
+		//Tries to let the backend import the video memory
+		//This is important, in case the video memory can be used directly (to save time converting the format and uploading the data)
+		//It may be DIFFICULT to use it directly, but it can be done... I do it!
+		//You can also copy the data more efficiently in here if you know the format allegro's storing it in.
+		//Since that's probably a linear format, it's an easy optimization...
+		bool BitmapToVideoMem(AGS::Engine::AL3DConsole::DDBitmap *target, AGS::Engine::AL3DConsole::DDTextureTile *tile, AGS::Common::Bitmap *bitmap, bool hasAlpha, bool usingLinearFiltering);
 
 		VertexLayout* VertexLayout_Create(const VertexLayoutDescr* layoutDescr);
 		void VertexLayout_Destroy(VertexLayout* layout);
@@ -194,7 +220,7 @@ namespace AGSCON
 		//Clears the currently set RT's color buffer only
 		void ClearColor(int red, int green, int blue, int alpha);
 
-		void BindFragmentTexture(UniformLocation* location, Texture* texture, Sampler* sampler);
+		void BindFragmentTexture(UniformLocation* location, Texture* texture, Sampler* sampler, UniformLocation* textureControl);
 		void BindVertexBuffer(VertexBuffer* vb);
 		void BindProgram(Program* program);
 
@@ -205,6 +231,7 @@ namespace AGSCON
 		void DrawVertices(int start, int count, PrimitiveType primitiveType);
 
 		void PresentNative(RenderTarget* tex, const Rectangle* viewport_rect);
+		void RepresentNative();
 
 		//---------------------------------------------------
 		
@@ -214,10 +241,10 @@ namespace AGSCON
 			struct StandardProgram
 			{
 				AGSCON::Graphics::Program* program;
-				AGSCON::Graphics::UniformLocation* uProjection;
 				AGSCON::Graphics::UniformLocation* um44Projection;
 				AGSCON::Graphics::UniformLocation* um44Modelview;
-				AGSCON::Graphics::UniformLocation* tex; //putting this in the standard program may be a nuisance, but is not likely to be
+				AGSCON::Graphics::UniformLocation* tex;
+				AGSCON::Graphics::UniformLocation* uTextureControl;
 			};
 
 			struct STANDARD : public StandardProgram {

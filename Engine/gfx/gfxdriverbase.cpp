@@ -285,32 +285,34 @@ __inline void get_pixel_if_not_transparent32(unsigned int *pixel, unsigned int *
 void VideoMemoryGraphicsDriver::BitmapToVideoMem(const Bitmap *bitmap, const bool has_alpha, const TextureTile *tile, const VideoMemDDB *target,
                                                  char *dst_ptr, const int dst_pitch, const bool usingLinearFiltering)
 {
-
-    if(has_alpha)
-        if(target->_opaque)
-            if(usingLinearFiltering)
-                BitmapToVideoMemFast<true,true,true>(bitmap,tile, target,dst_ptr, dst_pitch);
-            else 
-                BitmapToVideoMemFast<true,true,false>(bitmap,tile, target,dst_ptr, dst_pitch);
-        else
-            if(usingLinearFiltering)
-                BitmapToVideoMemFast<true,false,true>(bitmap,tile, target,dst_ptr, dst_pitch);
-            else 
-                BitmapToVideoMemFast<true,false,false>(bitmap,tile, target,dst_ptr, dst_pitch);
-    else
-        if(target->_opaque)
-            if(usingLinearFiltering)
-                BitmapToVideoMemFast<false,true,true>(bitmap,tile, target,dst_ptr, dst_pitch);
-            else 
-                BitmapToVideoMemFast<false,true,false>(bitmap,tile, target,dst_ptr, dst_pitch);
-        else
-            if(usingLinearFiltering)
-                BitmapToVideoMemFast<false,false,true>(bitmap,tile, target,dst_ptr, dst_pitch);
+    const int src_depth = bitmap->GetColorDepth();
+    if (src_depth == 32)
+    {
+        if(has_alpha)
+            if(target->_opaque)
+                if(usingLinearFiltering)
+                    BitmapToVideoMemFast<true,true,true>(bitmap,tile, target,dst_ptr, dst_pitch);
+                else 
+                    BitmapToVideoMemFast<true,true,false>(bitmap,tile, target,dst_ptr, dst_pitch);
             else
-                BitmapToVideoMemFast<false,false,false>(bitmap,tile, target,dst_ptr, dst_pitch);
-    return;
+                if(usingLinearFiltering)
+                    BitmapToVideoMemFast<true,false,true>(bitmap,tile, target,dst_ptr, dst_pitch);
+                else 
+                    BitmapToVideoMemFast<true,false,false>(bitmap,tile, target,dst_ptr, dst_pitch);
+        else
+            if(target->_opaque)
+                if(usingLinearFiltering)
+                    BitmapToVideoMemFast<false,true,true>(bitmap,tile, target,dst_ptr, dst_pitch);
+                else 
+                    BitmapToVideoMemFast<false,true,false>(bitmap,tile, target,dst_ptr, dst_pitch);
+            else
+                if(usingLinearFiltering)
+                    BitmapToVideoMemFast<false,false,true>(bitmap,tile, target,dst_ptr, dst_pitch);
+                else
+                    BitmapToVideoMemFast<false,false,false>(bitmap,tile, target,dst_ptr, dst_pitch);
+        return;
+    }
 
-  const int src_depth = bitmap->GetColorDepth();
   bool lastPixelWasTransparent = false;
   for (int y = 0; y < tile->height; y++)
   {

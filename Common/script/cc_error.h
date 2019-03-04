@@ -22,9 +22,10 @@
 #include "util/string.h"
 
 #ifdef CC_ERROR_NOP
-#define cc_error(__VA_ARGS__)
-#endif
+#define cc_error(...)
+#else
 extern void cc_error(const char *, ...);
+#endif
 
 // error reporting
 extern int ccError;             // set to non-zero if error occurs

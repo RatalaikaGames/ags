@@ -1232,15 +1232,27 @@ void engine_setup_scsystem_auxiliary()
     }
 }
 
+volatile unsigned mainthread_mp3tick;
+
 void engine_update_mp3_threadproc()
 {
-  update_mp3_work();
-  
-  //do not delay very long! 
-  //it's too hard to know what the buffer size is (ok, it's 32KB today, but it's configurable--and does this function know it?) 
-  //but it's also too hard to know how all the timing stuff will interact with other factors
-  //besides this the overhead of checking a few streams for buffering is very small. so there's no reason to delay long here
-  platform->Delay(1);
+    //unsigned last_tick = mainthread_mp3tick;
+    //
+    ////approx 2 frames.. should be tight enough for most people, by a large margin
+    //platform->Delay(40);
+
+    ////oh no, running slow! better update it ourselves
+    //if(mainthread_mp3tick == last_tick)
+    //    update_mp3_work();
+
+
+    update_mp3_work();
+
+    //do not delay very long! 
+    //it's too hard to know what the buffer size is (ok, it's 32KB today, but it's configurable--and does this function know it?) 
+    //but it's also too hard to know how all the timing stuff will interact with other factors
+    //besides this the overhead of checking a few streams for buffering is very small. so there's no reason to delay long here
+    platform->Delay(1);
 }
 
 void engine_start_multithreaded_audio()

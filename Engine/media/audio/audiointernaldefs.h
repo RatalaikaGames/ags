@@ -23,6 +23,9 @@ extern "C" void android_debug_printf(char* format, ...);
 
 
 //#define MP3CHUNKSIZE 100000
+
+#ifndef MP3CHUNKSIZE
 #define MP3CHUNKSIZE 32768
+#endif
 
 #endif // __AC_SOUNDINTERNALDEFS_H

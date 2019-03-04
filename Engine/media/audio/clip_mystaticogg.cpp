@@ -20,6 +20,10 @@
 
 #include "platform/base/agsplatformdriver.h"
 
+#ifndef STATICOGG_BUFFERLENGTH
+#define STATICOGG_BUFFERLENGTH 16384
+#endif
+
 extern "C" {
     extern int alogg_is_end_of_oggstream(ALOGG_OGGSTREAM *ogg);
     extern int alogg_is_end_of_ogg(ALOGG_OGG *ogg);
@@ -177,7 +181,7 @@ void MYSTATICOGG::restart()
     if (tune != NULL) {
         alogg_stop_ogg(tune);
         alogg_rewind_ogg(tune);
-        alogg_play_ogg(tune, 16384, vol, panning);
+        alogg_play_ogg(tune, STATICOGG_BUFFERLENGTH, vol, panning);
         last_ms_offs = 0;
         last_but_one = 0;
         last_but_one_but_one = 0;
@@ -203,11 +207,11 @@ int MYSTATICOGG::get_sound_type() {
 int MYSTATICOGG::play_from(int position)
 {
     if (use_extra_sound_offset) 
-        extraOffset = ((16384 / (alogg_get_wave_is_stereo_ogg(tune) ? 2 : 1)) * 1000) / alogg_get_wave_freq_ogg(tune);
+        extraOffset = ((STATICOGG_BUFFERLENGTH / (alogg_get_wave_is_stereo_ogg(tune) ? 2 : 1)) * 1000) / alogg_get_wave_freq_ogg(tune);
     else
         extraOffset = 0;
 
-    if (alogg_play_ex_ogg(tune, 16384, vol, panning, 1000, repeat) != ALOGG_OK) {
+    if (alogg_play_ex_ogg(tune, STATICOGG_BUFFERLENGTH, vol, panning, 1000, repeat) != ALOGG_OK) {
         destroy();
         delete this;
         return 0;

@@ -31,6 +31,9 @@ String ccErrorCallStack;
 bool ccErrorIsUserError = false;
 const char *ccCurScriptName = "";
 
+//in case this has been defined, undefine it here so we can build the function
+#undef CC_ERROR_NOP
+
 void cc_error(const char *descr, ...)
 {
     ccErrorIsUserError = false;

@@ -21,6 +21,9 @@
 
 #include "util/string.h"
 
+#ifdef CC_ERROR_NOP
+#define cc_error(__VA_ARGS__)
+#endif
 extern void cc_error(const char *, ...);
 
 // error reporting

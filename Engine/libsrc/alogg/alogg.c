@@ -6,11 +6,16 @@
 
 /* See COPYING.txt for license */
 
-
 #include <string.h>
 #include <allegro.h>
 #include <alogg.h>
+
+#ifdef USE_TREMOR
+#include "ivorbisfile.h"
+#else
 #include "vorbis/vorbisfile.h"
+#endif
+
 #include "vorbis/codec.h"
 
 #include "core/endianness.h" /* For bigendian detection */
@@ -430,10 +435,12 @@ int alogg_poll_ogg(ALOGG_OGG *ogg) {
   audiobuf_p = (char *)audiobuf;
   size_done = 0;
   for (i = ogg->audiostream_buffer_len; i > 0; i -= size_done) {
-    /* decode */
-    size_done = ov_read(&(ogg->vf), audiobuf_p, i, WANT_BIG_ENDIAN, 2, 0, &(ogg->current_section));
+
 
 #ifdef USE_TREMOR
+      /* decode */
+      size_done = ov_read(&(ogg->vf), audiobuf_p, i, &(ogg->current_section));
+
     /* Add offset to data because we are using libtremor */
     data_array = (unsigned short*)audiobuf_p;
 
@@ -441,6 +448,9 @@ int alogg_poll_ogg(ALOGG_OGG *ogg) {
     { 
       data_array[x] += 0x8000;
     }
+#else
+      /* decode */
+      size_done = ov_read(&(ogg->vf), audiobuf_p, i, WANT_BIG_ENDIAN, 2, 0, &(ogg->current_section));
 #endif
 
     /* check if the decoding was not successful */
@@ -610,9 +620,10 @@ SAMPLE *alogg_create_sample_from_ogg(ALOGG_OGG *ogg) {
   for (i = sample_len_bytes; !done && (i > 0); i -= size_done) {
 
     /* decode */
-    size_done = ov_read(&(ogg->vf), data, i, WANT_BIG_ENDIAN, 2, 0, &(ogg->current_section));
 
 #ifdef USE_TREMOR
+    size_done = ov_read(&(ogg->vf), data, i, &(ogg->current_section));
+
     /* Add offset to data because we are using libtremor. */
     data_array = (unsigned short*)data;
 
@@ -620,6 +631,8 @@ SAMPLE *alogg_create_sample_from_ogg(ALOGG_OGG *ogg) {
     { 
       data_array[x] += 0x8000;
     }
+#else
+    size_done = ov_read(&(ogg->vf), data, i, WANT_BIG_ENDIAN, 2, 0, &(ogg->current_section));
 #endif
 
     /* check if the decoding was not successful */
@@ -993,9 +1006,10 @@ int alogg_poll_oggstream(ALOGG_OGGSTREAM *ogg) {
   audiobuf_p = (char *)audiobuf;
   size_done = 0;
   for (i = ogg->audiostream_buffer_len; i > 0; i -= size_done) {
-    size_done = ov_read(&(ogg->vf), audiobuf_p, i, WANT_BIG_ENDIAN, 2, 0, &(ogg->current_section));
-
 #ifdef USE_TREMOR
+
+    size_done = ov_read(&(ogg->vf), audiobuf_p, i, &(ogg->current_section));
+
     /* Add offset to data because we are using libtremor. */
     data_array = (unsigned short*)audiobuf_p;
 
@@ -1003,6 +1017,8 @@ int alogg_poll_oggstream(ALOGG_OGGSTREAM *ogg) {
     { 
       data_array[x] += 0x8000;
     }
+#else
+    size_done = ov_read(&(ogg->vf), audiobuf_p, i, WANT_BIG_ENDIAN, 2, 0, &(ogg->current_section));
 #endif
 
     /* check if the decoding was not successful */

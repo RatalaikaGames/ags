@@ -738,10 +738,13 @@ void update_mp3_work()
 {
     while(switching_away_from_game) {}
 
-    AudioChannelsLock _lock;
-
     for(int i = 0; i <= MAX_SOUND_CHANNELS; ++i)
     {
+        //lock is on the inside, because this only happens from one thread
+        //(if it happened from several threads, it might be bad, but I'm not sure)
+        //The advantage of having each channel separate here is it will give the main thread a
+        //chance to carry on in case it takes a competing lock
+        AudioChannelsLock _lock;
         auto* ch = _lock.GetChannel(i);
         if(!ch) continue;
         if(ch->done) continue;

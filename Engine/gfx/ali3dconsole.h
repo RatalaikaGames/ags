@@ -113,6 +113,16 @@ namespace AGS
 					_width = width;
 					_height = height;
 					_colDepth = colDepth;
+					_opaque = opaque;
+					_vertex = NULL;
+					_tiles = NULL;
+					_numTiles = 0;
+					Recycle();
+				}
+
+				void Recycle()
+				{
+					_aging = 0;
 					_flipped = false;
 					_hasAlpha = false;
 					_stretchToWidth = 0;
@@ -121,16 +131,6 @@ namespace AGS
 					_tintSaturation = 0;
 					_lightLevel = 0;
 					_transparency = 0;
-					_opaque = opaque;
-					_vertex = NULL;
-					_tiles = NULL;
-					_numTiles = 0;
-					_aging = 0;
-				}
-
-				void Recycle()
-				{
-					_aging = 0;
 				}
 
 				int GetWidthToRender() { return (_stretchToWidth > 0) ? _stretchToWidth : _width; }

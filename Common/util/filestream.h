@@ -55,7 +55,7 @@ public:
     virtual size_t  Write(const void *buffer, size_t size);
     virtual int32_t WriteByte(uint8_t b);
 
-    virtual soff_t  Seek(soff_t offset, StreamSeek origin);
+    virtual bool  Seek(soff_t offset, StreamSeek origin);
 
 protected:
     FileStream(FileOpenMode open_mode, FileWorkMode work_mode, DataEndianess stream_endianess = kLittleEndian);

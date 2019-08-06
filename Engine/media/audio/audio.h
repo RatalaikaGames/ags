@@ -134,7 +134,7 @@ extern volatile bool _audio_doing_crossfade;
 extern volatile int psp_audio_multithreaded;
 
 void update_polled_mp3();
-void update_mp3_thread();
+void update_mp3_work();
 
 extern void cancel_scheduled_music_update();
 extern void schedule_music_update_at(AGS_Clock::time_point);

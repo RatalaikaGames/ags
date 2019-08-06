@@ -919,7 +919,7 @@ void update_volume_drop_if_voiceover()
 
 extern volatile char want_exit;
 
-void update_mp3_thread()
+void update_mp3_work()
 {
 	if (switching_away_from_game) { return; }
 
@@ -939,7 +939,7 @@ void update_mp3_thread()
 void update_polled_mp3()
 {
 	if (psp_audio_multithreaded) { return; }
-    update_mp3_thread();
+    update_mp3_work();
 }
 
 // Update the music, and advance the crossfade on a step

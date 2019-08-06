@@ -33,10 +33,6 @@ public:
       Purpose_AudioThread
   };
 
-  BaseThread()
-  {
-  };
-
   BaseThread &operator=(const BaseThread &) = delete;
   BaseThread(const BaseThread &) = delete;
 
@@ -46,7 +42,7 @@ public:
 
   inline bool CreateAndStart(Purpose purpose, AGSThreadEntry entryPoint, bool looping)
   {
-  this->purpose = purpose;
+    this->purpose = purpose;
     if (!Create(entryPoint, looping)) { return false; }
     return Start();
   }
@@ -58,13 +54,10 @@ private:
 } // namespace Engine
 } // namespace AGS
 
-#if 0
-  // insert platforms here
+#if defined(CONSOLE_VERSION)
+#include "thread_console.h"
 #else
 #include "thread_std.h"
-#elif defined(CONSOLE_VERSION)
-#include "thread_console.h"
-
 #endif
 
 

@@ -18,6 +18,9 @@
 #include "util/string_utils.h"
 #include "util/stream.h"
 
+//MBG - include this, required MAXLINE for my private hacks which are all throughout this file
+#include "gui/guidefines.h"
+
 using namespace AGS::Common;
 
 
@@ -173,22 +176,16 @@ void split_lines(const char *todis, int wii, int fonnt) {
 
 String cbuf_to_string_and_free(char *char_buf)
 {
-    //TODO: bug. should guarantee buffer is terminated in any event. the way this is used, anyway.
-    int b = -1;
-    do {
-        if (b < bufsize - 1)
-            b++;
-        sss[b] = in->ReadInt8();
-        //TODO: bug. if reached end of stream prematurely, won't have a null terminator
-        if (in->EOS())
-            return;
-    } while (sss[b] != 0);
+    String s = char_buf;
+    free(char_buf);
+    return s;
 }
 
-void fgetstring(char *sss, Common::Stream *in)
-{
-    fgetstring_limit (sss, in, 50000000);
-}
+//MBG AUG 2019 - WTF IS THIS
+//void fgetstring(char *sss, Common::Stream *in)
+//{
+//    fgetstring_limit (sss, in, 50000000);
+//}
 
 String free_char_to_string(char *char_buf)
 {

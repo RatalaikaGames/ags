@@ -701,6 +701,16 @@ static void game_loop_update_fps()
     }
 }
 
+float get_current_fps() {
+    // if wanted frames_per_second is >= 1000, that means we have maxed out framerate so return the frame rate we're seeing instead
+    auto maxed_framerate = (frames_per_second >= 1000) && (display_fps == 2);
+    // fps must be greater that 0 or some timings will take forever.
+    if (maxed_framerate && fps > 0.0f) {
+        return fps;
+    }
+    return frames_per_second;
+}
+
 void PollUntilNextFrame()
 {
     #ifdef CONSOLE_VERSION

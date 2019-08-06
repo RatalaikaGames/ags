@@ -1374,8 +1374,6 @@ bool engine_do_config(const String &exe_path, const ConfigTree &startup_opts)
 
 int _initialize_engine_common()
 {
-    int res;
-
     engine_setup_allegro();
     engine_force_window();
 
@@ -1427,11 +1425,6 @@ int _initialize_engine_common()
 
     engine_init_exit_handler();
 
-    // [IKM] I seriously don't get it why do we need to delete warnings.log
-    // in the middle of procedure; some warnings may have already being
-    // written there at this point, no?
-    ags_unlink("warnings.log");
-
     engine_init_rand();
 
     engine_init_pathfinder();
@@ -1447,7 +1440,7 @@ int _initialize_engine_common()
     if (res != RETURN_CONTINUE) {
         return res;
     }
-    
+
     res = engine_check_register_game();
     if (res != RETURN_CONTINUE) {
         return res;
@@ -1516,13 +1509,14 @@ int _initialize_engine_common()
 //we could modify this to pass config and ags filenames in here if needed
 void initialize_engine_console(const char* agsPath, const char* cfgPath)
 {
-    game_file_name = agsPath;
+    //MBG AUG 2019 - this disappeared...
+    //game_file_name = agsPath;
 
     Debug::Printf(kDbgMsg_Init, "Initializing game data (console version");
     ConfigTree cfg;
     IniUtil::Read(cfgPath, cfg);
     usetup.data_files_dir = "";
-    usetup.main_data_filename = game_file_name;
+    usetup.main_data_filename = agsPath;
 
     AssetManager::SetDataFile(agsPath);
 
@@ -1535,28 +1529,34 @@ void initialize_engine_console(const char* agsPath, const char* cfgPath)
 
     //use token rather than empty for save game directories so we can catch it in the console backend
     //(it's left as empty because SetSaveGameDirectoryPath isn't going to do anything)
-    extern char saveGameDirectory[260];
-    strcpy(saveGameDirectory,"$SAVEGAMEDIR$/");
+    extern String saveGameDirectory;
+    saveGameDirectory = "$SAVEGAMEDIR$/";
 
     engine_init_allegro();
 
     _initialize_engine_common();
 }
 
-int initialize_engine(int argc,char*argv[])
+// TODO: this function is still a big mess, engine/system-related initialization
+// is mixed with game-related data adjustments. Divide it in parts, move game
+// data init into either InitGameState() or other game method as appropriate.
+int initialize_engine(const ConfigTree &startup_opts)
 {
     if (engine_pre_init_callback) {
         engine_pre_init_callback();
     }
 
-    //this could probably go in common, and simplify what's here
+    //-----------------------------------------------------
+    // Install backend
     if (!engine_init_allegro())
         return EXIT_NORMAL;
 
-    const String exe_path = argv[0];
-    if (!engine_init_gamefile(exe_path))
+    //-----------------------------------------------------
+    // Locate game data and assemble game config
+    const String exe_path = global_argv[0];
+    if (!engine_init_gamedata(exe_path))
         return EXIT_NORMAL;
-    if (!engine_do_config(exe_path))
+    if (!engine_do_config(exe_path, startup_opts))
         return EXIT_NORMAL;
 
     return _initialize_engine_common();

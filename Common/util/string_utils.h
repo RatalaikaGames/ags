@@ -23,33 +23,6 @@
 namespace AGS { namespace Common { class Stream; } }
 using namespace AGS; // FIXME later
 
-// because it's so hard to manage portability with macros, let's use these
-int ags_stricmp(const char *string1, const char *string2);
-int ags_strnicmp(const char *string1, const char *string2, int n);
-char *ags_strlwr(char *str);
-char *ags_strupr(char *str);
-
-#if !defined (WINDOWS_VERSION) && !defined(CONSOLE_VERSION)
-
-#if !defined (strlwr)
-extern "C" char *strlwr(char *s);
-#endif
-
-#if !defined (strupr)
-extern "C" char *strupr(char *s);
-#endif
-
-
-#else
-
-#include "util/c99_snprintf.h"
-
-#if !defined(va_copy) && defined(_MSC_VER)
-#define va_copy(a, b) ((a) = (b))
-#endif
-
-#endif // !WINDOWS_VERSION
-
 void unescape(char *buffer);
 
 //=============================================================================

@@ -11,6 +11,14 @@
     #define AGS_PLATFORM_OS_ANDROID (1)
     #define AGS_PLATFORM_OS_IOS     (0)
     #define AGS_PLATFORM_OS_PSP     (0)
+#elif defined(CONSOLE_VERSION)
+    //MBG - special logic for consoles (all portability externally managed)
+    #define AGS_PLATFORM_OS_WINDOWS (0)
+    #define AGS_PLATFORM_OS_LINUX   (0)
+    #define AGS_PLATFORM_OS_MACOS   (0)
+    #define AGS_PLATFORM_OS_ANDROID (0)
+    #define AGS_PLATFORM_OS_IOS     (0)
+    #define AGS_PLATFORM_OS_PSP     (0)
 #elif defined(_WIN32)
     //define something for Windows (32-bit and 64-bit)
     #define AGS_PLATFORM_OS_WINDOWS (1)
@@ -100,6 +108,12 @@
     #define AGS_PLATFORM_DEBUG  (1)
 #else
     #define AGS_PLATFORM_DEBUG  (0)
+#endif
+
+//MBG - this seems to only be used for testing. badly named
+#ifdef CONSOLE_VERSION
+#undef AGS_PLATFORM_DEBUG
+#define AGS_PLATFORM_DEBUG  (0)
 #endif
 
 #endif // __AC_PLATFORM_H

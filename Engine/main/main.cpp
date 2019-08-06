@@ -381,29 +381,8 @@ const char *set_allegro_error(const char *format, ...)
 
 int ags_entry_point(int argc, char *argv[]) { 
 
-#ifndef _DEBUG
-extern void CreateMiniDump( EXCEPTION_POINTERS* pep );
-#endif
-
-char tempmsg[100];
-char*printfworkingspace;
-int malloc_fail_handler(size_t amountwanted) {
-#ifndef _DEBUG
-  CreateMiniDump(NULL);
-#endif
-  free(printfworkingspace);
-  sprintf(tempmsg,"Out of memory: failed to allocate %ld bytes (at PP=%d)",amountwanted, our_eip);
-  quit(tempmsg);
-  return 0;
-}
-#endif
-
-//consoles can't have main defined in here. Uhhh frankly, I don't see why anyone wants main() defined in here
-//This should be ags_main, launched from the platform frontend
-#ifdef CONSOLE_VERSION
-int not_really_main(int argc,char*argv[]) { 
-#else
-int main(int argc,char*argv[]) { 
+#if AGS_PLATFORM_DEBUG
+    Test_DoAllTests();
 #endif
 
     int res;

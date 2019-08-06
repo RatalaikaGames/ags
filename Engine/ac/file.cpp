@@ -100,7 +100,7 @@ int File_Exists(const char *fnmm) {
   //thus, an empty path would always exist
   //to avoid this, assume empty paths don't ever exist.
   //If someone wants to test the existence of a directory, they'll need to do something else
-  if(alt_path.GetLength()==0)
+  if(rp.AltPath.GetLength()==0)
       return 0;
 
   if(File::TestReadFile(rp.AltPath))
@@ -115,10 +115,10 @@ int File_Delete(const char *fnmm) {
   if (!ResolveScriptPath(fnmm, false, rp))
     return 0;
 
-  if (ags_unlink(path) == 0)
+  if (ags_unlink(rp.FullPath) == 0)
       return 1;
-  if (errno == ENOENT && !alt_path.IsEmpty() && alt_path.Compare(path) != 0)
-      return ags_unlink(alt_path) == 0 ? 1 : 0;
+  if (errno == ENOENT && !rp.AltPath.IsEmpty() && rp.AltPath.Compare(rp.FullPath) != 0)
+      return ags_unlink(rp.AltPath) == 0 ? 1 : 0;
   return 0;
 }
 

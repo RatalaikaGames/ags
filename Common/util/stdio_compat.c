@@ -1,3 +1,5 @@
+//MBG AUG 2019 - THIS IS MESSED UP MAN
+
 //=============================================================================
 //
 // Adventure Game Studio (AGS)
@@ -30,8 +32,10 @@ int	 ags_fseek(FILE * stream, file_off_t offset, int whence)
     return fseeko(stream, offset, whence);
 #elif AGS_PLATFORM_OS_WINDOWS // MSVC
     return _fseeki64(stream, offset, whence); 
-#else // No distinct interface with off_t
+#elif AGS_HAS_POSIX // No distinct interface with off_t
     return fseek(stream, offset, whence);
+#else 
+    return 0;
 #endif
 }
 
@@ -41,8 +45,10 @@ file_off_t ags_ftell(FILE * stream)
         return ftello(stream);
     #elif AGS_PLATFORM_OS_WINDOWS // MSVC
         return _ftelli64(stream); 
-    #else // No distinct interface with off_t
+    #elif AGS_HAS_POSIX // No distinct interface with off_t
         return ftell(stream);
+    #else
+        return 0;
     #endif
 }
 
@@ -50,12 +56,14 @@ int  ags_file_exists(const char *path)
 {
 #if AGS_PLATFORM_OS_WINDOWS
     return PathFileExistsA(path) && ! PathIsDirectoryA(path);
-#else
+#elif AGS_HAS_POSIX
     struct stat path_stat;
     if (stat(path, &path_stat) != 0) {
         return 0;
     }
     return S_ISREG(path_stat.st_mode);
+#else
+    return 0;
 #endif
 }
 
@@ -63,12 +71,14 @@ int ags_directory_exists(const char *path)
 {
 #if AGS_PLATFORM_OS_WINDOWS
     return PathFileExistsA(path) && PathIsDirectoryA(path);
-#else
+#elif AGS_HAS_POSIX
     struct stat path_stat;
     if (stat(path, &path_stat) != 0) {
         return 0;
     }
     return S_ISDIR(path_stat.st_mode);
+#else
+    return 0;
 #endif
 }
 
@@ -76,20 +86,26 @@ int ags_path_exists(const char *path)
 {
     #if AGS_PLATFORM_OS_WINDOWS
         return PathFileExistsA(path);
-    #else
+    #elif AGS_HAS_POSIX
         struct stat path_stat;
         if (stat(path, &path_stat) != 0) {
             return 0;
         }
         return S_ISREG(path_stat.st_mode) || S_ISDIR(path_stat.st_mode);
+    #else
+        return 0;
     #endif
 }
 
 file_off_t ags_file_size(const char *path)
 {
+    #if AGS_HAS_POSIX
     struct stat path_stat;
     if (stat(path, &path_stat) != 0) {
         return -1;
     }
     return path_stat.st_size;
+    #else
+    return 0;
+    #endif
 }

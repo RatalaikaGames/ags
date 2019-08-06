@@ -46,9 +46,11 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#if !AGS_PLATFORM_OS_WINDOWS
-#include <dirent.h>
-#endif
+
+//MBG AUG 2019 - why do we need this
+//#if !AGS_PLATFORM_OS_WINDOWS
+//#include <dirent.h>
+//#endif
 
 #include "allegro.h"
 #include "util/file.h"

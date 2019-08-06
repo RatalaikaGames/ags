@@ -22,8 +22,6 @@
 
 #pragma once
 
-#include "util/stdtr1compat.h"
-#include TR1INCLUDE(memory)
 #include <allegro.h>
 #include "gfx/bitmap.h"
 #include "gfx/ddb.h"
@@ -189,7 +187,7 @@ namespace AGS
 				virtual void RenderToBackBuffer();
 				virtual void Render();
 				virtual void Render(GlobalFlipType flip);
-				virtual bool GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_native_res, Size *want_size);
+				virtual bool GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_native_res, GraphicResolution *want_fmt);
 				virtual void EnableVsyncBeforeRender(bool enabled) { }
 				virtual void Vsync();
 				virtual void RenderSpritesAtScreenResolution(bool enabled, int supersampling) { _renderSprAtScreenRes = enabled; };
@@ -204,7 +202,7 @@ namespace AGS
 				virtual bool HasAcceleratedTransform() { return true; }
 				virtual void SetScreenTint(int red, int green, int blue);
 
-				typedef stdtr1compat::shared_ptr<ConsoleGfxFilter> PConsoleFilter;
+				typedef std::shared_ptr<ConsoleGfxFilter> PConsoleFilter;
 
 				void SetGraphicsFilter(PConsoleFilter filter);
 

@@ -12,47 +12,82 @@
 //
 //=============================================================================
 
-#include "ac/character.h"
+#include "ac/game.h"
+
 #include "ac/common.h"
+#include "ac/view.h"
+#include "ac/audiocliptype.h"
+#include "ac/audiochannel.h"
+#include "ac/character.h"
+#include "ac/charactercache.h"
+#include "ac/characterextras.h"
+#include "ac/dialogtopic.h"
 #include "ac/draw.h"
 #include "ac/dynamicsprite.h"
 #include "ac/event.h"
-#include "ac/game.h"
+#include "ac/gamesetup.h"
 #include "ac/gamesetupstruct.h"
 #include "ac/gamestate.h"
-#include "ac/gamesetup.h"
 #include "ac/global_audio.h"
 #include "ac/global_character.h"
+#include "ac/global_display.h"
+#include "ac/global_game.h"
+#include "ac/global_gui.h"
+#include "ac/global_object.h"
+#include "ac/global_translation.h"
 #include "ac/gui.h"
+#include "ac/hotspot.h"
+#include "ac/lipsync.h"
 #include "ac/mouse.h"
+#include "ac/movelist.h"
+#include "ac/objectcache.h"
 #include "ac/overlay.h"
+#include "ac/path_helper.h"
+#include "ac/sys_events.h"
 #include "ac/region.h"
 #include "ac/richgamemedia.h"
 #include "ac/room.h"
+#include "ac/roomobject.h"
 #include "ac/roomstatus.h"
+#include "ac/runtime_defines.h"
+#include "ac/screenoverlay.h"
 #include "ac/spritecache.h"
+#include "ac/string.h"
 #include "ac/system.h"
 #include "ac/timer.h"
+#include "ac/translation.h"
+#include "ac/dynobj/all_dynamicclasses.h"
+#include "ac/dynobj/all_scriptclasses.h"
+#include "ac/dynobj/cc_audiochannel.h"
+#include "ac/dynobj/cc_audioclip.h"
+#include "ac/dynobj/scriptcamera.h"
+#include "debug/debug_log.h"
 #include "debug/out.h"
 #include "device/mousew32.h"
-#include "gfx/bitmap.h"
-#include "gfx/ddb.h"
-#include "gfx/graphicsdriver.h"
+#include "font/fonts.h"
 #include "game/savegame.h"
 #include "game/savegame_components.h"
 #include "game/savegame_internal.h"
+#include "gui/animatingguibutton.h"
+#include "gfx/bitmap.h"
+#include "gfx/graphicsdriver.h"
+#include "gfx/gfxfilter.h"
+#include "gui/guidialog.h"
 #include "main/engine.h"
+#include "main/graphics_mode.h"
 #include "main/main.h"
-#include "platform/base/agsplatformdriver.h"
+#include "media/audio/audio_system.h"
 #include "plugin/agsplugin.h"
 #include "plugin/plugin_engine.h"
-#include "script/script.h"
 #include "script/cc_error.h"
+#include "script/runtimescriptvalue.h"
+#include "script/script.h"
+#include "script/script_runtime.h"
 #include "util/alignedstream.h"
-#include "util/file.h"
-#include "util/stream.h"
+#include "util/directory.h"
+#include "util/filestream.h" // TODO: needed only because plugins expect file handle
+#include "util/path.h"
 #include "util/string_utils.h"
-#include "media/audio/audio_system.h"
 
 using namespace Common;
 using namespace Engine;
@@ -733,12 +768,9 @@ void WriteDescription(Stream *out, const String &user_text, const Bitmap *user_i
     WriteSaveImage(out, user_image);
 }
 
-PStream StartSavegame(const String &filename, const String &user_text, const Bitmap *user_image)
+void SaveGameCommonHeader(PStream out, const String &user_text, const Bitmap *user_image)
 {
-    Stream *out = Common::File::CreateFile(filename);
-    if (!out)
-        return PStream();
-
+    #ifdef AGS_HAS_RICH_GAME_MEDIA
     // Initialize and write Vista header
     RICH_GAME_MEDIA_HEADER vistaHeader;
     memset(&vistaHeader, 0, sizeof(RICH_GAME_MEDIA_HEADER));
@@ -754,7 +786,8 @@ PStream StartSavegame(const String &filename, const String &user_text, const Bit
     vistaHeader.szLevelName[0] = 0;
     vistaHeader.szComments[0] = 0;
     // MS Windows Vista rich media header
-    vistaHeader.WriteToFile(out);
+    vistaHeader.WriteToFile(out.get());
+    #endif
 
     // Savegame signature
     out->Write(SavegameSource::Signature.GetCStr(), SavegameSource::Signature.GetLength());
@@ -763,8 +796,7 @@ PStream StartSavegame(const String &filename, const String &user_text, const Bit
     pl_run_plugin_hooks(AGSE_PRESAVEGAME, 0);
 
     // Write descrition block
-    WriteDescription(out, user_text, user_image);
-    return PStream(out);
+    WriteDescription(out.get(), user_text, user_image);
 }
 
 void DoBeforeSave()

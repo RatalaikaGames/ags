@@ -18,80 +18,35 @@
 #ifndef __AGS_CN_CORE__TYPES_H
 #define __AGS_CN_CORE__TYPES_H
 
-#include "endianness.h"
-
-#if defined (_WINDOWS) && !defined (WINDOWS_VERSION) &&!defined(CONSOLE_VERSION)
-#define WINDOWS_VERSION
-#endif
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h> // for size_t
+#include <limits.h> // for _WORDSIZE
 
 #ifndef NULL
-#define NULL 0
+#define NULL nullptr
+#endif
+
+// Not all compilers have this. Added in clang and gcc followed
+#ifndef __has_attribute
+    #define __has_attribute(x) 0
 #endif
 
 #ifndef FORCEINLINE
-#if defined(_MSC_VER)
-#define FORCEINLINE __forceinline
-#elif defined (__GNUC__)
-#define FORCEINLINE inline __attribute__((__always_inline__))
-#else
-#define FORCEINLINE inline
+    #ifdef _MSC_VER
+        #define FORCEINLINE __forceinline
+
+    #elif defined (__GNUC__) || __has_attribute(__always_inline__)
+        #define FORCEINLINE inline __attribute__((__always_inline__))
+
+    #else
+        #define FORCEINLINE inline
+
+    #endif
 #endif
-#endif
-
-#include <stddef.h>
-#if !defined (WINDOWS_VERSION) || defined (AGS_HAS_NORMAL_BUILD_ENVIRONMENT_TYPE_HEADERS)
-#define __STDC_LIMIT_MACROS
-#include <stdint.h>
-#include <cstdlib> // for size_t
-#include <limits.h> // for _WORDSIZE
-#endif
-
-// Detect 64 bit environment
-#if defined (_WIN64) || (__WORDSIZE == 64)
-#define AGS_64BIT
-#endif
-
-#if defined(WINDOWS_VERSION)
-#if defined(_MSC_VER) && (_MSC_VER >= 1600)
-
-#include <stdint.h>
-
-#else
-
-#define int8_t       signed char
-#define uint8_t      unsigned char
-#define int16_t      signed short
-#define uint16_t     unsigned short
-#define int32_t      signed int
-#define uint32_t     unsigned int
-#define int64_t      signed __int64
-#define uint64_t     unsigned __int64
-
-#if defined (AGS_64BIT)
-#define intptr_t     int64_t
-#define uintptr_t    uint64_t
-#else // AGS_32BIT
-#define intptr_t     int32_t
-#define uintptr_t    uint32_t
-#endif
-// tell Windows headers that we already have defined out intptr_t types
-#define _INTPTR_T_DEFINED
-#define _UINTPTR_T_DEFINED
-
-#endif // _MSC_VER >= 1600
-
-#endif // WINDOWS_VERSION
 
 // Stream offset type
 typedef int64_t soff_t;
-
-
-// Suppress override keyword for compilers that do not support it
-// TODO: this should be reviewed if project would demand C++11 or higher
-#if !(defined (_MSC_VER) && _MSC_VER >= 1700 || __cplusplus >= 201103L)
-#define override
-#endif
-
 
 #define fixed_t int32_t // fixed point type
 #define color_t int32_t
@@ -102,28 +57,5 @@ enum
     kShift    = 16,
     kUnit     = 1 << kShift
 };
-
-//disable features unneeded for consoles
-#ifndef CONSOLE_VERSION
-#define AGS_HAS_POSIX
-#define AGS_HAS_RICH_GAME_MEDIA
-#endif
-
-#if defined(WINDOWS_VERSION) || defined(_MSC_VER)
-#define AGS_HAS_WINDOWS_SDK
-#endif
-
-#ifdef AGS_HAS_WINDOWS_SDK
-//allegro's "bodges to avoid conflicts between Allegro and Windows"
-#define BITMAP WINDOWS_BITMAP
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <windows.h>
-#define WINDOWS_RGB(r,g,b)  ((COLORREF)(((BYTE)(r)|((WORD)((BYTE)(g))<<8))|(((DWORD)(BYTE)(b))<<16)))
-#undef BITMAP
-#undef RGB
-#undef CreateFile
-struct BITMAP;
-#endif
 
 #endif // __AGS_CN_CORE__TYPES_H

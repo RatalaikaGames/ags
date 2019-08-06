@@ -70,8 +70,6 @@ int AGSPlatformDriver::InitializeCDPlayer() { return 1; }
 int AGSPlatformDriver::CDPlayerCommand(int cmdd, int datt) { return 0; }
 void AGSPlatformDriver::ShutdownCDPlayer() {}
 
-void AGSPlatformDriver::PlayVideo(const char* name, int skip, int flags) {}
-
 const char* AGSPlatformDriver::GetAllegroFailUserHint()
 {
     return "Make sure you have latest version of Allegro 4 libraries installed, and your system is running in graphical mode.";
@@ -86,8 +84,7 @@ void AGSPlatformDriver::GetSystemTime(ScriptDateTime *sdt) {
     time_t t = time(nullptr);
 
     //note: subject to year 2038 problem due to shoving time_t in an integer
-    sdt->rawUnixTime = time( &long_time );
-    newtime = localtime( &long_time );
+    sdt->rawUnixTime = static_cast<int>(t);
 
     struct tm *newtime = localtime(&t);
     sdt->hour = newtime->tm_hour;

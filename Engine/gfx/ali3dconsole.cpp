@@ -455,27 +455,30 @@ namespace AGS
 				//direct3ddevice->Clear(1, &rectToClear, D3DCLEAR_TARGET, colorDword, 0.5f, 0);
 			}
 
-			bool ConsoleGraphicsDriver::GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_native_res, Size *want_size)
+			bool ConsoleGraphicsDriver::GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_native_res, GraphicResolution *want_fmt)
 			{
-				// Currently don't support copying in screen resolution when we are rendering in native
-				if (!_renderSprAtScreenRes)
-					at_native_res = true;
-				Size need_size = at_native_res ? _srcRect.GetSize() : _dstRect.GetSize();
-				if (destination->GetColorDepth() != _mode.ColorDepth || destination->GetSize() != need_size)
-				{
-					if (want_size)
-						*want_size = need_size;
-					return false;
-				}
-				// If we are rendering sprites at the screen resolution, and requested native res,
-				// re-render last frame to the native surface
-				if (at_native_res && _renderSprAtScreenRes)
-				{
-					_renderSprAtScreenRes = false;
-					_reDrawLastFrame();
-					_render(flipTypeLastTime, true);
-					_renderSprAtScreenRes = true;
-				}
+				//-------------------------------------------
+				//MBG AUG 2019 - disabled due to merge, dont think we need it
+				//// Currently don't support copying in screen resolution when we are rendering in native
+				//if (!_renderSprAtScreenRes)
+				//	at_native_res = true;
+				//Size need_size = at_native_res ? _srcRect.GetSize() : _dstRect.GetSize();
+				//if (destination->GetColorDepth() != _mode.ColorDepth || destination->GetSize() != need_size)
+				//{
+				//	if (want_size)
+				//		*want_size = need_size;
+				//	return false;
+				//}
+				//// If we are rendering sprites at the screen resolution, and requested native res,
+				//// re-render last frame to the native surface
+				//if (at_native_res && _renderSprAtScreenRes)
+				//{
+				//	_renderSprAtScreenRes = false;
+				//	_reDrawLastFrame();
+				//	_render(flipTypeLastTime, true);
+				//	_renderSprAtScreenRes = true;
+				//}
+				//-------------------------------------------
 
 				//THIS IS NOT GOING TO BE PRETTY!!
 

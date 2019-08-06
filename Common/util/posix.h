@@ -23,13 +23,6 @@
 //I'm sorry. This file is called "posix" yet contains "ags_" functions.
 //It's not so bad.
 
-int ags_stricmp(const char *string1, const char *string2);
-int ags_strnicmp(const char *string1, const char *string2, int n);
-char *ags_strlwr(char *str);
-char *ags_strupr(char *str);
 int ags_unlink(const char* path);
-
-//strdup is a total disaster on microsoft compilers. let's not use it
-char* ags_strdup(const char* str1);
 
 #endif // __AGS_CN_UTIL__POSIX_H

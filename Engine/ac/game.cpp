@@ -1111,36 +1111,35 @@ void save_game(int slotn, const char*descript) {
     }
 
     VALIDATE_STRING(descript);
-    String nametouse;
-    nametouse = get_save_game_path(slotn);
+
+    Common::PStream out = Common::PStream(platform->Save_CreateSlotStream(slotn));
+    if (out == NULL)
+        quit("save_game: unable to open savegame file for writing");
 
     Bitmap *screenShot = nullptr;
 
     // Screenshot
     create_savegame_screenshot(screenShot);
 
-    Common::PStream out = StartSavegame(nametouse, descript, screenShot);
-    if (out == nullptr)
-        quit("save_game: unable to open savegame file for writing");
+    SaveGameCommonHeader(out, descript, screenShot);
 
     update_polled_stuff_if_runtime();
 
     // Actual dynamic game data is saved here
     SaveGameState(out);
 
-    if (screenShot != nullptr)
+    #ifdef AGS_HAS_RICH_GAME_MEDIA
+    if (screenShot != NULL)
     {
         int screenShotOffset = out->GetPosition() - sizeof(RICH_GAME_MEDIA_HEADER);
         int screenShotSize = write_screen_shot_for_vista(out.get(), screenShot);
 
-        update_polled_stuff_if_runtime();
-
-        out.reset(Common::File::OpenFile(nametouse, Common::kFile_Open, Common::kFile_ReadWrite));
         out->Seek(12, kSeekBegin);
         out->WriteInt32(screenShotOffset);
         out->Seek(4);
         out->WriteInt32(screenShotSize);
     }
+    #endif
 
     if (screenShot != nullptr)
         delete screenShot;

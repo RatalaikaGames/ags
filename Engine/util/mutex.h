@@ -43,10 +43,10 @@ public:
 
 #if 0
   // insert platforms here
-#else
-#include "mutex_std.h"
 #elif defined(CONSOLE_VERSION)
 #include "mutex_console.h"
+#else
+#include "mutex_std.h"
 
 #endif
 

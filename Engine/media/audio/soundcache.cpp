@@ -18,6 +18,7 @@
 #include "util/wgt2allg.h"
 #include "media/audio/soundcache.h"
 #include "media/audio/audiointernaldefs.h"
+#include "platform/base/agsplatformdriver.h"
 #include "util/mutex.h"
 #include "util/mutex_lock.h"
 #include "util/string.h"
@@ -182,7 +183,7 @@ char* get_cached_sound(const AssetPath &asset_name, bool is_wave, long* size)
     }
     else
     {
-        *size = mp3in->normal.todo;
+        *size = platform->allegro_flength(mp3in->userdata);
         newdata = (char *)malloc(*size);
 
         if (newdata == nullptr)

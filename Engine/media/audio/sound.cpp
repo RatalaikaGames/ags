@@ -97,20 +97,23 @@ SOUNDCLIP *my_load_mp3(const AssetPath &asset_name, int voll)
     thistune = new MYMP3();
     thistune->in = mp3in;
     thistune->chunksize = MP3CHUNKSIZE;
-    thistune->filesize = mp3in->normal.todo;
+    thistune->filesize = platform->allegro_flength(mp3in->userdata);
+    thistune->done = 0;
     thistune->vol = voll;
 
-    if (thistune->chunksize > mp3in->normal.todo)
-        thistune->chunksize = mp3in->normal.todo;
+    long remains = platform->allegro_fremain(mp3in->userdata);
+
+    // limit chunk size to remaining file length
+    if (thistune->chunksize > remains)
+        thistune->chunksize = remains;
 
     pack_fread(tmpbuffer, thistune->chunksize, mp3in);
 
     thistune->buffer = (char *)tmpbuffer;
 
-    {
-        AGS::Engine::MutexLock _lockMp3(_mp3_mutex);
-        thistune->stream = almp3_create_mp3stream(tmpbuffer, thistune->chunksize, (mp3in->normal.todo < 1));
-    }
+    AGS::Engine::MutexLock _lockMp3(_mp3_mutex);
+    thistune->stream = almp3_create_mp3stream(tmpbuffer, thistune->chunksize, (remains < 1));
+    _lockMp3.Release();
 
     if (thistune->stream == nullptr) {
         free(tmpbuffer);

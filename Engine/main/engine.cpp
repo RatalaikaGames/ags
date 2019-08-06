@@ -1534,6 +1534,12 @@ void initialize_engine_console(const char* agsPath, const char* cfgPath)
 
     engine_init_allegro();
 
+    // Locate game data and assemble game config
+    String exe_path = "";
+    engine_init_gamedata(exe_path);
+    ConfigTree startup_opts;
+    engine_do_config(exe_path, startup_opts);
+
     _initialize_engine_common();
 }
 

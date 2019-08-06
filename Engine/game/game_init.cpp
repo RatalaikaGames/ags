@@ -29,18 +29,19 @@
 #include "ac/statobj/staticarray.h"
 #include "debug/debug_log.h"
 #include "debug/out.h"
+#include "font/agsfontrenderer.h"
 #include "font/fonts.h"
 #include "game/game_init.h"
 #include "gfx/bitmap.h"
 #include "gfx/ddb.h"
 #include "gui/guilabel.h"
-#include "media/audio/audio.h"
 #include "plugin/plugin_engine.h"
 #include "script/cc_error.h"
 #include "script/exports.h"
 #include "script/script.h"
 #include "script/script_runtime.h"
 #include "util/string_utils.h"
+#include "media/audio/audio_system.h"
 
 using namespace Common;
 using namespace Engine;
@@ -90,7 +91,7 @@ extern std::vector<ccInstance *> moduleInstFork;
 extern std::vector<RuntimeScriptValue> moduleRepExecAddr;
 
 // Old dialog support (defined in ac/dialog)
-extern std::vector< stdtr1compat::shared_ptr<unsigned char> > old_dialog_scripts;
+extern std::vector< std::shared_ptr<unsigned char> > old_dialog_scripts;
 extern std::vector<String> old_speech_lines;
 
 StaticArray StaticCharacterArray;
@@ -138,7 +139,7 @@ void InitAndRegisterAudioObjects()
         ccRegisterManagedObject(&scrAudioChannel[i], &ccDynamicAudio);
     }
 
-    for (int i = 0; i < game.audioClipCount; ++i)
+    for (size_t i = 0; i < game.audioClips.size(); ++i)
     {
         game.audioClips[i].id = i;
         ccRegisterManagedObject(&game.audioClips[i], &ccDynamicAudioClip);
@@ -307,6 +308,7 @@ HError InitAndRegisterGameEntities()
     InitAndRegisterHotspots();
     InitAndRegisterRegions();
     InitAndRegisterRoomObjects();
+    play.CreatePrimaryViewportAndCamera();
 
     RegisterStaticArrays();
 
@@ -316,29 +318,19 @@ HError InitAndRegisterGameEntities()
     return HError::None();
 }
 
-void LoadFonts()
+void LoadFonts(GameDataVersion data_ver)
 {
     for (int i = 0; i < game.numfonts; ++i) 
     {
-        FontInfo finfo = game.fonts[i];
-
-        // Apply compatibility adjustments
-        if (finfo.SizePt == 0)
-            finfo.SizePt = 8;
-
-        // TODO: for some reason these compat fixes are different in the editor, investigate
-        if ((game.options[OPT_NOSCALEFNT] == 0) && game.IsHiRes())
-            finfo.SizePt *= 2;
-
-        if (!wloadfont_size(i, finfo, NULL))
+        if (!wloadfont_size(i, game.fonts[i]))
             quitprintf("Unable to load font %d, no renderer could load a matching file", i);
     }
 }
 
 void AllocScriptModules()
 {
-    moduleInst.resize(numScriptModules, NULL);
-    moduleInstFork.resize(numScriptModules, NULL);
+    moduleInst.resize(numScriptModules, nullptr);
+    moduleInstFork.resize(numScriptModules, nullptr);
     moduleRepExecAddr.resize(numScriptModules);
     repExecAlways.moduleHasFunction.resize(numScriptModules, true);
     lateRepExecAlways.moduleHasFunction.resize(numScriptModules, true);
@@ -377,8 +369,8 @@ HGameInitError InitGameState(const LoadedGameEntities &ents, GameDataVersion dat
     //
     if (game.numfonts == 0)
         return new GameInitError(kGameInitErr_NoFonts);
-    if (game.audioClipTypeCount > MAX_AUDIO_TYPES)
-        return new GameInitError(kGameInitErr_TooManyAudioTypes, String::FromFormat("Required: %d, max: %d", game.audioClipTypeCount, MAX_AUDIO_TYPES));
+    if (game.audioClipTypes.size() > MAX_AUDIO_TYPES)
+        return new GameInitError(kGameInitErr_TooManyAudioTypes, String::FromFormat("Required: %u, max: %d", game.audioClipTypes.size(), MAX_AUDIO_TYPES));
 
     //
     // 2. Apply overriding config settings
@@ -394,10 +386,10 @@ HGameInitError InitGameState(const LoadedGameEntities &ents, GameDataVersion dat
     // resolutions, such as 320x200 and 320x240.
     if (usetup.override_upscale)
     {
-        if (game.GetDefaultResolution() == kGameResolution_320x200)
-            game.SetDefaultResolution(kGameResolution_640x400);
-        else if (game.GetDefaultResolution() == kGameResolution_320x240)
-            game.SetDefaultResolution(kGameResolution_640x480);
+        if (game.GetResolutionType() == kGameResolution_320x200)
+            game.SetGameResolution(kGameResolution_640x400);
+        else if (game.GetResolutionType() == kGameResolution_320x240)
+            game.SetGameResolution(kGameResolution_640x480);
     }
 
     //
@@ -418,7 +410,7 @@ HGameInitError InitGameState(const LoadedGameEntities &ents, GameDataVersion dat
     HError err = InitAndRegisterGameEntities();
     if (!err)
         return new GameInitError(kGameInitErr_EntityInitFail, err);
-    LoadFonts();
+    LoadFonts(data_ver);
 
     //
     // 4. Initialize certain runtime variables
@@ -426,10 +418,10 @@ HGameInitError InitGameState(const LoadedGameEntities &ents, GameDataVersion dat
     game_paused = 0;  // reset the game paused flag
     ifacepopped = -1;
 
+    String svg_suffix;
     if (game.saveGameFileExtension[0] != 0)
-        saveGameSuffix.Format(".%s", game.saveGameFileExtension);
-    else
-        saveGameSuffix = "";
+        svg_suffix.Format(".%s", game.saveGameFileExtension);
+    set_save_game_suffix(svg_suffix);
 
     play.score_sound = game.scoreClipID;
     play.fade_effect = game.options[OPT_FADETYPE];

@@ -15,8 +15,8 @@
 #include "core/types.h"
 
 #include <memory>
-#include <stdio.h>
-
+#include <limits>
+#include "core/platform.h"
 #include "ac/common.h"
 #include "ac/gamesetupstruct.h"
 #include "ac/runtime_defines.h"
@@ -28,13 +28,18 @@
 #include "debug/logfile.h"
 #include "debug/messagebuffer.h"
 #include "main/config.h"
-#include "media/audio/audio.h"
-#include "media/audio/soundclip.h"
+#include "media/audio/audio_system.h"
 #include "plugin/plugin_engine.h"
 #include "script/script.h"
 #include "script/script_common.h"
 #include "script/cc_error.h"
 #include "util/textstreamwriter.h"
+#include "platform/base/agsplatformdriver.h"
+#include "debug/agseditordebugger.h"
+
+#if AGS_PLATFORM_OS_WINDOWS
+#include <winalleg.h>
+#endif
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -50,38 +55,39 @@ extern GameSetupStruct game;
 int editor_debugging_enabled = 0;
 int editor_debugging_initialized = 0;
 char editor_debugger_instance_token[100];
-IAGSEditorDebugger *editor_debugger = NULL;
+IAGSEditorDebugger *editor_debugger = nullptr;
 int break_on_next_script_step = 0;
 volatile int game_paused_in_debugger = 0;
 
-#ifdef WINDOWS_VERSION
+#if AGS_PLATFORM_OS_WINDOWS
 HWND editor_window_handle = 0;
 
 
 #include "platform/windows/debug/namedpipesagsdebugger.h"
+
+HWND editor_window_handle = 0;
 
 IAGSEditorDebugger *GetEditorDebugger(const char *instanceToken)
 {
     return new NamedPipesAGSDebugger(instanceToken);
 }
 
-#else   // WINDOWS_VERSION
+#else   // AGS_PLATFORM_OS_WINDOWS
 
 IAGSEditorDebugger *GetEditorDebugger(const char *instanceToken)
 {
-    return NULL;
+    return nullptr;
 }
 
 #endif
 
 int debug_flags=0;
-bool enable_log_file = false;
-bool disable_log_file = false;
 
 String debug_line[DEBUG_CONSOLE_NUMLINES];
 int first_debug_line = 0, last_debug_line = 0, display_console = 0;
 
-int fps=0,display_fps=0;
+float fps = std::numeric_limits<float>::quiet_NaN();
+int display_fps=0;
 
 std::unique_ptr<MessageBuffer> DebugMsgBuff;
 std::unique_ptr<LogFile> DebugLogFile;
@@ -168,7 +174,7 @@ void shutdown_debug()
 
 void debug_set_console(bool enable)
 {
-    if (enable && DebugConsole.get() == NULL)
+    if (enable && DebugConsole.get() == nullptr)
     {
         DebugConsole.reset(new ConsoleOutputTarget());
         PDebugOutput gmcs_out = DbgMgr.RegisterOutput(OutputGameConsoleID, DebugConsole.get(), kDbgMsgSet_Errors);
@@ -177,7 +183,7 @@ void debug_set_console(bool enable)
         if (DebugMsgBuff.get())
             DebugMsgBuff->Send(OutputGameConsoleID);
     }
-    else if (!enable && DebugConsole.get() != NULL)
+    else if (!enable && DebugConsole.get() != nullptr)
     {
         DbgMgr.UnregisterOutput(OutputGameConsoleID);
         DebugConsole.reset();
@@ -189,7 +195,7 @@ void debug_script_print(const String &msg, MessageType mt)
 {
     String script_ref;
     ccInstance *curinst = ccInstance::GetCurrentInstance();
-    if (curinst != NULL) {
+    if (curinst != nullptr) {
         String scriptname;
         if (curinst->instanceof == gamescript)
             scriptname = "G ";
@@ -263,11 +269,11 @@ bool send_message_to_editor(const char *msg, const char *errorMsg)
 
     char messageToSend[STD_BUFFER_SIZE];
     sprintf(messageToSend, "<?xml version=\"1.0\" encoding=\"Windows-1252\"?><Debugger Command=\"%s\">", msg);
-#ifdef WINDOWS_VERSION
+#if AGS_PLATFORM_OS_WINDOWS
     sprintf(&messageToSend[strlen(messageToSend)], "  <EngineWindow>%d</EngineWindow> ", (int)win_get_window());
 #endif
     sprintf(&messageToSend[strlen(messageToSend)], "  <ScriptState><![CDATA[%s]]></ScriptState> ", callStack.GetCStr());
-    if (errorMsg != NULL)
+    if (errorMsg != nullptr)
     {
         sprintf(&messageToSend[strlen(messageToSend)], "  <ErrorMessage><![CDATA[%s]]></ErrorMessage> ", errorMsg);
     }
@@ -280,19 +286,19 @@ bool send_message_to_editor(const char *msg, const char *errorMsg)
 
 bool send_message_to_editor(const char *msg) 
 {
-    return send_message_to_editor(msg, NULL);
+    return send_message_to_editor(msg, nullptr);
 }
 
 bool init_editor_debugging() 
 {
-#ifdef WINDOWS_VERSION
+#if AGS_PLATFORM_OS_WINDOWS
     editor_debugger = GetEditorDebugger(editor_debugger_instance_token);
 #else
     // Editor isn't ported yet
-    editor_debugger = NULL;
+    editor_debugger = nullptr;
 #endif
 
-    if (editor_debugger == NULL)
+    if (editor_debugger == nullptr)
         quit("editor_debugger is NULL but debugger enabled");
 
     if (editor_debugger->Initialize())
@@ -318,7 +324,7 @@ int check_for_messages_from_editor()
     if (editor_debugger->IsMessageAvailable())
     {
         char *msg = editor_debugger->GetNextMessage();
-        if (msg == NULL)
+        if (msg == nullptr)
         {
             return 0;
         }
@@ -335,10 +341,10 @@ int check_for_messages_from_editor()
 
         if (strncmp(msgPtr, "START", 5) == 0)
         {
-            #ifdef WINDOWS_VERSION
+#if AGS_PLATFORM_OS_WINDOWS
             const char *windowHandle = strstr(msgPtr, "EditorWindow") + 14;
             editor_window_handle = (HWND)atoi(windowHandle);
-            #endif
+#endif
         }
         else if (strncmp(msgPtr, "READY", 5) == 0)
         {
@@ -413,7 +419,7 @@ int check_for_messages_from_editor()
 
 bool send_exception_to_editor(const char *qmsg)
 {
-#ifdef WINDOWS_VERSION
+#if AGS_PLATFORM_OS_WINDOWS
     want_exit = 0;
     // allow the editor to break with the error message
     if (editor_window_handle != NULL)
@@ -424,8 +430,8 @@ bool send_exception_to_editor(const char *qmsg)
 
     while ((check_for_messages_from_editor() == 0) && (want_exit == 0))
     {
-        update_mp3();
-            platform->Delay(10);
+        update_polled_mp3();
+        platform->Delay(10);
     }
 #endif
     return true;
@@ -434,7 +440,7 @@ bool send_exception_to_editor(const char *qmsg)
 
 void break_into_debugger() 
 {
-#ifdef WINDOWS_VERSION
+#if AGS_PLATFORM_OS_WINDOWS
 
     if (editor_window_handle != NULL)
         SetForegroundWindow(editor_window_handle);
@@ -466,7 +472,7 @@ void scriptDebugHook (ccInstance *ccinst, int linenum) {
 
     // no plugin, use built-in debugger
 
-    if (ccinst == NULL) 
+    if (ccinst == nullptr) 
     {
         // come out of script
         return;

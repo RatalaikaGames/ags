@@ -21,7 +21,11 @@
 //
 //=============================================================================
 
-#if defined (WINDOWS_VERSION)
+#include "core/platform.h"
+
+#define AGS_SIMULATE_RIGHT_CLICK (AGS_PLATFORM_OS_MACOS)
+
+#if AGS_PLATFORM_OS_WINDOWS
 #include <dos.h>
 #include <conio.h>
 #include <process.h>
@@ -42,7 +46,7 @@
 #include "main/graphics_mode.h"
 #include "platform/base/agsplatformdriver.h"
 #include "util/math.h"
-#if defined(MAC_VERSION)
+#if AGS_SIMULATE_RIGHT_CLICK
 #include "ac/global_game.h" // j for IsKeyPressed
 #endif
 
@@ -257,7 +261,7 @@ int mgetbutton()
   if (butis & 1)
   {
     toret = LEFT;
-#if defined(MAC_VERSION)
+#if AGS_SIMULATE_RIGHT_CLICK
     // j Ctrl-left click should be right-click
     if (IsKeyPressed(405) || IsKeyPressed(406))
     {
@@ -353,9 +357,6 @@ void Mouse::DisableControl()
 {
     ControlEnabled = false;
     ConfineInCtrlRect = false;
-    SpeedVal = 1.f;
-    SpeedUnit = 1.f;
-    Speed = 1.f;
 }
 
 bool Mouse::IsControlEnabled()
@@ -365,8 +366,6 @@ bool Mouse::IsControlEnabled()
 
 void Mouse::SetSpeedUnit(float f)
 {
-    if (!ControlEnabled)
-        return;
     SpeedUnit = f;
     Speed = SpeedVal / SpeedUnit;
 }
@@ -378,8 +377,6 @@ float Mouse::GetSpeedUnit()
 
 void Mouse::SetSpeed(float speed)
 {
-    if (!ControlEnabled)
-        return;
     SpeedVal = Math::Max(0.f, speed);
     Speed = SpeedUnit * SpeedVal;
 }

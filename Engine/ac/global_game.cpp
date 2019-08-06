@@ -13,6 +13,9 @@
 //=============================================================================
 
 #include <stdio.h>
+#include <math.h>
+
+#include "core/platform.h"
 #include "ac/audiocliptype.h"
 #include "ac/global_game.h"
 #include "ac/common.h"
@@ -48,7 +51,6 @@
 #include "main/game_start.h"
 #include "main/game_run.h"
 #include "main/graphics_mode.h"
-#include "media/audio/audio.h"
 #include "script/script.h"
 #include "script/script_runtime.h"
 #include "ac/spritecache.h"
@@ -57,6 +59,7 @@
 #include "core/assetmanager.h"
 #include "main/game_file.h"
 #include "util/string_utils.h"
+#include "media/audio/audio_system.h"
 
 using namespace AGS::Common;
 
@@ -68,7 +71,6 @@ extern int displayed_room;
 extern int game_paused;
 extern SpriteCache spriteset;
 extern int frames_per_second;
-extern int time_between_timers;
 extern char gamefilenamebuf[200];
 extern GameSetup usetup;
 extern unsigned int load_new_game;
@@ -79,11 +81,10 @@ extern RoomStatus*croom;
 extern int gui_disabled_style;
 extern RoomStruct thisroom;
 extern int getloctype_index;
-extern char saveGameDirectory[260];
 extern IGraphicsDriver *gfxDriver;
 extern color palette[256];
 
-#if defined(IOS_VERSION) || defined(ANDROID_VERSION)
+#if AGS_PLATFORM_OS_IOS || AGS_PLATFORM_OS_ANDROID
 extern int psp_gfx_renderer;
 #endif
 
@@ -153,7 +154,7 @@ int GetSaveSlotDescription(int slnum,char*desbuf) {
 
 int LoadSaveSlotScreenshot(int slnum, int width, int height) {
     int gotSlot;
-    multiply_up_coordinates(&width, &height);
+    data_to_game_coords(&width, &height);
 
     if (!read_savedgame_screenshot(get_save_game_path(slnum), gotSlot))
         return 0;
@@ -229,8 +230,8 @@ int RunAGSGame (const char *newgame, unsigned int mode, int data) {
     if ((mode & RAGMODE_LOADNOW) == 0) {
         // need to copy, since the script gets destroyed
         get_install_dir_path(gamefilenamebuf, newgame);
-        game_file_name = gamefilenamebuf;
-        usetup.main_data_filename = game_file_name;
+        ResPaths.GamePak.Path = gamefilenamebuf;
+        ResPaths.GamePak.Name = get_filename(gamefilenamebuf);
         play.takeover_data = data;
         load_new_game_restore = -1;
 
@@ -251,8 +252,8 @@ int RunAGSGame (const char *newgame, unsigned int mode, int data) {
 
     unload_game_file();
 
-    if (Common::AssetManager::SetDataFile(game_file_name) != Common::kAssetNoError)
-        quitprintf("!RunAGSGame: unable to load new game file '%s'", game_file_name.GetCStr());
+    if (Common::AssetManager::SetDataFile(ResPaths.GamePak.Path) != Common::kAssetNoError)
+        quitprintf("!RunAGSGame: unable to load new game file '%s'", ResPaths.GamePak.Path.GetCStr());
 
     show_preload();
 
@@ -261,7 +262,7 @@ int RunAGSGame (const char *newgame, unsigned int mode, int data) {
         quitprintf("!RunAGSGame: error loading new game file:\n%s", err->FullMessage().GetCStr());
 
     spriteset.Reset();
-    err = spriteset.InitFile("acsprset.spr");
+    err = spriteset.InitFile(SpriteCache::DefaultSpriteFileName, SpriteCache::DefaultSpriteIndexName);
     if (!err)
         quitprintf("!RunAGSGame: error loading new sprites:\n%s", err->FullMessage().GetCStr());
 
@@ -360,8 +361,8 @@ void SetRestartPoint() {
 
 void SetGameSpeed(int newspd) {
     // if Ctrl+E has been used to max out frame rate, lock it there
-    if ((frames_per_second == 1000) && (display_fps == 2))
-        return;
+    auto maxed_framerate = (frames_per_second >= 1000) && (display_fps == 2);
+    if (maxed_framerate) { return; }
 
     newspd += play.game_speed_modifier;
     if (newspd>1000) newspd=1000;
@@ -371,7 +372,7 @@ void SetGameSpeed(int newspd) {
 }
 
 int GetGameSpeed() {
-    return frames_per_second - play.game_speed_modifier;
+    return ::lround(get_current_fps()) - play.game_speed_modifier;
 }
 
 int SetGameOption (int opt, int setting) {
@@ -389,7 +390,7 @@ int SetGameOption (int opt, int setting) {
         }
     }
 
-    if ((opt == OPT_CROSSFADEMUSIC) && (game.audioClipTypeCount > AUDIOTYPE_LEGACY_MUSIC))
+    if ((opt == OPT_CROSSFADEMUSIC) && (game.audioClipTypes.size() > AUDIOTYPE_LEGACY_MUSIC))
     {
         // legacy compatibility -- changing crossfade speed here also
         // updates the new audio clip type style
@@ -428,7 +429,7 @@ void SkipUntilCharacterStops(int cc) {
     if (!game.chars[cc].walking)
         return;
 
-    if (play.in_cutscene)
+    if (is_in_cutscene())
         quit("!SkipUntilCharacterStops: cannot be used within a cutscene");
 
     initialize_skippable_cutscene();
@@ -445,17 +446,11 @@ void EndSkippingUntilCharStops() {
     play.skip_until_char_stops = -1;
 }
 
-// skipwith decides how it can be skipped:
-// 1 = ESC only
-// 2 = any key
-// 3 = mouse button
-// 4 = mouse button or any key
-// 5 = right click or ESC only
 // 6 = nothing, only skip by script command
 void StartCutscene (int skipwith) {
     static ScriptPosition last_cutscene_script_pos;
 
-    if (play.in_cutscene) {
+    if (is_in_cutscene()) {
         quitprintf("!StartCutscene: already in a cutscene; previous started in \"%s\", line %d",
             last_cutscene_script_pos.Section.GetCStr(), last_cutscene_script_pos.Line);
     }
@@ -474,12 +469,12 @@ void StartCutscene (int skipwith) {
 
 void SkipCutscene()
 {
-    if (play.in_cutscene > 0)
+    if (is_in_cutscene())
         start_skipping_cutscene();
 }
 
 int EndCutscene () {
-    if (play.in_cutscene == 0)
+    if (!is_in_cutscene())
         quit("!EndCutscene: not in a cutscene");
 
     int retval = play.fast_forward;
@@ -510,7 +505,7 @@ int GetLocationType(int xxx,int yyy) {
 void SaveCursorForLocationChange() {
     // update the current location name
     char tempo[100];
-    GetLocationName(divide_down_coordinate(mousex), divide_down_coordinate(mousey), tempo);
+    GetLocationName(game_to_data_coord(mousex), game_to_data_coord(mousey), tempo);
 
     if (play.get_loc_name_save_cursor != play.get_loc_name_last_time) {
         play.get_loc_name_save_cursor = play.get_loc_name_last_time;
@@ -526,8 +521,9 @@ void GetLocationName(int xxx,int yyy,char*tempo) {
 
     VALIDATE_STRING(tempo);
 
+    tempo[0] = 0;
+
     if (GetGUIAt(xxx, yyy) >= 0) {
-        tempo[0]=0;
         int mover = GetInvAt (xxx, yyy);
         if (mover > 0) {
             if (play.get_loc_name_last_time != 1000 + mover)
@@ -542,13 +538,13 @@ void GetLocationName(int xxx,int yyy,char*tempo) {
         }
         return;
     }
-    int loctype = GetLocationType (xxx, yyy);
+
+    int loctype = GetLocationType(xxx, yyy); // GetLocationType takes screen coords
     VpPoint vpt = play.ScreenToRoomDivDown(xxx, yyy);
     if (vpt.second < 0)
         return;
     xxx = vpt.first.X;
     yyy = vpt.first.Y;
-    tempo[0]=0;
     if ((xxx>=thisroom.Width) | (xxx<0) | (yyy<0) | (yyy>=thisroom.Height))
         return;
 
@@ -858,12 +854,13 @@ int IsKeyPressed (int keycode) {
 }
 
 int SaveScreenShot(const char*namm) {
-    char fileName[MAX_PATH];
+    String fileName;
+    String svg_dir = get_save_game_directory();
 
-    if (strchr(namm,'.') == NULL)
-        sprintf(fileName, "%s%s.bmp", saveGameDirectory, namm);
+    if (strchr(namm,'.') == nullptr)
+        fileName.Format("%s%s.bmp", svg_dir.GetCStr(), namm);
     else
-        sprintf(fileName, "%s%s", saveGameDirectory, namm);
+        fileName.Format("%s%s", svg_dir.GetCStr(), namm);
 
     Bitmap *buffer = CopyScreenIntoBitmap(play.GetMainViewport().GetWidth(), play.GetMainViewport().GetHeight());
     if (!buffer->SaveToFile(fileName, palette) != 0)
@@ -1009,7 +1006,7 @@ void _sc_AbortGame(const char* text) {
 
 int GetGraphicalVariable (const char *varName) {
     InteractionVariable *theVar = FindGraphicalVariable(varName);
-    if (theVar == NULL) {
+    if (theVar == nullptr) {
         quitprintf("!GetGraphicalVariable: interaction variable '%s' not found", varName);
         return 0;
     }
@@ -1018,7 +1015,7 @@ int GetGraphicalVariable (const char *varName) {
 
 void SetGraphicalVariable (const char *varName, int p_value) {
     InteractionVariable *theVar = FindGraphicalVariable(varName);
-    if (theVar == NULL) {
+    if (theVar == nullptr) {
         quitprintf("!SetGraphicalVariable: interaction variable '%s' not found", varName);
     }
     else
@@ -1031,7 +1028,8 @@ void scrWait(int nloops) {
 
     play.wait_counter = nloops;
     play.key_skip_wait = 0;
-    GameLoopUntilEvent(UNTIL_MOVEEND,&play.wait_counter);
+
+    GameLoopUntilValueIsZeroOrLess(&play.wait_counter);
 }
 
 int WaitKey(int nloops) {
@@ -1040,7 +1038,9 @@ int WaitKey(int nloops) {
 
     play.wait_counter = nloops;
     play.key_skip_wait = 1;
-    GameLoopUntilEvent(UNTIL_MOVEEND,&play.wait_counter);
+
+    GameLoopUntilValueIsZeroOrLess(&play.wait_counter);
+
     if (play.wait_counter < 0)
         return 1;
     return 0;
@@ -1052,7 +1052,9 @@ int WaitMouseKey(int nloops) {
 
     play.wait_counter = nloops;
     play.key_skip_wait = 3;
-    GameLoopUntilEvent(UNTIL_MOVEEND,&play.wait_counter);
+
+    GameLoopUntilValueIsZeroOrLess(&play.wait_counter);
+
     if (play.wait_counter < 0)
         return 1;
     return 0;

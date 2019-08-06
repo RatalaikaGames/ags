@@ -29,32 +29,20 @@ using namespace AGS::Common;
 using namespace AGS::Engine;
 
 extern GameSetupStruct game;
-extern int current_screen_resolution_multiplier;
 extern SpriteCache spriteset;
 extern int our_eip, eip_guinum, eip_guiobj;
 extern color palette[256];
 extern IGraphicsDriver *gfxDriver;
 extern AGSPlatformDriver *platform;
 
-void get_new_size_for_sprite (int ee, int ww, int hh, int &newwid, int &newhit) {
-    newwid = ww * current_screen_resolution_multiplier;
-    newhit = hh * current_screen_resolution_multiplier;
-    if (game.SpriteInfos[ee].Flags & SPF_640x400) 
-    {
-        if (current_screen_resolution_multiplier == 2) {
-            newwid = ww;
-            newhit = hh;
-        }
-        else {
-            newwid=(ww/2) * current_screen_resolution_multiplier;
-            newhit=(hh/2) * current_screen_resolution_multiplier;
-            // just make sure - could crash if wid or hit is 0
-            if (newwid < 1)
-                newwid = 1;
-            if (newhit < 1)
-                newhit = 1;
-        }
-    }
+void get_new_size_for_sprite (int ee, int ww, int hh, int &newwid, int &newhit)
+{
+    newwid = ww;
+    newhit = hh;
+    const SpriteInfo &spinfo = game.SpriteInfos[ee];
+    if (!game.AllowRelativeRes() || !spinfo.IsRelativeRes())
+        return;
+    ctx_data_to_game_size(newwid, newhit, spinfo.IsLegacyHiRes());
 }
 
 // set any alpha-transparent pixels in the image to the appropriate
@@ -138,13 +126,11 @@ void initialize_sprite (int ee) {
     if ((ee < 0) || (ee > spriteset.GetSpriteSlotCount()))
         quit("initialize_sprite: invalid sprite number");
 
-    if ((spriteset[ee] == NULL) && (ee > 0)) {
+    if ((spriteset[ee] == nullptr) && (ee > 0)) {
         // replace empty sprites with blue cups, to avoid crashes
-        spriteset.Set(ee, spriteset[0]);
-        game.SpriteInfos[ee].Width = game.SpriteInfos[0].Width;
-        game.SpriteInfos[ee].Height = game.SpriteInfos[0].Height;
+        spriteset.RemapSpriteToSprite0(ee);
     }
-    else if (spriteset[ee]==NULL) {
+    else if (spriteset[ee]==nullptr) {
         game.SpriteInfos[ee].Width=0;
         game.SpriteInfos[ee].Height=0;
     }
@@ -167,33 +153,21 @@ void initialize_sprite (int ee) {
 
         if ((newwid != curspr->GetWidth()) || (newhit != curspr->GetHeight())) {
             tmpdbl = BitmapHelper::CreateTransparentBitmap(newwid,newhit,curspr->GetColorDepth());
-            if (tmpdbl == NULL)
+            if (tmpdbl == nullptr)
                 quit("Not enough memory to load sprite graphics");
             tmpdbl->Acquire ();
             curspr->Acquire ();
-            /*#ifdef USE_CUSTOM_EXCEPTION_HANDLER
-            __try {
-            #endif*/
             tmpdbl->StretchBlt(curspr,RectWH(0,0,tmpdbl->GetWidth(),tmpdbl->GetHeight()), Common::kBitmap_Transparency);
-            /*#ifdef USE_CUSTOM_EXCEPTION_HANDLER
-            } __except (1) {
-            // I can't trace this fault, but occasionally stretch_sprite
-            // crashes, even with valid source and dest bitmaps. So,
-            // for now, just ignore the exception, since the stretch
-            // looks successful
-            //MessageBox (allegro_wnd, "ERROR", "FATAL ERROR", MB_OK);
-            }
-            #endif*/
             curspr->Release ();
             tmpdbl->Release ();
             delete curspr;
-            spriteset.Set(ee, tmpdbl);
+            spriteset.SubstituteBitmap(ee, tmpdbl);
         }
 
         game.SpriteInfos[ee].Width=spriteset[ee]->GetWidth();
         game.SpriteInfos[ee].Height=spriteset[ee]->GetHeight();
 
-        spriteset.Set(ee, PrepareSpriteForUse(spriteset[ee], (game.SpriteInfos[ee].Flags & SPF_ALPHACHANNEL) != 0));
+        spriteset.SubstituteBitmap(ee, PrepareSpriteForUse(spriteset[ee], (game.SpriteInfos[ee].Flags & SPF_ALPHACHANNEL) != 0));
 
         if (game.GetColorDepth() < 32) {
             game.SpriteInfos[ee].Flags &= ~SPF_ALPHACHANNEL;

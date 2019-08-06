@@ -39,6 +39,8 @@
 #define __AGS_CN_UTIL__STRING_H
 
 #include <stdarg.h>
+#include <vector>
+#include "core/platform.h"
 #include "core/types.h"
 #include "debug/assert.h"
 
@@ -64,10 +66,15 @@ public:
     String(char c, size_t count);
     ~String();
 
-    // Get underlying C-string for reading
+    // Get underlying C-string for reading; this method guarantees valid C-string
     inline const char *GetCStr() const
     {
         return _meta ? _meta->CStr : "";
+    }
+    // Get C-string or nullptr
+    inline const char *GetNullableCStr() const
+    {
+        return _meta ? _meta->CStr : nullptr;
     }
     // Get character count
     inline size_t GetLength() const
@@ -80,8 +87,8 @@ public:
         return _meta ? _meta->Length == 0 : true;
     }
 
-    // Those getters are for tests only, hence ifdef _DEBUG
-#ifdef _DEBUG
+    // Those getters are for tests only, hence if AGS_PLATFORM_DEBUG
+#if AGS_PLATFORM_DEBUG
     inline const char *GetData() const
     {
         return _data;
@@ -105,7 +112,7 @@ public:
     // the data will be read until null-terminator or EOS is met, and buffer
     // will contain only leftmost part of the longer string that fits in.
     // This method is better fit for reading from binary streams.
-    void    Read(Stream *in, size_t max_chars = 5000000, bool stop_at_limit = false);
+    void    Read(Stream *in, size_t max_chars = 5 * 1024 * 1024, bool stop_at_limit = false);
     // ReadCount() reads up to N characters from stream, ignoring null-
     // terminator. This method is better fit for reading from text
     // streams, or when the length of string is known beforehand.
@@ -178,7 +185,7 @@ public:
     static String FromFormat(const char *fcstr, ...);
     static String FromFormatV(const char *fcstr, va_list argptr);
     // Reads stream until null-terminator or EOS
-    static String FromStream(Stream *in, size_t max_chars = 5000000, bool stop_at_limit = false);
+    static String FromStream(Stream *in, size_t max_chars = 5 * 1024 * 1024, bool stop_at_limit = false);
     // Reads up to N chars from stream
     static String FromStreamCount(Stream *in, size_t count);
 
@@ -206,6 +213,7 @@ public:
     // Extract the range of Xth to Yth fields, separated by the given character
     String  Section(char separator, size_t first, size_t last,
                               bool exclude_first_sep = true, bool exclude_last_sep = true) const;
+    std::vector<String> Split(char separator) const;
 
     //-------------------------------------------------------------------------
     // String modification methods
@@ -356,9 +364,6 @@ private:
         char    *_data;
         Header  *_meta;
     };
-
-    static const size_t _internalBufferLength = 3000;
-    static char _internalBuffer[3001];
 };
 
 } // namespace Common

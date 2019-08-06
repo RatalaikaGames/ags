@@ -21,8 +21,9 @@
 #include "gui/guidialog.h"
 #include "gui/guidialoginternaldefs.h"
 #include "main/game_run.h"
-#include "media/audio/audio.h"
 #include "gfx/bitmap.h"
+#include "platform/base/agsplatformdriver.h"
+#include "ac/timer.h"
 
 using AGS::Common::Bitmap;
 
@@ -91,7 +92,7 @@ int MyPushButton::pressedon(int mousex, int mousey)
 
         refresh_gui_screen();
 
-        while (timerloop == 0) ;
+        WaitForNextFrame();
     }
     wasstat = state;
     state = 0;

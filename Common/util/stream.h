@@ -42,65 +42,37 @@ public:
     //-----------------------------------------------------
     // Helper methods
     //-----------------------------------------------------
-    virtual inline int8_t ReadInt8()
+    inline int8_t ReadInt8() override
     {
         return ReadByte();
     }
 
-    virtual inline size_t WriteInt8(int8_t val)
+    inline size_t WriteInt8(int8_t val) override
     {
         int32_t ival = WriteByte(val);
         return ival >= 0 ? ival : 0;
     }
 
-    virtual inline bool ReadBool()
+    inline bool ReadBool() override
     {
         return ReadInt8() != 0;
     }
 
-    virtual inline size_t WriteBool(bool val)
+    inline size_t WriteBool(bool val) override
     {
         return WriteInt8(val ? 1 : 0);
     }
 
     // Practically identical to Read() and Write(), these two helpers' only
     // meaning is to underline the purpose of data being (de)serialized
-    virtual inline size_t ReadArrayOfInt8(int8_t *buffer, size_t count)
+    inline size_t ReadArrayOfInt8(int8_t *buffer, size_t count) override
     {
         return Read(buffer, count);
     }
-    virtual inline size_t WriteArrayOfInt8(const int8_t *buffer, size_t count)
+    inline size_t WriteArrayOfInt8(const int8_t *buffer, size_t count) override
     {
         return Write(buffer, count);
     }
-
-    // Read array of pointers of build-dependent size
-    inline size_t ReadArrayOfIntPtr(intptr_t *buffer, size_t count)
-    {
-#if defined (AGS_64BIT) || defined (TEST_64BIT)
-        return ReadArrayOfInt64((int64_t*)buffer, count);
-#else
-        return ReadArrayOfInt32((int32_t*)buffer, count);
-#endif
-    }
-
-    // Write array of pointers of build-dependent size
-    inline size_t WriteArrayOfIntPtr(const intptr_t *buffer, size_t count)
-    {
-#if defined (AGS_64BIT) || defined (TEST_64BIT)
-        return WriteArrayOfInt64((const int64_t*)buffer, count);
-#else
-        return WriteArrayOfInt32((const int32_t*)buffer, count);
-#endif
-    }
-
-    // Helper function for easier compatibility with 64-bit platforms
-    // reads 32-bit values and stores them in intptr_t array
-    size_t ReadArrayOfIntPtr32(intptr_t *buffer, size_t count);
-
-    // Helper function for easier compatibility with 64-bit platforms,
-    // writes intptr_t array elements as 32-bit values
-    size_t WriteArrayOfIntPtr32(const intptr_t *buffer, size_t count);
 
     // Fill the requested number of bytes with particular value
     size_t WriteByteCount(uint8_t b, size_t count);

@@ -15,8 +15,8 @@
 #include "ac/global_region.h"
 #include "ac/common.h"
 #include "ac/game_version.h"
-#include "ac/draw.h"
 #include "ac/region.h"
+#include "ac/room.h"
 #include "ac/roomstatus.h"
 #include "debug/debug_log.h"
 #include "game/roomstruct.h"
@@ -35,8 +35,8 @@ int GetRegionIDAtRoom(int xxx, int yyy) {
     // if the co-ordinates are off the edge of the screen,
     // correct them to be just within
     // this fixes walk-off-screen problems
-    xxx = convert_to_low_res(xxx);
-    yyy = convert_to_low_res(yyy);
+    xxx = room_to_mask_coord(xxx);
+    yyy = room_to_mask_coord(yyy);
 
     if (loaded_game_file_version >= kGameVersion_262) // Version 2.6.2+
     {
@@ -157,7 +157,7 @@ void RunRegionInteraction (int regnum, int mood) {
     evblockbasename = "region%d";
     evblocknum = regnum;
 
-    if (thisroom.Regions[regnum].EventHandlers != NULL)
+    if (thisroom.Regions[regnum].EventHandlers != nullptr)
     {
         run_interaction_script(thisroom.Regions[regnum].EventHandlers.get(), mood);
     }

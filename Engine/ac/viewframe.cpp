@@ -15,15 +15,13 @@
 #include "ac/gamesetupstruct.h"
 #include "ac/viewframe.h"
 #include "debug/debug_log.h"
-#include "media/audio/audio.h"
-#include "media/audio/soundclip.h"
 #include "ac/spritecache.h"
 #include "gfx/bitmap.h"
 #include "script/runtimescriptvalue.h"
 #include "ac/dynobj/cc_audioclip.h"
 #include "ac/draw.h"
 #include "ac/game_version.h"
-#include "media/audio/audio.h"
+#include "media/audio/audio_system.h"
 
 using AGS::Common::Bitmap;
 using AGS::Common::Graphics;
@@ -52,7 +50,7 @@ ScriptAudioClip* ViewFrame_GetLinkedAudio(ScriptViewFrame *svf)
 {
   int soundIndex = views[svf->view].loops[svf->loop].frames[svf->frame].sound;
   if (soundIndex < 0)
-    return NULL;
+    return nullptr;
 
   return &game.audioClips[soundIndex];
 }
@@ -60,7 +58,7 @@ ScriptAudioClip* ViewFrame_GetLinkedAudio(ScriptViewFrame *svf)
 void ViewFrame_SetLinkedAudio(ScriptViewFrame *svf, ScriptAudioClip* clip) 
 {
   int newSoundIndex = -1;
-  if (clip != NULL)
+  if (clip != nullptr)
     newSoundIndex = clip->id;
 
   views[svf->view].loops[svf->loop].frames[svf->frame].sound = newSoundIndex;
@@ -81,7 +79,7 @@ void ViewFrame_SetSound(ScriptViewFrame *svf, int newSound)
   {
     // convert sound number to audio clip
     ScriptAudioClip* clip = GetAudioClipForOldStyleNumber(game, false, newSound);
-    if (clip == NULL)
+    if (clip == nullptr)
       quitprintf("!SetFrameSound: audio clip aSound%d not found", newSound);
 
     views[svf->view].loops[svf->loop].frames[svf->frame].sound = clip->id + (game.IsLegacyAudioSystem() ? 0x10000000 : 0);
@@ -120,7 +118,7 @@ void precache_view(int view)
 // the specified frame has just appeared, see if we need
 // to play a sound or whatever
 void CheckViewFrame (int view, int loop, int frame, int sound_volume) {
-    ScriptAudioChannel *channel = NULL;
+    ScriptAudioChannel *channel = nullptr;
     if (game.IsLegacyAudioSystem())
     {
         if (views[view].loops[loop].frames[frame].sound > 0)
@@ -146,11 +144,12 @@ void CheckViewFrame (int view, int loop, int frame, int sound_volume) {
             channel = play_audio_clip_by_index(views[view].loops[loop].frames[frame].sound);
         }
     }
-    if (sound_volume != SCR_NO_VALUE && channel != NULL)
+    if (sound_volume != SCR_NO_VALUE && channel != nullptr)
     {
-        AudioChannelsLock _lock;
-        auto* ch = _lock.GetChannel(channel->id);
-        ch->set_volume_percent(ch->get_volume() * sound_volume / 100);
+        AudioChannelsLock lock;
+        auto* ch = lock.GetChannel(channel->id);
+        if (ch)
+            ch->set_volume_percent(ch->get_volume() * sound_volume / 100);
     }
     
 }
@@ -158,7 +157,9 @@ void CheckViewFrame (int view, int loop, int frame, int sound_volume) {
 // draws a view frame, flipped if appropriate
 void DrawViewFrame(Bitmap *ds, const ViewFrame *vframe, int x, int y, bool alpha_blend)
 {
-    if (alpha_blend && (loaded_game_file_version >= kGameVersion_330))
+    // NOTE: DrawViewFrame supports alpha blending only since OPT_SPRITEALPHA;
+    // this is why there's no sense in blending if it's not set (will do no good anyway).
+    if (alpha_blend && game.options[OPT_SPRITEALPHA] == kSpriteAlphaRender_Proper)
     {
         Bitmap *vf_bmp = spriteset[vframe->pic];
         Bitmap *src = vf_bmp;

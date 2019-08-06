@@ -63,6 +63,8 @@ String GetRoomFileErrorText(RoomFileErrorType err)
         return "Unknown block type.";
     case kRoomFileErr_OldBlockNotSupported:
         return "Block type is too old and not supported by this version of the engine.";
+    case kRoomFileErr_BlockDataOverlapping:
+        return "Block data overlapping.";
     case kRoomFileErr_IncompatibleEngine:
         return "This engine cannot handle requested room content.";
     case kRoomFileErr_ScriptLoadFailed:
@@ -85,7 +87,7 @@ HRoomFileError OpenRoomFile(const String &filename, RoomDataSource &src)
     src = RoomDataSource();
     // Try to open room file
     Stream *in = AssetManager::OpenAsset(filename);
-    if (in == NULL)
+    if (in == nullptr)
         return new RoomFileError(kRoomFileErr_FileOpenFailed, String::FromFormat("Filename: %s.", filename.GetCStr()));
     // Read room header
     src.Filename = filename;
@@ -282,7 +284,7 @@ HRoomFileError ReadMainBlock(RoomStruct *room, Stream *in, RoomFileVersion data_
             room->Objects[i].Flags = in->ReadInt16();
 
     if (data_ver >= kRoomVersion_200_final)
-        room->Resolution = in->ReadInt16();
+        room->MaskResolution = in->ReadInt16();
 
     room->WalkAreaCount = MAX_WALK_AREAS;
     if (data_ver >= kRoomVersion_240)
@@ -336,7 +338,7 @@ HRoomFileError ReadMainBlock(RoomStruct *room, Stream *in, RoomFileVersion data_
         if (data_ver >= kRoomVersion_261)
             read_string_decrypt(in, buffer, sizeof(buffer));
         else
-            fgetstring_limit(buffer, in, sizeof(buffer));
+            StrUtil::ReadCStr(buffer, in, sizeof(buffer));
         room->Messages[i] = buffer;
     }
 
@@ -377,7 +379,7 @@ HRoomFileError ReadMainBlock(RoomStruct *room, Stream *in, RoomFileVersion data_
 
     update_polled_stuff_if_runtime();
     // Primary background
-    Bitmap *mask = NULL;
+    Bitmap *mask = nullptr;
     if (data_ver >= kRoomVersion_pre114_5)
         load_lzw(in, &mask, room->BackgroundBPP, room->Palette);
     else
@@ -395,7 +397,7 @@ HRoomFileError ReadMainBlock(RoomStruct *room, Stream *in, RoomFileVersion data_
         // an old version - clear the 'shadow' area into a blank regions bmp
         loadcompressed_allegro(in, &mask, room->Palette);
         delete mask;
-        mask = NULL;
+        mask = nullptr;
     }
     room->RegionMask.reset(mask);
     update_polled_stuff_if_runtime();
@@ -426,7 +428,7 @@ HRoomFileError ReadScriptBlock(char *&buf, Stream *in, RoomFileVersion data_ver)
 HRoomFileError ReadCompSc3Block(RoomStruct *room, Stream *in, RoomFileVersion data_ver)
 {
     room->CompiledScript.reset(ccScript::CreateFromStream(in));
-    if (room->CompiledScript == NULL)
+    if (room->CompiledScript == nullptr)
         return new RoomFileError(kRoomFileErr_ScriptLoadFailed, ccErrorString);
     return HRoomFileError::None();
 }
@@ -484,7 +486,7 @@ HRoomFileError ReadAnimBgBlock(RoomStruct *room, Stream *in, RoomFileVersion dat
     for (size_t i = 1; i < room->BgFrameCount; ++i)
     {
         update_polled_stuff_if_runtime();
-        Bitmap *frame = NULL;
+        Bitmap *frame = nullptr;
         load_lzw(in, &frame, room->BackgroundBPP, room->BgFrames[i].Palette);
         room->BgFrames[i].Graphic.reset(frame);
     }
@@ -598,16 +600,23 @@ HRoomFileError ReadRoomData(RoomStruct *room, Stream *in, RoomFileVersion data_v
 
 HRoomFileError UpdateRoomData(RoomStruct *room, RoomFileVersion data_ver, bool game_is_hires, const std::vector<SpriteInfo> &sprinfos)
 {
-    // This is something very ancient...
-    if (data_ver < kRoomVersion_200_final && room->BgFrames[0].Graphic->GetWidth() > 320)
-        room->Resolution = 2;
+    if (data_ver < kRoomVersion_200_final)
+        room->MaskResolution = room->BgFrames[0].Graphic->GetWidth() > 320 ? kRoomHiRes : kRoomLoRes;
+    if (data_ver < kRoomVersion_3508)
+    {
+        // Save legacy resolution if it DOES NOT match game's;
+        // otherwise it gets promoted to "real resolution"
+        if (room->MaskResolution == 1 && game_is_hires)
+            room->SetResolution(kRoomLoRes);
+        else if (room->MaskResolution > 1 && !game_is_hires)
+            room->SetResolution(kRoomHiRes);
+    }
 
     // Old version - copy walkable areas to regions
     if (data_ver < kRoomVersion_255b)
     {
         if (!room->RegionMask)
             room->RegionMask.reset(BitmapHelper::CreateBitmap(room->WalkAreaMask->GetWidth(), room->WalkAreaMask->GetHeight(), 8));
-        room->RegionMask->Fill(0);
         room->RegionMask->Blit(room->WalkAreaMask.get(), 0, 0, 0, 0, room->RegionMask->GetWidth(), room->RegionMask->GetHeight());
         for (size_t i = 0; i < MAX_ROOM_REGIONS; ++i)
         {
@@ -651,38 +660,39 @@ HRoomFileError UpdateRoomData(RoomStruct *room, RoomFileVersion data_ver, bool g
     }
 
     // Pre-3.0.3, multiply up co-ordinates for high-res games to bring them
-    // to the proper game screen coordinate system.
-    // If you change this, also change convert_room_coordinates_to_low_res
+    // to the proper game coordinate system.
+    // If you change this, also change convert_room_coordinates_to_data_res
     // function in the engine
     if (data_ver < kRoomVersion_303b && game_is_hires)
     {
+        const int mul = HIRES_COORD_MULTIPLIER;
         for (size_t i = 0; i < room->ObjectCount; ++i)
         {
-            room->Objects[i].X *= 2;
-            room->Objects[i].Y *= 2;
+            room->Objects[i].X *= mul;
+            room->Objects[i].Y *= mul;
             if (room->Objects[i].Baseline > 0)
             {
-                room->Objects[i].Baseline *= 2;
+                room->Objects[i].Baseline *= mul;
             }
         }
 
         for (size_t i = 0; i < room->HotspotCount; ++i)
         {
-            room->Hotspots[i].WalkTo.X *= 2;
-            room->Hotspots[i].WalkTo.Y *= 2;
+            room->Hotspots[i].WalkTo.X *= mul;
+            room->Hotspots[i].WalkTo.Y *= mul;
         }
 
         for (size_t i = 0; i < room->WalkBehindCount; ++i)
         {
-            room->WalkBehinds[i].Baseline *= 2;
+            room->WalkBehinds[i].Baseline *= mul;
         }
 
-        room->Edges.Left *= 2;
-        room->Edges.Top *= 2;
-        room->Edges.Bottom *= 2;
-        room->Edges.Right *= 2;
-        room->Width *= 2;
-        room->Height *= 2;
+        room->Edges.Left *= mul;
+        room->Edges.Top *= mul;
+        room->Edges.Bottom *= mul;
+        room->Edges.Right *= mul;
+        room->Width *= mul;
+        room->Height *= mul;
     }
 
     // Adjust object Y coordinate by adding sprite's height
@@ -749,7 +759,7 @@ HRoomFileError ExtractScriptText(String &script, Stream *in, RoomFileVersion dat
         block = (RoomFileBlock)b;
         if (block == kRoomFblk_Script)
         {
-            char *buf = NULL;
+            char *buf = nullptr;
             HRoomFileError err = ReadScriptBlock(buf, in, data_ver);
             if (err)
             {
@@ -842,7 +852,7 @@ void WriteMainBlock(const RoomStruct *room, Stream *out)
     out->WriteInt16(room->Height);
     for (size_t i = 0; i < room->ObjectCount; ++i)
         out->WriteInt16(room->Objects[i].Flags);
-    out->WriteInt16(room->Resolution);
+    out->WriteInt16(room->MaskResolution);
 
     out->WriteInt32(MAX_WALK_AREAS + 1);
     for (size_t i = 0; i < (size_t)MAX_WALK_AREAS + 1; ++i)

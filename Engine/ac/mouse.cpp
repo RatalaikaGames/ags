@@ -54,9 +54,9 @@ int cur_mode,cur_cursor;
 int mouse_frame=0,mouse_delay=0;
 int lastmx=-1,lastmy=-1;
 char alpha_blend_cursor = 0;
-Bitmap *dotted_mouse_cursor = NULL;
-IDriverDependantBitmap *mouseCursor = NULL;
-Bitmap *blank_mouse_cursor = NULL;
+Bitmap *dotted_mouse_cursor = nullptr;
+IDriverDependantBitmap *mouseCursor = nullptr;
+Bitmap *blank_mouse_cursor = nullptr;
 
 // The Mouse:: functions are static so the script doesn't pass
 // in an object parameter
@@ -75,8 +75,8 @@ int Mouse_GetVisible() {
 
 void SetMouseBounds(int x1, int y1, int x2, int y2)
 {
-    int xmax = divide_down_coordinate(play.GetMainViewport().GetWidth()) - 1;
-    int ymax = divide_down_coordinate(play.GetMainViewport().GetHeight()) - 1;
+    int xmax = game_to_data_coord(play.GetMainViewport().GetWidth()) - 1;
+    int ymax = game_to_data_coord(play.GetMainViewport().GetHeight()) - 1;
     if ((x1 == 0) && (y1 == 0) && (x2 == 0) && (y2 == 0))
     {
         x2 = xmax;
@@ -94,8 +94,8 @@ void SetMouseBounds(int x1, int y1, int x2, int y2)
     }
 
     debug_script_log("Mouse bounds constrained to (%d,%d)-(%d,%d)", x1, y1, x2, y2);
-    multiply_up_coordinates(&x1, &y1);
-    multiply_up_coordinates_round_up(&x2, &y2);
+    data_to_game_coords(&x1, &y1);
+    data_to_game_round_up(&x2, &y2);
 
     play.mboundx1 = x1;
     play.mboundx2 = x2;
@@ -111,7 +111,7 @@ void set_mouse_cursor(int newcurs) {
 
     set_new_cursor_graphic(game.mcurs[newcurs].pic);
     delete dotted_mouse_cursor;
-    dotted_mouse_cursor = NULL;
+    dotted_mouse_cursor = nullptr;
 
     if ((newcurs == MODE_USE) && (game.mcurs[newcurs].pic > 0) &&
         ((game.hotdot > 0) || (game.invhotdotsprite > 0)) ) {
@@ -179,8 +179,8 @@ int Mouse_GetModeGraphic(int curs) {
 void ChangeCursorHotspot (int curs, int x, int y) {
     if ((curs < 0) || (curs >= game.numcursors))
         quit("!ChangeCursorHotspot: invalid mouse cursor");
-    game.mcurs[curs].hotx = multiply_up_coordinate(x);
-    game.mcurs[curs].hoty = multiply_up_coordinate(y);
+    game.mcurs[curs].hotx = data_to_game_coord(x);
+    game.mcurs[curs].hoty = data_to_game_coord(y);
     if (curs == cur_cursor)
         set_mouse_cursor (cur_cursor);
 }
@@ -269,8 +269,8 @@ void disable_cursor_mode(int modd) {
 
 void RefreshMouse() {
     ags_domouse(DOMOUSE_NOCURSOR);
-    scmouse.x = divide_down_coordinate(mousex);
-    scmouse.y = divide_down_coordinate(mousey);
+    scmouse.x = game_to_data_coord(mousex);
+    scmouse.y = game_to_data_coord(mousey);
 }
 
 void SetMousePosition (int newx, int newy) {
@@ -285,7 +285,7 @@ void SetMousePosition (int newx, int newy) {
     if (newy >= viewport.GetHeight())
         newy = viewport.GetHeight() - 1;
 
-    multiply_up_coordinates(&newx, &newy);
+    data_to_game_coords(&newx, &newy);
     Mouse::SetPosition(Point(newx, newy));
     RefreshMouse();
 }
@@ -308,6 +308,27 @@ int IsModeEnabled(int which) {
         (game.mcurs[which].flags & MCF_DISABLED) == 0;
 }
 
+void Mouse_EnableControl(bool on)
+{
+    usetup.mouse_ctrl_enabled = on; // remember setting in config
+
+    bool is_windowed = scsystem.windowed != 0;
+    // Whether mouse movement should be controlled by the engine - this is
+    // determined based on related config option.
+    bool should_control_mouse = usetup.mouse_ctrl_when == kMouseCtrl_Always ||
+        (usetup.mouse_ctrl_when == kMouseCtrl_Fullscreen && !is_windowed);
+    // Whether mouse movement control is supported by the engine - this is
+    // determined on per platform basis. Some builds may not have such
+    // capability, e.g. because of how backend library implements mouse utils.
+    bool can_control_mouse = platform->IsMouseControlSupported(is_windowed);
+    // The resulting choice is made based on two aforementioned factors.
+    on &= should_control_mouse && can_control_mouse;
+    if (on)
+        Mouse::EnableControl(!is_windowed);
+    else
+        Mouse::DisableControl();
+}
+
 //=============================================================================
 
 int GetMouseCursor() {
@@ -315,8 +336,8 @@ int GetMouseCursor() {
 }
 
 void update_script_mouse_coords() {
-    scmouse.x = divide_down_coordinate(mousex);
-    scmouse.y = divide_down_coordinate(mousey);
+    scmouse.x = game_to_data_coord(mousex);
+    scmouse.y = game_to_data_coord(mousey);
 }
 
 void update_inv_cursor(int invnum) {
@@ -346,7 +367,7 @@ void update_inv_cursor(int invnum) {
 
 void update_cached_mouse_cursor() 
 {
-    if (mouseCursor != NULL)
+    if (mouseCursor != nullptr)
         gfxDriver->DestroyDDB(mouseCursor);
     mouseCursor = gfxDriver->CreateDDBFromBitmap(mousecurs[0], alpha_blend_cursor != 0);
 }
@@ -356,9 +377,9 @@ void set_new_cursor_graphic (int spriteslot) {
 
     // It looks like spriteslot 0 can be used in games with version 2.72 and lower.
     // The NULL check should ensure that the sprite is valid anyway.
-    if (((spriteslot < 1) && (loaded_game_file_version > kGameVersion_272)) || (mousecurs[0] == NULL))
+    if (((spriteslot < 1) && (loaded_game_file_version > kGameVersion_272)) || (mousecurs[0] == nullptr))
     {
-        if (blank_mouse_cursor == NULL)
+        if (blank_mouse_cursor == nullptr)
         {
             blank_mouse_cursor = BitmapHelper::CreateTransparentBitmap(1, 1, game.GetColorDepth());
         }
@@ -562,6 +583,12 @@ RuntimeScriptValue Sc_Mouse_GetControlEnabled(const RuntimeScriptValue *params, 
     API_SCALL_BOOL(Mouse::IsControlEnabled);
 }
 
+RuntimeScriptValue Sc_Mouse_SetControlEnabled(const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_SCALL_VOID_PINT(Mouse_EnableControl);
+}
+
+
 RuntimeScriptValue Sc_Mouse_GetSpeed(const RuntimeScriptValue *params, int32_t param_count)
 {
     API_SCALL_FLOAT(Mouse::GetSpeed);
@@ -594,6 +621,7 @@ void RegisterMouseAPI()
     ccAddExternalStaticFunction("Mouse::UseDefaultGraphic^0",       Sc_set_default_cursor);
     ccAddExternalStaticFunction("Mouse::UseModeGraphic^1",          Sc_set_mouse_cursor);
     ccAddExternalStaticFunction("Mouse::get_ControlEnabled",        Sc_Mouse_GetControlEnabled);
+    ccAddExternalStaticFunction("Mouse::set_ControlEnabled",        Sc_Mouse_SetControlEnabled);
     ccAddExternalStaticFunction("Mouse::get_Mode",                  Sc_GetCursorMode);
     ccAddExternalStaticFunction("Mouse::set_Mode",                  Sc_set_cursor_mode);
     ccAddExternalStaticFunction("Mouse::get_Speed",                 Sc_Mouse_GetSpeed);

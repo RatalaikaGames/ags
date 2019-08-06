@@ -6,19 +6,27 @@ else
 CMD_PREFIX := @
 endif
 
+include Makefile-objs
+
 ifeq ($(UNAME), Darwin)
 include Makefile-defs.osx
 else
 include Makefile-defs.linux
 endif
 
-include Makefile-objs
-OBJS_C_CPP = $(ALFONT) $(ALMP3) $(ALOGG) $(APEG) $(AASTR) $(HQ2X3X) $(AL_MIDI_PATCH) $(CDA) $(PLUGINS) $(BASE) $(BASE_PLATFORM)
-OBJS_C = $(OBJS_C_CPP:.cpp=.o)
-OBJS = $(OBJS_C:.c=.o)
+ifneq ($(USE_MIDI_PATCH), 1)
+AL_MIDI_PATCH :=
+endif
 
-OBJS_COMMON_CPP = $(COMMON)
-OBJS_COMMON = $(OBJS_COMMON_CPP:.cpp=.o)
+OBJS := $(ALMP3) $(ALOGG) $(APEG) $(AASTR) $(HQ2X3X) $(AL_MIDI_PATCH) $(CDA) $(ALDUMB) $(GLAD) $(PLUGINS) $(BASE) $(BASE_PLATFORM)
+OBJS := $(OBJS:.mm=.o)
+OBJS := $(OBJS:.cpp=.o)
+OBJS := $(OBJS:.c=.o)
+
+OBJS_COMMON := $(COMMON) $(ALFONT) $(FREETYPE)
+OBJS_COMMON := $(OBJS_COMMON:.mm=.o)
+OBJS_COMMON := $(OBJS_COMMON:.cpp=.o)
+OBJS_COMMON := $(OBJS_COMMON:.c=.o)
 DEPFILES = $(OBJS:.o=.d) $(OBJS_COMMON:.o=.d)
 
 -include config.mak
@@ -29,7 +37,13 @@ all: printflags ags
 
 ags: $(OBJS) common.a 
 	@echo "Linking engine..."
-	$(CMD_PREFIX) $(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS) $(LIBS)
+	$(CMD_PREFIX) $(CXX) -o $@ $^ $(CXXFLAGS) $(LDFLAGS) $(LIBS)
+
+debug: CXXFLAGS += -UNDEBUG -D_DEBUG -Og -g -pg
+debug: CFLAGS   += -UNDEBUG -D_DEBUG -Og -g -pg
+debug: MMFLAGS  += -UNDEBUG -D_DEBUG -Og -g -pg
+debug: LDFLAGS  += -pg
+debug: printflags ags
 
 common.a: $(OBJS_COMMON)
 	@echo "Linking common library..."
@@ -41,6 +55,10 @@ common.a: $(OBJS_COMMON)
 	@echo $@
 	$(CMD_PREFIX) $(CC) $(CFLAGS) -MD -c -o $@ $<
 
+%.o: %.mm
+	@echo $@
+	$(CMD_PREFIX) $(CC) $(MMFLAGS) -MD -c -o $@ $<
+
 %.o: %.cpp
 	@echo $@
 	$(CMD_PREFIX) $(CXX) $(CXXFLAGS) -MD -c -o $@ $<
@@ -48,6 +66,7 @@ common.a: $(OBJS_COMMON)
 printflags:
 	@echo "CFLAGS =" $(CFLAGS) "\n"
 	@echo "CXXFLAGS =" $(CXXFLAGS) "\n"
+	@echo "MMFLAGS =" $(MMFLAGS) "\n"
 	@echo "LDFLAGS =" $(LDFLAGS) "\n"
 	@echo "LIBS =" $(LIBS) "\n"
 

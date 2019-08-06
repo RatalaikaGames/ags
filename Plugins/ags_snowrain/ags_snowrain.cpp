@@ -5,8 +5,9 @@ but a workalike plugin created by JJS for the AGS engine PSP port.
 
 */
 
-#ifdef WIN32
-#define WINDOWS_VERSION
+#include "core/platform.h"
+
+#if AGS_PLATFORM_OS_WINDOWS
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #pragma warning(disable : 4244)
@@ -154,9 +155,7 @@ Weather::Weather(bool IsSnow)
 }
 
 
-Weather::~Weather()
-{
-}
+Weather::~Weather() = default;
 
 
 void Weather::Update()
@@ -324,7 +323,7 @@ bool Weather::ReinitializeViews()
   int i;
   for (i = 0; i < 5; i++)
   {
-    if (mViews[i].bitmap != NULL)
+    if (mViews[i].bitmap != nullptr)
     {
       if (mViews[i].is_default)
         mViews[i].bitmap = default_bitmap;
@@ -384,7 +383,7 @@ void Weather::Initialize()
     mViews[i].is_default = true;
     mViews[i].view = -1;
     mViews[i].loop = -1;
-    mViews[i].bitmap = NULL;
+    mViews[i].bitmap = nullptr;
   }
   
   SetAmount(0);
@@ -838,7 +837,7 @@ void AGS_EngineInitGfx(const char *driverID, void *data)
 
 
 
-#if defined(WINDOWS_VERSION) && !defined(BUILTIN_PLUGINS)
+#if AGS_PLATFORM_OS_WINDOWS && !defined(BUILTIN_PLUGINS)
 
 // ********************************************
 // ***********  Editor Interface  *************

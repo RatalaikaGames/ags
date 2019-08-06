@@ -12,11 +12,12 @@
 //
 //=============================================================================
 
+#include "core/platform.h"
 #include "gfx/gfx_util.h"
 #include "gfx/blender.h"
 
 // CHECKME: is this hack still relevant?
-#if defined(IOS_VERSION) || defined(ANDROID_VERSION)
+#if AGS_PLATFORM_OS_IOS || AGS_PLATFORM_OS_ANDROID
 extern int psp_gfx_renderer;
 #endif
 
@@ -63,8 +64,8 @@ struct BlendModeSetter
 // NOTE: set NULL function pointer to fallback to common image blitting
 static const BlendModeSetter BlendModeSets[kNumBlendModes] =
 {
-    { NULL, NULL, NULL, NULL, NULL }, // kBlendMode_NoAlpha
-    { _argb2argb_blender, _argb2rgb_blender, _rgb2argb_blender, _opaque_alpha_blender, NULL }, // kBlendMode_Alpha
+    { nullptr, nullptr, nullptr, nullptr, nullptr }, // kBlendMode_NoAlpha
+    { _argb2argb_blender, _argb2rgb_blender, _rgb2argb_blender, _opaque_alpha_blender, nullptr }, // kBlendMode_Alpha
     // NOTE: add new modes here
 };
 
@@ -82,7 +83,7 @@ bool SetBlender(BlendMode blend_mode, bool dst_has_alpha, bool src_has_alpha, in
 
     if (blender)
     {
-        set_blender_mode(NULL, NULL, blender, 0, 0, 0, blend_alpha);
+        set_blender_mode(nullptr, nullptr, blender, 0, 0, 0, blend_alpha);
         return true;
     }
     return false;
@@ -120,7 +121,7 @@ void DrawSpriteWithTransparency(Bitmap *ds, Bitmap *sprite, int x, int y, int al
 
     if (sprite_depth < surface_depth
         // CHECKME: what is the purpose of this hack and is this still relevant?
-#if defined(IOS_VERSION) || defined(ANDROID_VERSION)
+#if AGS_PLATFORM_OS_IOS || AGS_PLATFORM_OS_ANDROID
         || (ds->GetBPP() < surface_depth && psp_gfx_renderer > 0) // Fix for corrupted speechbox outlines with the OGL driver
 #endif
         )

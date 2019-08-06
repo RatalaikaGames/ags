@@ -60,7 +60,7 @@ namespace MFLUtil
 MFLUtil::MFLError MFLUtil::TestIsMFL(Stream *in, bool test_is_main)
 {
     MFLVersion lib_version;
-    MFLError err = ReadSigsAndVersion(in, &lib_version, NULL);
+    MFLError err = ReadSigsAndVersion(in, &lib_version, nullptr);
     if (err == kMFLNoError)
     {
         if (lib_version >= kMFLVersion_MultiV10 && test_is_main)
@@ -116,6 +116,8 @@ MFLUtil::MFLError MFLUtil::ReadSigsAndVersion(Stream *in, MFLVersion *p_lib_vers
     {
         // signature not found, check signature at the end of file
         in->Seek(-(soff_t)TailSig.GetLength(), kSeekEnd);
+        // by definition, tail marks the max absolute offset value
+        auto tail_abs_offset = in->GetPosition();
         sig.ReadCount(in, TailSig.GetLength());
         // signature not found, return error code
         if (TailSig.Compare(sig) != 0)
@@ -130,13 +132,21 @@ MFLUtil::MFLError MFLUtil::ReadSigsAndVersion(Stream *in, MFLVersion *p_lib_vers
         soff_t abs_offset_32 = in->ReadInt32();
 
         // test for header signature again, with 64-bit and 32-bit offsets if necessary
-        in->Seek(abs_offset, kSeekBegin);
-        sig.ReadCount(in, HeadSig.GetLength());
-        if (HeadSig.Compare(sig) != 0)
+        if (abs_offset > 0 && abs_offset < (tail_abs_offset - HeadSig.GetLength())) 
         {
-            abs_offset = abs_offset_32;
             in->Seek(abs_offset, kSeekBegin);
             sig.ReadCount(in, HeadSig.GetLength());
+        }
+
+        // try again with 32-bit offset
+        if (HeadSig.Compare(sig) != 0) 
+        {
+            abs_offset = abs_offset_32;
+            if (abs_offset > 0 && abs_offset < (tail_abs_offset - HeadSig.GetLength())) 
+            {
+                in->Seek(abs_offset, kSeekBegin);
+                sig.ReadCount(in, HeadSig.GetLength());
+            }
             if (HeadSig.Compare(sig) != 0)
             {
                 // nope, no luck, bad / unknown format
@@ -433,7 +443,7 @@ int32_t MFLUtil::ReadEncInt32(Stream *in, int &rand_val)
 {
     int val;
     ReadEncArray(&val, sizeof(int32_t), 1, in, rand_val);
-#if defined(AGS_BIG_ENDIAN)
+#if AGS_PLATFORM_ENDIAN_BIG
     AGS::Common::BitByteOperations::SwapBytesInt32(val);
 #endif
     return val;

@@ -27,7 +27,7 @@ ProxyStream::ProxyStream(Stream *stream, ObjectOwnershipPolicy stream_ownership_
 
 ProxyStream::~ProxyStream()
 {
-    Close();
+    ProxyStream::Close();
 }
 
 void ProxyStream::Close()
@@ -36,7 +36,7 @@ void ProxyStream::Close()
     {
         delete _stream;
     }
-    _stream = NULL;
+    _stream = nullptr;
 }
 
 bool ProxyStream::Flush()
@@ -173,9 +173,9 @@ size_t ProxyStream::WriteArrayOfInt64(const int64_t *buffer, size_t count)
     return _stream ? _stream->WriteArrayOfInt64(buffer, count) : 0;
 }
 
-soff_t ProxyStream::Seek(soff_t offset, StreamSeek origin)
+bool ProxyStream::Seek(soff_t offset, StreamSeek origin)
 {
-    return _stream ? _stream->Seek(offset, origin) : -1;
+    return _stream ? _stream->Seek(offset, origin) : false;
 }
 
 } // namespace Common

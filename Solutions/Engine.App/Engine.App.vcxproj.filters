@@ -169,6 +169,12 @@
     <Filter Include="Common Header Files\util">
       <UniqueIdentifier>{a832a3a0-309b-4d5c-ae1b-70c7f67b14e1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Library Sources\glad">
+      <UniqueIdentifier>{cc80bf30-3415-4302-a50e-1e7a1689c282}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\platform\windows">
+      <UniqueIdentifier>{c3e78d00-def2-49a7-9fa4-d5f693d14655}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Engine\ac\audiochannel.cpp">
@@ -388,9 +394,6 @@
       <Filter>Source Files\ac</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Engine\ac\parser.cpp">
-      <Filter>Source Files\ac</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Engine\ac\path.cpp">
       <Filter>Source Files\ac</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Engine\ac\properties.cpp">
@@ -789,9 +792,6 @@
     <ClCompile Include="..\..\Engine\game\savegame.cpp">
       <Filter>Source Files\game</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Engine\main\minidump.cpp">
-      <Filter>Header Files\main</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Engine\libsrc\allegro-4.2.2-agspatch\midi.c">
       <Filter>Library Sources\AllegroPatches</Filter>
     </ClCompile>
@@ -993,8 +993,35 @@
     <ClCompile Include="..\..\Engine\ac\dynobj\scriptcamera.cpp">
       <Filter>Source Files\ac\dynobj</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Engine\ac\viewport.cpp">
+    <ClCompile Include="..\..\Engine\libsrc\glad\src\glad.c">
+      <Filter>Library Sources\glad</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Engine\libsrc\glad\src\glad_wgl.c">
+      <Filter>Library Sources\glad</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Engine\game\viewport.cpp">
+      <Filter>Source Files\game</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Engine\ac\viewport_script.cpp">
       <Filter>Source Files\ac</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Engine\ac\scriptcontainers.cpp">
+      <Filter>Source Files\ac</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Engine\ac\dynobj\scriptset.cpp">
+      <Filter>Source Files\ac\dynobj</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Engine\ac\dynobj\scriptdict.cpp">
+      <Filter>Source Files\ac\dynobj</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Engine\main\main_allegro.cpp">
+      <Filter>Source Files\main</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Engine\platform\windows\minidump.cpp">
+      <Filter>Source Files\platform\windows</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Engine\platform\windows\win_ex_handling.cpp">
+      <Filter>Source Files\platform\windows</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1215,9 +1242,6 @@
       <Filter>Header Files\ac</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Engine\ac\parser.h">
-      <Filter>Header Files\ac</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Engine\ac\path.h">
       <Filter>Header Files\ac</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Engine\ac\path_helper.h">
@@ -1512,9 +1536,6 @@
       <Filter>Header Files\script</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Engine\platform\base\agsplatformdriver.h">
-      <Filter>Header Files\platform\base</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Engine\platform\base\override_defines.h">
       <Filter>Header Files\platform\base</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Engine\media\audio\ambientsound.h">
@@ -1855,6 +1876,24 @@
     </ClInclude>
     <ClInclude Include="..\..\Engine\ac\dynobj\scriptcamera.h">
       <Filter>Header Files\ac\dynobj</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Engine\media\audio\audio_system.h">
+      <Filter>Header Files\media\audio</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Engine\ac\dynobj\scriptset.h">
+      <Filter>Header Files\ac\dynobj</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Engine\ac\dynobj\scriptdict.h">
+      <Filter>Header Files\ac\dynobj</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Engine\ac\dynobj\scriptcontainers.h">
+      <Filter>Header Files\ac\dynobj</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Engine\platform\windows\winapi_exclusive.h">
+      <Filter>Header Files\platform\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Engine\platform\windows\win_ex_handling.h">
+      <Filter>Header Files\platform\windows</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

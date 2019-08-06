@@ -13,10 +13,15 @@
 //=============================================================================
 
 #include <alfont.h>
+#include "core/platform.h"
+
+#define AGS_OUTLINE_FONT_FIX (!AGS_PLATFORM_OS_WINDOWS)
+
 #include "core/assetmanager.h"
 #include "font/ttffontrenderer.h"
 #include "util/stream.h"
-#if !defined(WINDOWS_VERSION) // TODO: factor out the hack in LoadFromDiskEx
+
+#if AGS_OUTLINE_FONT_FIX // TODO: factor out the hack in LoadFromDiskEx
 #include "ac/gamestructdefines.h"
 #include "font/fonts.h"
 #endif
@@ -74,7 +79,12 @@ void TTFFontRenderer::RenderText(const char *text, int fontNumber, BITMAP *desti
 
 bool TTFFontRenderer::LoadFromDisk(int fontNumber, int fontSize)
 {
-  return LoadFromDiskEx(fontNumber, fontSize, NULL);
+  return LoadFromDiskEx(fontNumber, fontSize, nullptr);
+}
+
+bool TTFFontRenderer::IsBitmapFont()
+{
+    return false;
 }
 
 bool TTFFontRenderer::LoadFromDiskEx(int fontNumber, int fontSize, const FontRenderParams *params)
@@ -83,7 +93,7 @@ bool TTFFontRenderer::LoadFromDiskEx(int fontNumber, int fontSize, const FontRen
   Stream *reader = AssetManager::OpenAsset(file_name);
   char *membuffer;
 
-  if (reader == NULL)
+  if (reader == nullptr)
     return false;
 
   long lenof = AssetManager::GetLastAssetSize();
@@ -95,15 +105,17 @@ bool TTFFontRenderer::LoadFromDiskEx(int fontNumber, int fontSize, const FontRen
   ALFONT_FONT *alfptr = alfont_load_font_from_mem(membuffer, lenof);
   free(membuffer);
 
+  
   #ifdef AGS_UTF8
   alfont_set_convert(alfptr, ALFONT_TYPE_WIDECHAR);
   #endif
 
-  if (alfptr == NULL)
+  
+  if (alfptr == nullptr)
     return false;
 
   // TODO: move this somewhere, should not be right here
-#if !defined(WINDOWS_VERSION)
+#if AGS_OUTLINE_FONT_FIX
   // FIXME: (!!!) this fix should be done differently:
   // 1. Find out which OUTLINE font was causing troubles;
   // 2. Replace outline method ONLY if that troublesome font is used as outline.
@@ -117,7 +129,10 @@ bool TTFFontRenderer::LoadFromDiskEx(int fontNumber, int fontSize, const FontRen
       strcmp(alfont_get_name(alfptr), "LucasFan-Font") == 0)
       set_font_outline(fontNumber, FONT_OUTLINE_AUTO);
 #endif
-
+  if (fontSize == 0)
+      fontSize = 8; // compatibility fix
+  if (params && params->SizeMultiplier > 1)
+      fontSize *= params->SizeMultiplier;
   if (fontSize > 0)
     alfont_set_font_size(alfptr, fontSize);
 

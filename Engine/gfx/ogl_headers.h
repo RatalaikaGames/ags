@@ -16,21 +16,25 @@
 //
 //=============================================================================
 
-#if defined(WINDOWS_VERSION)
+#include "core/platform.h"
+
+#if AGS_PLATFORM_OS_WINDOWS
 #include <allegro.h>
 #include <winalleg.h>
 #include <allegro/platform/aintwin.h>
-#include <GL/gl.h>
 
-// Allegro and glext.h define these
-#undef int32_t
-#undef int64_t
-#undef uint64_t
+#include "glad/glad.h"
+#include "glad/glad_wgl.h"
 
-#include <GL/glext.h>
-#include <GL/wglext.h>
+#elif AGS_PLATFORM_OS_LINUX
+#include <allegro.h>
+#include <xalleg.h>
+#include <X11/Xatom.h>
 
-#elif defined(ANDROID_VERSION)
+#include "glad/glad.h"
+#include "glad/glad_glx.h"
+
+#elif AGS_PLATFORM_OS_ANDROID
 
 #include <GLES/gl.h>
 #include <GLES2/gl2.h>
@@ -47,7 +51,7 @@
 #define HWND void*
 #define HINSTANCE void*
 
-#elif defined(IOS_VERSION)
+#elif AGS_PLATFORM_OS_IOS
 
 #include <OpenGLES/ES1/gl.h>
 
@@ -62,4 +66,12 @@
 #define HWND void*
 #define HINSTANCE void*
 
+#else
+
+#error "opengl: unsupported platform"
+
+#endif
+
+#ifndef GLAPI
+#define GLAD_GL_VERSION_2_0 (0)
 #endif

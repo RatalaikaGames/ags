@@ -46,6 +46,8 @@
 #include "ac/dynobj/cc_gui.h"
 #include "ac/dynobj/cc_guiobject.h"
 #include "script/runtimescriptvalue.h"
+#include "util/string_compat.h"
+
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -75,7 +77,7 @@ int eip_guinum, eip_guiobj;
 
 ScriptGUI* GUI_AsTextWindow(ScriptGUI *tehgui)
 { // Internally both GUI and TextWindow are implemented by same class
-    return guis[tehgui->id].IsTextWindow() ? &scrGui[tehgui->id] : NULL;
+    return guis[tehgui->id].IsTextWindow() ? &scrGui[tehgui->id] : nullptr;
 }
 
 int GUI_GetPopupStyle(ScriptGUI *tehgui)
@@ -98,19 +100,19 @@ int GUI_GetVisible(ScriptGUI *tehgui) {
 }
 
 int GUI_GetX(ScriptGUI *tehgui) {
-  return divide_down_coordinate(guis[tehgui->id].X);
+  return game_to_data_coord(guis[tehgui->id].X);
 }
 
 void GUI_SetX(ScriptGUI *tehgui, int xx) {
-  guis[tehgui->id].X = multiply_up_coordinate(xx);
+  guis[tehgui->id].X = data_to_game_coord(xx);
 }
 
 int GUI_GetY(ScriptGUI *tehgui) {
-  return divide_down_coordinate(guis[tehgui->id].Y);
+  return game_to_data_coord(guis[tehgui->id].Y);
 }
 
 void GUI_SetY(ScriptGUI *tehgui, int yy) {
-  guis[tehgui->id].Y = multiply_up_coordinate(yy);
+  guis[tehgui->id].Y = data_to_game_coord(yy);
 }
 
 void GUI_SetPosition(ScriptGUI *tehgui, int xx, int yy) {
@@ -123,7 +125,7 @@ void GUI_SetSize(ScriptGUI *sgui, int widd, int hitt) {
     quitprintf("!SetGUISize: invalid dimensions (tried to set to %d x %d)", widd, hitt);
 
   GUIMain *tehgui = &guis[sgui->id];
-  multiply_up_coordinates(&widd, &hitt);
+  data_to_game_coords(&widd, &hitt);
 
   if ((tehgui->Width == widd) && (tehgui->Height == hitt))
     return;
@@ -137,11 +139,11 @@ void GUI_SetSize(ScriptGUI *sgui, int widd, int hitt) {
 }
 
 int GUI_GetWidth(ScriptGUI *sgui) {
-  return divide_down_coordinate(guis[sgui->id].Width);
+  return game_to_data_coord(guis[sgui->id].Width);
 }
 
 int GUI_GetHeight(ScriptGUI *sgui) {
-  return divide_down_coordinate(guis[sgui->id].Height);
+  return game_to_data_coord(guis[sgui->id].Height);
 }
 
 void GUI_SetWidth(ScriptGUI *sgui, int newwid) {
@@ -175,7 +177,7 @@ int GUI_GetID(ScriptGUI *tehgui) {
 
 GUIObject* GUI_GetiControls(ScriptGUI *tehgui, int idx) {
   if ((idx < 0) || (idx >= guis[tehgui->id].GetControlCount()))
-    return NULL;
+    return nullptr;
   return guis[tehgui->id].GetControl(idx);
 }
 
@@ -293,7 +295,7 @@ void GUI_SetTextPadding(ScriptGUI *tehgui, int newpos)
 ScriptGUI *GetGUIAtLocation(int xx, int yy) {
     int guiid = GetGUIAt(xx, yy);
     if (guiid < 0)
-        return NULL;
+        return nullptr;
     return &scrGui[guiid];
 }
 
@@ -368,7 +370,7 @@ void process_interface_click(int ifce, int btn, int mbut) {
             (!theObj->EventHandlers[0].IsEmpty()) &&
             (!gameinst->GetSymbolAddress(theObj->EventHandlers[0]).IsNull())) {
                 // control-specific event handler
-                if (strchr(theObj->GetEventArgs(0), ',') != NULL)
+                if (strchr(theObj->GetEventArgs(0), ',') != nullptr)
                     QueueScriptFunction(kScInstGame, theObj->EventHandlers[0], 2,
                         RuntimeScriptValue().SetDynamicObject(theObj, &ccDynamicGUIObject),
                         RuntimeScriptValue().SetInt32(mbut));
@@ -411,20 +413,20 @@ void replace_macro_tokens(const char *text, String &fixed_text) {
             }
             macroname[idd]=0; 
             tempo[0]=0;
-            if (stricmp(macroname,"score")==0)
+            if (ags_stricmp(macroname,"score")==0)
                 sprintf(tempo,"%d",play.score);
-            else if (stricmp(macroname,"totalscore")==0)
+            else if (ags_stricmp(macroname,"totalscore")==0)
                 sprintf(tempo,"%d",MAXSCORE);
-            else if (stricmp(macroname,"scoretext")==0)
+            else if (ags_stricmp(macroname,"scoretext")==0)
                 sprintf(tempo,"%d of %d",play.score,MAXSCORE);
-            else if (stricmp(macroname,"gamename")==0)
+            else if (ags_stricmp(macroname,"gamename")==0)
                 strcpy(tempo, play.game_name);
-            else if (stricmp(macroname,"overhotspot")==0) {
+            else if (ags_stricmp(macroname,"overhotspot")==0) {
                 // While game is in Wait mode, no overhotspot text
                 if (!IsInterfaceEnabled())
                     tempo[0] = 0;
                 else
-                    GetLocationName(divide_down_coordinate(mousex), divide_down_coordinate(mousey), tempo);
+                    GetLocationName(game_to_data_coord(mousex), game_to_data_coord(mousey), tempo);
             }
             else { // not a macro, there's just a @ in the message
                 curptr = curptrWasAt + 1;
@@ -578,14 +580,14 @@ void recreate_guibg_image(GUIMain *tehgui)
   int ifn = tehgui->ID;
   delete guibg[ifn];
   guibg[ifn] = BitmapHelper::CreateBitmap(tehgui->Width, tehgui->Height, game.GetColorDepth());
-  if (guibg[ifn] == NULL)
+  if (guibg[ifn] == nullptr)
     quit("SetGUISize: internal error: unable to reallocate gui cache");
   guibg[ifn] = ReplaceBitmapWithSupportedFormat(guibg[ifn]);
 
-  if (guibgbmp[ifn] != NULL)
+  if (guibgbmp[ifn] != nullptr)
   {
     gfxDriver->DestroyDDB(guibgbmp[ifn]);
-    guibgbmp[ifn] = NULL;
+    guibgbmp[ifn] = nullptr;
   }
 }
 

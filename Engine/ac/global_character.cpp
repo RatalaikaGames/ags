@@ -112,7 +112,7 @@ int GetCharacterWidth(int ww) {
             (char1->frame >= views[char1->view].loops[char1->loop].numFrames))
         {
             debug_script_warn("GetCharacterWidth: Character %s has invalid frame: view %d, loop %d, frame %d", char1->scrname, char1->view + 1, char1->loop, char1->frame);
-            return multiply_up_coordinate(4);
+            return data_to_game_coord(4);
         }
 
         return game.SpriteInfos[views[char1->view].loops[char1->loop].frames[char1->frame].pic].Width;
@@ -131,7 +131,7 @@ int GetCharacterHeight(int charid) {
             (char1->frame >= views[char1->view].loops[char1->loop].numFrames))
         {
             debug_script_warn("GetCharacterHeight: Character %s has invalid frame: view %d, loop %d, frame %d", char1->scrname, char1->view + 1, char1->loop, char1->frame);
-            return multiply_up_coordinate(2);
+            return data_to_game_coord(2);
         }
 
         return game.SpriteInfos[views[char1->view].loops[char1->loop].frames[char1->frame].pic].Height;
@@ -194,7 +194,7 @@ void SetPlayerCharacter(int newchar) {
 void FollowCharacterEx(int who, int tofollow, int distaway, int eagerness) {
     if (!is_valid_character(who))
         quit("!FollowCharacter: Invalid character specified");
-    CharacterInfo *chtofollow = NULL;
+    CharacterInfo *chtofollow = nullptr;
     if (tofollow != -1)
     {
         if (!is_valid_character(tofollow))
@@ -335,7 +335,8 @@ void MoveCharacterToObject(int chaa,int obbj) {
         return;
 
     walk_character(chaa,objs[obbj].x+5,objs[obbj].y+6,0, true);
-    GameLoopUntilEvent(UNTIL_MOVEEND,&game.chars[chaa].walking);
+
+    GameLoopUntilNotMoving(&game.chars[chaa].walking);
 }
 
 void MoveCharacterToHotspot(int chaa,int hotsp) {
@@ -343,7 +344,8 @@ void MoveCharacterToHotspot(int chaa,int hotsp) {
         quit("!MovecharacterToHotspot: invalid hotspot");
     if (thisroom.Hotspots[hotsp].WalkTo.X<1) return;
     walk_character(chaa,thisroom.Hotspots[hotsp].WalkTo.X,thisroom.Hotspots[hotsp].WalkTo.Y,0, true);
-    GameLoopUntilEvent(UNTIL_MOVEEND,&game.chars[chaa].walking);
+
+    GameLoopUntilNotMoving(&game.chars[chaa].walking);
 }
 
 void MoveCharacterBlocking(int chaa,int xx,int yy,int direct) {
@@ -362,7 +364,8 @@ void MoveCharacterBlocking(int chaa,int xx,int yy,int direct) {
         MoveCharacterDirect(chaa,xx,yy);
     else
         MoveCharacter(chaa,xx,yy);
-    GameLoopUntilEvent(UNTIL_MOVEEND,&game.chars[chaa].walking);
+
+    GameLoopUntilNotMoving(&game.chars[chaa].walking);
 }
 
 int GetCharacterSpeechAnimationDelay(CharacterInfo *cha)
@@ -395,17 +398,17 @@ void RunCharacterInteraction (int cc, int mood) {
     else if (mood==MODE_CUSTOM2) passon = 7;
 
     evblockbasename="character%d"; evblocknum=cc;
-    if (game.charScripts != NULL) 
+    if (loaded_game_file_version > kGameVersion_272)
     {
         if (passon>=0)
-            run_interaction_script(game.charScripts[cc], passon, 4, (passon == 3));
-        run_interaction_script(game.charScripts[cc], 4);  // any click on char
+            run_interaction_script(game.charScripts[cc].get(), passon, 4, (passon == 3));
+        run_interaction_script(game.charScripts[cc].get(), 4);  // any click on char
     }
     else 
     {
         if (passon>=0)
-            run_interaction_event(game.intrChar[cc],passon, 4, (passon == 3));
-        run_interaction_event(game.intrChar[cc],4);  // any click on char
+            run_interaction_event(game.intrChar[cc].get(),passon, 4, (passon == 3));
+        run_interaction_event(game.intrChar[cc].get(),4);  // any click on char
     }
 }
 
@@ -453,7 +456,7 @@ int GetCharIDAtScreen(int xx, int yy) {
 
 void SetActiveInventory(int iit) {
 
-    ScriptInvItem *tosend = NULL;
+    ScriptInvItem *tosend = nullptr;
     if ((iit > 0) && (iit < game.numinvitems))
         tosend = &scrInv[iit];
     else if (iit != -1)
@@ -541,8 +544,8 @@ void __sc_displayspeech(int chid, const char *text) {
 // **** THIS IS UNDOCUMENTED BECAUSE IT DOESN'T WORK PROPERLY
 // **** AT 640x400 AND DOESN'T USE THE RIGHT SPEECH STYLE
 void DisplaySpeechAt (int xx, int yy, int wii, int aschar, const char*spch) {
-    multiply_up_coordinates(&xx, &yy);
-    wii = multiply_up_coordinate(wii);
+    data_to_game_coords(&xx, &yy);
+    wii = data_to_game_coord(wii);
     _displayspeech (get_translation(spch), aschar, xx, yy, wii, 0);
 }
 

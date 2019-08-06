@@ -16,6 +16,7 @@
 
 #include "core/types.h"
 #include "gui/guidialog.h"
+
 #include "ac/common.h"
 #include "ac/draw.h"
 #include "ac/game.h"
@@ -25,6 +26,7 @@
 #include <cctype> //isdigit()
 #include "gfx/bitmap.h"
 #include "gfx/graphicsdriver.h"
+#include "debug/debug_log.h"
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -33,8 +35,7 @@ extern IGraphicsDriver *gfxDriver;
 extern GameSetup usetup;
 extern GameSetupStruct game;
 
-// from ac_game
-extern char saveGameDirectory[260];
+namespace {
 
 // TODO: store drawing surface inside old gui classes instead
 int windowPosX, windowPosY, windowPosWidth, windowPosHeight;
@@ -54,6 +55,13 @@ CSCIMessage smes;
 
 char buff[200];
 int myscrnwid = 320, myscrnhit = 200;
+
+}
+
+char *get_gui_dialog_buffer()
+{
+  return buffer2;
+}
 
 //
 // TODO: rewrite the whole thing to work inside the main game update and render loop!
@@ -87,9 +95,9 @@ void clear_gui_screen()
 {
     if (dialogDDB)
         gfxDriver->DestroyDDB(dialogDDB);
-    dialogDDB = NULL;
+    dialogDDB = nullptr;
     delete windowBuffer;
-    windowBuffer = NULL;
+    windowBuffer = nullptr;
 }
 
 void refresh_gui_screen()
@@ -112,13 +120,13 @@ int loadgamedialog()
   int ctrlcancel =
     CSCICreateControl(CNT_PUSHBUTTON | CNF_CANCEL, 135, 5 + buttonhit, 60, 10,
                       get_global_message(MSG_CANCEL));
-  int ctrllist = CSCICreateControl(CNT_LISTBOX, 10, 30, 120, 80, NULL);
+  int ctrllist = CSCICreateControl(CNT_LISTBOX, 10, 30, 120, 80, nullptr);
   int ctrltex1 = CSCICreateControl(CNT_LABEL, 10, 5, 120, 0, get_global_message(MSG_SELECTLOAD));
   CSCISendControlMessage(ctrllist, CLB_CLEAR, 0, 0);
 
   preparesavegamelist(ctrllist);
   CSCIMessage mes;
-  lpTemp = NULL;
+  lpTemp = nullptr;
   int toret = -1;
   while (1) {
     CSCIWaitMessage(&mes);      //printf("mess: %d, id %d ",mes.code,mes.id);
@@ -126,7 +134,7 @@ int loadgamedialog()
       if (mes.id == ctrlok) {
         int cursel = CSCISendControlMessage(ctrllist, CLB_GETCURSEL, 0, 0);
         if ((cursel >= numsaves) | (cursel < 0))
-          lpTemp = NULL;
+          lpTemp = nullptr;
         else {
           toret = filenumbers[cursel];
           String path = get_save_game_path(toret);
@@ -134,7 +142,7 @@ int loadgamedialog()
           lpTemp = &bufTemp[0];
         }
       } else if (mes.id == ctrlcancel) {
-        lpTemp = NULL;
+        lpTemp = nullptr;
       }
 
       break;
@@ -166,7 +174,7 @@ int savegamedialog()
   int ctrlcancel =
     CSCICreateControl(CNT_PUSHBUTTON | CNF_CANCEL, 135, 5 + buttonhit, 60, 10,
                       get_global_message(MSG_CANCEL));
-  int ctrllist = CSCICreateControl(CNT_LISTBOX, 10, 40, 120, 80, NULL);
+  int ctrllist = CSCICreateControl(CNT_LISTBOX, 10, 40, 120, 80, nullptr);
   int ctrltbox = 0;
 
   CSCISendControlMessage(ctrllist, CLB_CLEAR, 0, 0);    // clear the list box
@@ -176,13 +184,13 @@ int savegamedialog()
     strcpy(labeltext, get_global_message(MSG_MUSTREPLACE));
     labeltop = 2;
   } else
-    ctrltbox = CSCICreateControl(CNT_TEXTBOX, 10, 29, 120, 0, NULL);
+    ctrltbox = CSCICreateControl(CNT_TEXTBOX, 10, 29, 120, 0, nullptr);
 
   int ctrlok = CSCICreateControl(CNT_PUSHBUTTON | CNF_DEFAULT, 135, 5, 60, 10, okbuttontext);
   int ctrltex1 = CSCICreateControl(CNT_LABEL, 10, labeltop, 120, 0, labeltext);
   CSCIMessage mes;
 
-  lpTemp = NULL;
+  lpTemp = nullptr;
   if (numsaves > 0)
     CSCISendControlMessage(ctrllist, CLB_GETTEXT, 0, (long)&buffer2[0]);
   else
@@ -234,7 +242,7 @@ int savegamedialog()
           bufTemp[0] = 0;
 
           if (cmes.id == btnCancel) {
-            lpTemp = NULL;
+            lpTemp = nullptr;
             break;
           } else
             toret = filenumbers[cursell];
@@ -268,7 +276,7 @@ int savegamedialog()
         lpTemp = &bufTemp[0];
         lpTemp2 = &buffer2[0];
       } else if (mes.id == ctrlcancel) {
-        lpTemp = NULL;
+        lpTemp = nullptr;
       }
       break;
     } else if (mes.code == CM_SELCHANGE) {
@@ -297,11 +305,10 @@ void preparesavegamelist(int ctrllist)
   toomanygames = 0;
   al_ffblk ffb;
   int bufix = 0;
-  char curdir[255];
-  _getcwd(curdir, 255);
 
-  char searchPath[260];
-  sprintf(searchPath, "%s""agssave.*%s", saveGameDirectory, saveGameSuffix.GetCStr());
+  String svg_dir = get_save_game_directory();
+  String svg_suff = get_save_game_suffix();
+  String searchPath = String::FromFormat("%s""agssave.*%s", svg_dir.GetCStr(), svg_suff.GetCStr());
 
   int don = al_findfirst(searchPath, &ffb, -1);
   while (!don) {
@@ -312,7 +319,7 @@ void preparesavegamelist(int ctrllist)
     }
 
     // only list games .000 to .099 (to allow higher slots for other purposes)
-    if (strstr(ffb.name, ".0") == NULL) {
+    if (strstr(ffb.name, ".0") == nullptr) {
       don = al_findnext(&ffb);
       continue;
     }
@@ -374,7 +381,7 @@ void enterstringwindow(const char *prompttext, char *stouse)
   int ctrlcancel = -1;
   if (wantCancel)
     ctrlcancel = CSCICreateControl(CNT_PUSHBUTTON | CNF_CANCEL, 135, 20, 60, 10, get_global_message(MSG_CANCEL));
-  int ctrltbox = CSCICreateControl(CNT_TEXTBOX, 10, 29, 120, 0, NULL);
+  int ctrltbox = CSCICreateControl(CNT_TEXTBOX, 10, 29, 120, 0, nullptr);
   int ctrltex1 = CSCICreateControl(CNT_LABEL, 10, 5, 120, 0, prompttext);
   CSCIMessage mes;
 
@@ -418,7 +425,7 @@ int roomSelectorWindow(int currentRoom, int numRooms, int*roomNumbers, char**roo
   const int labeltop = 5;
 
   int handl = CSCIDrawWindow(boxleft, boxtop, wnd_width, wnd_height);
-  int ctrllist = CSCICreateControl(CNT_LISTBOX, 10, 40, 220, 100, NULL);
+  int ctrllist = CSCICreateControl(CNT_LISTBOX, 10, 40, 220, 100, nullptr);
   int ctrlcancel =
     CSCICreateControl(CNT_PUSHBUTTON | CNF_CANCEL, 80, 145, 60, 10, "Cancel");
 
@@ -437,11 +444,10 @@ int roomSelectorWindow(int currentRoom, int numRooms, int*roomNumbers, char**roo
   int ctrltex1 = CSCICreateControl(CNT_LABEL, 10, labeltop, 180, 0, "Choose which room to go to:");
   CSCIMessage mes;
 
-  lpTemp = NULL;
-  //sprintf(buffer2, "%d", currentRoom);
-  sprintf(buffer2, "");
+  lpTemp = nullptr;
+  buffer2[0] = 0;
 
-  int ctrltbox = CSCICreateControl(CNT_TEXTBOX, 10, 29, 120, 0, NULL);
+  int ctrltbox = CSCICreateControl(CNT_TEXTBOX, 10, 29, 120, 0, nullptr);
   CSCISendControlMessage(ctrltbox, CTB_SETTEXT, 0, (long)&buffer2[0]);
 
   int toret = -1;
@@ -493,7 +499,7 @@ int myscimessagebox(const char *lpprompt, char *btn1, char *btn2)
     int lbl1 = CSCICreateControl(CNT_LABEL, 10, 5, 150, 0, lpprompt);
     int btflag = CNT_PUSHBUTTON;
 
-    if (btn2 == NULL)
+    if (btn2 == nullptr)
         btflag |= CNF_DEFAULT | CNF_CANCEL;
     else
         btflag |= CNF_DEFAULT;
@@ -501,7 +507,7 @@ int myscimessagebox(const char *lpprompt, char *btn1, char *btn2)
     int btnQuit = CSCICreateControl(btflag, 10, 25, 60, 10, btn1);
     int btnPlay = 0;
 
-    if (btn2 != NULL)
+    if (btn2 != nullptr)
         btnPlay = CSCICreateControl(CNT_PUSHBUTTON | CNF_CANCEL, 85, 25, 60, 10, btn2);
 
     smes.code = 0;

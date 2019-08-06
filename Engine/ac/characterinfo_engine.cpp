@@ -15,7 +15,6 @@
 #include "ac/characterinfo.h"
 #include "ac/common.h"
 #include "ac/gamesetupstruct.h"
-#include "media/audio/audiodefines.h"
 #include "ac/character.h"
 #include "ac/characterextras.h"
 #include "ac/gamestate.h"
@@ -26,7 +25,7 @@
 #include "game/roomstruct.h"
 #include "main/maindefines_ex.h"	// RETURN_CONTINUE
 #include "main/update.h"
-#include "media/audio/audio.h"
+#include "media/audio/audio_system.h"
 
 using namespace AGS::Common;
 
@@ -265,9 +264,6 @@ int CharacterInfo::update_character_animating(int &aa, int &doing_nothing)
         ((walking == 0) || ((flags & CHF_MOVENOTWALK) != 0)) &&
         (room == displayed_room)) 
     {
-      AudioChannelsLock _lock;
-      const bool is_voice = _lock.GetChannel(SCHAN_SPEECH) != nullptr;
-
       doing_nothing = 0;
       // idle anim doesn't count as doing something
       if (idleleft < 0)
@@ -281,7 +277,7 @@ int CharacterInfo::update_character_animating(int &aa, int &doing_nothing)
         // closed mouth at end of sentence
         // NOTE: standard lip-sync is synchronized with text timer, not voice file
         if (play.speech_in_post_state ||
-            (play.messagetime >= 0) && (play.messagetime < play.close_mouth_speech_time))
+            ((play.messagetime >= 0) && (play.messagetime < play.close_mouth_speech_time)))
           frame = 0;
 
         if (frame != fraa) {
@@ -324,9 +320,9 @@ int CharacterInfo::update_character_animating(int &aa, int &doing_nothing)
 
         if ((aa == char_speaking) &&
              (play.speech_in_post_state ||
-             (!is_voice) &&
+             ((!play.speech_has_voice) &&
              (play.close_mouth_speech_time > 0) &&
-             (play.messagetime < play.close_mouth_speech_time))) {
+             (play.messagetime < play.close_mouth_speech_time)))) {
           // finished talking - stop animation
           animating = 0;
           frame = 0;

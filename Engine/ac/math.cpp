@@ -16,7 +16,6 @@
 #include <cstdlib>
 #include "ac/math.h"
 #include "ac/common.h" // quit
-#include "platform/base/override_defines.h"
 #include "util/math.h"
 
 int FloatToInt(float value, int roundDirection)

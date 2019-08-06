@@ -17,14 +17,14 @@
 #include "util/posix.h"
 #include "ac/wordsdictionary.h"
 #include "util/stream.h"
-#include "util/string_utils.h" // stricmp
+#include "util/string_compat.h"
 
 using AGS::Common::Stream;
 
 WordsDictionary::WordsDictionary()
     : num_words(0)
-    , word(NULL)
-    , wordnum(NULL)
+    , word(nullptr)
+    , wordnum(nullptr)
 {
 }
 
@@ -55,8 +55,8 @@ void WordsDictionary::free_memory()
         delete [] word[0];
         delete [] word;
         delete [] wordnum;
-        word = NULL;
-        wordnum = NULL;
+        word = nullptr;
+        wordnum = nullptr;
         num_words = 0;
     }
 }

@@ -16,7 +16,6 @@
 #define __AC_AUDIO_H
 
 #include <array>
-
 #include "media/audio/audiodefines.h"
 #include "ac/dynobj/scriptaudioclip.h"
 #include "ac/dynobj/scriptaudiochannel.h"
@@ -24,6 +23,7 @@
 #include "util/mutex.h"
 #include "util/mutex_lock.h"
 #include "util/thread.h"
+#include "ac/timer.h"
 
 struct SOUNDCLIP;
 
@@ -45,17 +45,33 @@ public:
     {
     }
 
-    SOUNDCLIP* GetChannel(int index);
-    void SetChannel(int index, SOUNDCLIP* ch);
+    // Gets a clip from the channel
+    SOUNDCLIP *GetChannel(int index);
+    // Gets a clip from the channel but only if it's in playback state
+    SOUNDCLIP *GetChannelIfPlaying(int index);
+    // Assign new clip to the channel
+    SOUNDCLIP *SetChannel(int index, SOUNDCLIP *clip);
+    // Move clip from one channel to another, clearing the first channel
+    SOUNDCLIP *MoveChannel(int to, int from);
 };
+
+//
+// Channel helpers, autolock and perform a simple action on a channel.
+//
+// Tells if channel has got a clip; does not care about its state
+bool channel_has_clip(int chanid);
+// Tells if channel has got a clip and clip is in playback state
+bool channel_is_playing(int chanid);
+// Sets new clip to the channel
+void set_clip_to_channel(int chanid, SOUNDCLIP *clip);
 
 
 void        calculate_reserved_channel_count();
 void        update_clip_default_volume(ScriptAudioClip *audioClip);
 void        start_fading_in_new_track_if_applicable(int fadeInChannel, ScriptAudioClip *newSound);
-void        stop_or_fade_out_channel(int fadeOutChannel, int fadeInChannel = -1, ScriptAudioClip *newSound = NULL);
+void        stop_or_fade_out_channel(int fadeOutChannel, int fadeInChannel = -1, ScriptAudioClip *newSound = nullptr);
 SOUNDCLIP*  load_sound_clip(ScriptAudioClip *audioClip, bool repeat);
-ScriptAudioChannel* play_audio_clip_on_channel(int channel, ScriptAudioClip *clip, int priority, int repeat, int fromOffset, SOUNDCLIP *cachedClip = NULL);
+ScriptAudioChannel* play_audio_clip_on_channel(int channel, ScriptAudioClip *clip, int priority, int repeat, int fromOffset, SOUNDCLIP *cachedClip = nullptr);
 void        remove_clips_of_type_from_queue(int audioType);
 void        update_queued_clips_volume(int audioType, int new_vol);
 // Checks if speech voice-over is currently playing, and reapply volume drop to all other active clips
@@ -88,6 +104,10 @@ int         play_sound(int val1);
 
 //=============================================================================
 
+// This is an indicator of a music played by an old audio system
+// (to distinguish from the new system API); if it is not set, then old API
+// should "think" that no music is played regardless of channel state
+// TODO: refactor this and hide behind some good interface to prevent misuse!
 extern int current_music_type;
 
 void        clear_music_cache();
@@ -95,13 +115,14 @@ void        play_next_queued();
 int         calculate_max_volume();
 // add/remove the volume drop to the audio channels while speech is playing
 void        apply_volume_drop_modifier(bool applyModifier);
-void        update_polled_mp3();
 // Update the music, and advance the crossfade on a step
 // (this should only be called once per game loop);
-void        update_polled_audio_and_crossfade ();
+void        update_audio_system_on_game_loop ();
 void        stopmusic();
 void        update_music_volume();
 void        post_new_music_check (int newchannel);
+// Sets up the crossfading for playing the new music track,
+// and returns the channel number to use; the channel is guaranteed to be free
 int         prepare_for_new_music ();
 // Gets audio clip from legacy music number, which also may contain queue flag
 ScriptAudioClip *get_audio_clip_for_music(int mnum);
@@ -112,11 +133,12 @@ extern AGS::Engine::Thread audioThread;
 extern volatile bool _audio_doing_crossfade;
 extern volatile int psp_audio_multithreaded;
 
-void update_mp3();
-void update_mp3_work();
+void update_polled_mp3();
+void update_mp3_thread();
 
-extern volatile int mvolcounter;
-extern int update_music_at;
+extern void cancel_scheduled_music_update();
+extern void schedule_music_update_at(AGS_Clock::time_point);
+extern void postpone_scheduled_music_update_by(std::chrono::milliseconds);
 
 // crossFading is >0 (channel number of new track), or -1 (old
 // track fading out, no new track)
@@ -125,7 +147,7 @@ extern int crossFadeVolumeAtStart;
 
 extern SOUNDCLIP *cachedQueuedMusic;
 
-extern int last_sound_played[MAX_SOUND_CHANNELS + 1];
+// TODO: double check that ambient sounds array actually needs +1
 extern std::array<AmbientSound,MAX_SOUND_CHANNELS+1> ambient;
 
 #endif // __AC_AUDIO_H

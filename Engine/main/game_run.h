@@ -22,14 +22,21 @@ namespace AGS { namespace Engine { class IDriverDependantBitmap; }}
 using namespace AGS::Engine; // FIXME later
 
 // Loops game frames until certain event takes place (for blocking actions)
-void GameLoopUntilEvent(int untilwhat,const void* daaa);
-// Polls audio until the end of current game frame
-void PollUntilNextFrame();
+void GameLoopUntilValueIsZero(const char *value);
+void GameLoopUntilValueIsZero(const short *value);
+void GameLoopUntilValueIsZero(const int *value);
+void GameLoopUntilValueIsZeroOrLess(const short *move);
+void GameLoopUntilValueIsNegative(const short *value);
+void GameLoopUntilValueIsNegative(const int *value);
+void GameLoopUntilNotMoving(const short *move);
+void GameLoopUntilNoOverlay();
+
 // Run the actual game until it ends, or aborted by player/error; loops GameTick() internally
 void RunGameUntilAborted();
 // Update everything game related
-void UpdateGameOnce(bool checkControls = false, IDriverDependantBitmap *extraBitmap = NULL, int extraX = 0, int extraY = 0);
+void UpdateGameOnce(bool checkControls = false, IDriverDependantBitmap *extraBitmap = nullptr, int extraX = 0, int extraY = 0);
 
+float get_current_fps();
 // Runs service key controls, returns false if service key combinations were handled
 // and no more processing required, otherwise returns true and provides current keycode and key shifts.
 bool run_service_key_controls(int &kgn);

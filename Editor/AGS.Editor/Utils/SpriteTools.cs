@@ -203,7 +203,8 @@ namespace AGS.Editor.Utils
             SpriteImportTransparency transparency, string filename = "", int frame = 0, int offsetX = 0, int offsetY = 0)
         {
             // ignore alpha channel if not 32 bit ARGB
-            bool useAlphaChannel = bmp.PixelFormat != PixelFormat.Format32bppArgb ? false : alpha;
+            bool useAlphaChannel = bmp.PixelFormat != PixelFormat.Format32bppArgb ||
+                Factory.AGSEditor.CurrentGame.Settings.ColorDepth != GameColorDepth.TrueColor ? false : alpha;
 
             // ignore palette remap options if not using an indexed palette
             if (bmp.PixelFormat != PixelFormat.Format8bppIndexed)
@@ -222,6 +223,7 @@ namespace AGS.Editor.Utils
             sprite.Frame = frame;
             sprite.OffsetX = offsetX;
             sprite.OffsetY = offsetY;
+            sprite.ImportAlphaChannel = alpha;
         }
 
         public static void ReplaceSprite(Sprite sprite, Bitmap bmp, bool alpha, bool remapColours, bool useRoomBackground,
@@ -262,7 +264,8 @@ namespace AGS.Editor.Utils
             SpriteImportTransparency transparency, string filename = "", int frame = 0, int offsetX = 0, int offsetY = 0)
         {
             // ignore alpha channel if not 32 bit ARGB
-            bool useAlphaChannel = bmp.PixelFormat != PixelFormat.Format32bppArgb ? false : alpha;
+            bool useAlphaChannel = bmp.PixelFormat != PixelFormat.Format32bppArgb ||
+                Factory.AGSEditor.CurrentGame.Settings.ColorDepth != GameColorDepth.TrueColor ? false : alpha;
 
             // ignore palette remap options if not using an indexed palette
             if (bmp.PixelFormat != PixelFormat.Format8bppIndexed)
@@ -281,6 +284,7 @@ namespace AGS.Editor.Utils
             sprite.Frame = frame;
             sprite.OffsetX = offsetX;
             sprite.OffsetY = offsetY;
+            sprite.ImportAlphaChannel = alpha;
 
             folder.Sprites.Add(sprite);
         }

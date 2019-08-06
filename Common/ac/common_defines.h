@@ -15,6 +15,8 @@
 #ifndef __AC_DEFINES_H
 #define __AC_DEFINES_H
 
+#include "core/platform.h"
+
 #define EXIT_NORMAL 91
 #define EXIT_CRASH  92
 
@@ -97,12 +99,15 @@
 #define int32 int
 #endif
 
-#ifdef WINDOWS_VERSION
+#if AGS_PLATFORM_OS_WINDOWS
 #define AGS_INLINE inline
 #else
 // the linux compiler won't allow extern inline
 #define AGS_INLINE
 #endif
+
+// The game to screen coordinate conversion multiplier in hi-res type games
+#define HIRES_COORD_MULTIPLIER 2
 
 // object flags (currently only a char)
 #define OBJF_NOINTERACT        1  // not clickable

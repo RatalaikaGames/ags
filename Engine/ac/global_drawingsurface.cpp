@@ -39,7 +39,6 @@ extern char lines[MAXLINE][200];
 extern int  numlines;
 extern SpriteCache spriteset;
 extern GameSetupStruct game;
-extern int current_screen_resolution_multiplier;
 
 // Raw screen writing routines - similar to old CapturedStuff
 #define RAW_START() play.raw_drawing_surface = thisroom.BgFrames[play.bg_frame].Graphic; play.raw_modified[play.bg_frame] = 1
@@ -48,7 +47,7 @@ extern int current_screen_resolution_multiplier;
 
 // RawSaveScreen: copy the current screen to a backup bitmap
 void RawSaveScreen () {
-    if (raw_saved_screen != NULL)
+    if (raw_saved_screen != nullptr)
         delete raw_saved_screen;
     PBitmap source = thisroom.BgFrames[play.bg_frame].Graphic;
     raw_saved_screen = BitmapHelper::CreateBitmapCopy(source.get());
@@ -57,7 +56,7 @@ void RawSaveScreen () {
 // deliberately don't free the Bitmap *cos they can multiple restore
 // and it gets freed on room exit anyway
 void RawRestoreScreen() {
-    if (raw_saved_screen == NULL) {
+    if (raw_saved_screen == nullptr) {
         debug_script_warn("RawRestoreScreen: unable to restore, since the screen hasn't been saved previously.");
         return;
     }
@@ -68,7 +67,7 @@ void RawRestoreScreen() {
 }
 // Restores the backup bitmap, but tints it to the specified level
 void RawRestoreScreenTinted(int red, int green, int blue, int opacity) {
-    if (raw_saved_screen == NULL) {
+    if (raw_saved_screen == nullptr) {
         debug_script_warn("RawRestoreScreenTinted: unable to restore, since the screen hasn't been saved previously.");
         return;
     }
@@ -140,7 +139,7 @@ void RawPrint (int xx, int yy, const char *text) {
         text_color = RAW_SURFACE()->GetCompatibleColor(1);
         debug_script_warn ("RawPrint: Attempted to use hi-color on 256-col background");
     }
-    multiply_up_coordinates(&xx, &yy);
+    data_to_game_coords(&xx, &yy);
     wouttext_outline(RAW_SURFACE(), xx, yy, play.normal_font, text_color, text);
     // we must invalidate the entire screen because these are room
     // co-ordinates, not screen co-ords which it works with
@@ -151,8 +150,8 @@ void RawPrint (int xx, int yy, const char *text) {
 void RawPrintMessageWrapped (int xx, int yy, int wid, int font, int msgm) {
     char displbuf[3000];
     int linespacing = getfontspacing_outlined(font);
-    multiply_up_coordinates(&xx, &yy);
-    wid = multiply_up_coordinate(wid);
+    data_to_game_coords(&xx, &yy);
+    wid = data_to_game_coord(wid);
 
     get_message_text (msgm, displbuf);
     // it's probably too late but check anyway
@@ -170,7 +169,7 @@ void RawPrintMessageWrapped (int xx, int yy, int wid, int font, int msgm) {
 }
 
 void RawDrawImageCore(int xx, int yy, int slot, int alpha) {
-    if ((slot < 0) || (spriteset[slot] == NULL))
+    if ((slot < 0) || (spriteset[slot] == nullptr))
         quit("!RawDrawImage: invalid sprite slot number specified");
     RAW_START();
 
@@ -185,28 +184,18 @@ void RawDrawImageCore(int xx, int yy, int slot, int alpha) {
 }
 
 void RawDrawImage(int xx, int yy, int slot) {
-    multiply_up_coordinates(&xx, &yy);
+    data_to_game_coords(&xx, &yy);
     RawDrawImageCore(xx, yy, slot);
 }
 
 void RawDrawImageTrans(int xx, int yy, int slot, int alpha) {
-    multiply_up_coordinates(&xx, &yy);
+    data_to_game_coords(&xx, &yy);
     RawDrawImageCore(xx, yy, slot, alpha);
 }
 
 void RawDrawImageOffset(int xx, int yy, int slot) {
-
-    if ((current_screen_resolution_multiplier == 1) && game.IsHiRes()) {
-        // running a 640x400 game at 320x200, adjust
-        xx /= 2;
-        yy /= 2;
-    }
-    else if ((current_screen_resolution_multiplier > 1) && !game.IsHiRes()) {
-        // running a 320x200 game at 640x400, adjust
-        xx *= 2;
-        yy *= 2;
-    }
-
+    // This function takes coordinates in real game coordinates as opposed to script coordinates
+    defgame_to_finalgame_coords(xx, yy);
     RawDrawImageCore(xx, yy, slot);
 }
 
@@ -238,14 +227,14 @@ void RawDrawImageTransparent(int xx, int yy, int slot, int legacy_transparency) 
     update_polled_stuff_if_runtime();  // this operation can be slow so stop music skipping
 }
 void RawDrawImageResized(int xx, int yy, int gotSlot, int width, int height) {
-    if ((gotSlot < 0) || (spriteset[gotSlot] == NULL))
+    if ((gotSlot < 0) || (spriteset[gotSlot] == nullptr))
         quit("!RawDrawImageResized: invalid sprite slot number specified");
     // very small, don't draw it
     if ((width < 1) || (height < 1))
         return;
 
-    multiply_up_coordinates(&xx, &yy);
-    multiply_up_coordinates(&width, &height);
+    data_to_game_coords(&xx, &yy);
+    data_to_game_coords(&width, &height);
 
     // resize the sprite to the requested size
     Bitmap *newPic = BitmapHelper::CreateBitmap(width, height, spriteset[gotSlot]->GetColorDepth());
@@ -265,8 +254,8 @@ void RawDrawImageResized(int xx, int yy, int gotSlot, int width, int height) {
     RAW_END();
 }
 void RawDrawLine (int fromx, int fromy, int tox, int toy) {
-    multiply_up_coordinates(&fromx, &fromy);
-    multiply_up_coordinates(&tox, &toy);
+    data_to_game_coords(&fromx, &fromy);
+    data_to_game_coords(&tox, &toy);
 
     play.raw_modified[play.bg_frame] = 1;
     int ii,jj;
@@ -281,8 +270,8 @@ void RawDrawLine (int fromx, int fromy, int tox, int toy) {
     mark_current_background_dirty();
 }
 void RawDrawCircle (int xx, int yy, int rad) {
-    multiply_up_coordinates(&xx, &yy);
-    rad = multiply_up_coordinate(rad);
+    data_to_game_coords(&xx, &yy);
+    rad = data_to_game_coord(rad);
 
     play.raw_modified[play.bg_frame] = 1;
     PBitmap bg = thisroom.BgFrames[play.bg_frame].Graphic;
@@ -292,8 +281,8 @@ void RawDrawCircle (int xx, int yy, int rad) {
 }
 void RawDrawRectangle(int x1, int y1, int x2, int y2) {
     play.raw_modified[play.bg_frame] = 1;
-    multiply_up_coordinates(&x1, &y1);
-    multiply_up_coordinates_round_up(&x2, &y2);
+    data_to_game_coords(&x1, &y1);
+    data_to_game_round_up(&x2, &y2);
 
     PBitmap bg = thisroom.BgFrames[play.bg_frame].Graphic;
     bg->FillRect(Rect(x1,y1,x2,y2), play.raw_color);
@@ -302,9 +291,9 @@ void RawDrawRectangle(int x1, int y1, int x2, int y2) {
 }
 void RawDrawTriangle(int x1, int y1, int x2, int y2, int x3, int y3) {
     play.raw_modified[play.bg_frame] = 1;
-    multiply_up_coordinates(&x1, &y1);
-    multiply_up_coordinates(&x2, &y2);
-    multiply_up_coordinates(&x3, &y3);
+    data_to_game_coords(&x1, &y1);
+    data_to_game_coords(&x2, &y2);
+    data_to_game_coords(&x3, &y3);
 
     PBitmap bg = thisroom.BgFrames[play.bg_frame].Graphic;
     bg->DrawTriangle(Triangle (x1,y1,x2,y2,x3,y3), play.raw_color);

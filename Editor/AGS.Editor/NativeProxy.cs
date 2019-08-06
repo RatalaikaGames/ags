@@ -57,9 +57,9 @@ namespace AGS.Editor
             _native.Initialize();
         }
 
-        public void NewGameLoaded(Game game)
+        public void NewGameLoaded(Game game, List<string> errors)
         {
-            _native.NewGameLoaded(game);
+            _native.NewGameLoaded(game, errors);
         }
 
         public void GameSettingsChanged(Game game)
@@ -218,45 +218,28 @@ namespace AGS.Editor
 			}
         }
 
-        /// <summary>
-        /// Returns the multiplier necessary to display this sprite
-        /// at the "standard" size. (ie. 1 if 640x400 sprite, 2 if 320x200)
-        /// </summary>
-        public int GetSpriteResolutionMultiplier(int spriteSlot)
-        {
-            return _native.GetSpriteResolutionMultiplier(spriteSlot);
-        }
-
-        public int GetActualSpriteWidth(int spriteSlot)
+        public SpriteInfo GetSpriteInfo(int spriteSlot)
         {
             lock (_spriteSetLock)
             {
-                return _native.GetActualSpriteWidth(spriteSlot);
+                return _native.GetSpriteInfo(spriteSlot);
             }
         }
 
-        public int GetActualSpriteHeight(int spriteSlot)
+        public int GetSpriteWidth(int spriteSlot)
         {
             lock (_spriteSetLock)
             {
-                return _native.GetActualSpriteHeight(spriteSlot);
+                return _native.GetSpriteWidth(spriteSlot);
             }
         }
 
-        public int GetRelativeSpriteWidth(int spriteSlot)
+        public int GetSpriteHeight(int spriteSlot)
         {
-			lock (_spriteSetLock)
-			{
-				return _native.GetRelativeSpriteWidth(spriteSlot);
-			}
-        }
-
-        public int GetRelativeSpriteHeight(int spriteSlot)
-        {
-			lock (_spriteSetLock)
-			{
-				return _native.GetRelativeSpriteHeight(spriteSlot);
-			}
+            lock (_spriteSetLock)
+            {
+                return _native.GetSpriteHeight(spriteSlot);
+            }
         }
 
         public Room LoadRoom(UnloadedRoom roomToLoad)
@@ -287,6 +270,11 @@ namespace AGS.Editor
         public Bitmap GetBitmapForBackground(Room room, int backgroundNumber)
         {
             return _native.GetBitmapForBackground(room, backgroundNumber);
+        }
+
+        public void AdjustRoomMaskResolution(Room room)
+        {
+            _native.AdjustRoomMaskResolution(room);
         }
 
         public void CreateBuffer(int width, int height)

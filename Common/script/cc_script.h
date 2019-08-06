@@ -19,8 +19,7 @@
 #ifndef __CC_SCRIPT_H
 #define __CC_SCRIPT_H
 
-#include "util/stdtr1compat.h"
-#include TR1INCLUDE(memory)
+#include <memory>
 #include "core/types.h"
 
 namespace AGS { namespace Common { class Stream; } }
@@ -31,8 +30,8 @@ struct ccScript
 public:
     char *globaldata;
     int32_t globaldatasize;
-    intptr_t *code;
-    int32_t codesize;
+    int32_t *code;                // executable byte-code, 32-bit per op or arg
+    int32_t codesize; // TODO: find out if we can make it size_t
     char *strings;
     int32_t stringssize;
     char *fixuptypes;             // global data/string area/ etc
@@ -71,6 +70,6 @@ protected:
     void        Free();
 };
 
-typedef stdtr1compat::shared_ptr<ccScript> PScript;
+typedef std::shared_ptr<ccScript> PScript;
 
 #endif // __CC_SCRIPT_H

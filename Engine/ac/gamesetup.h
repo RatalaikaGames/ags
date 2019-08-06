@@ -16,10 +16,11 @@
 #define __AC_GAMESETUP_H
 
 #include "main/graphics_mode.h"
+#include "util/string.h"
 
 
 // Mouse control activation type
-enum MouseControl
+enum MouseControlWhen
 {
     kMouseCtrl_Never,       // never control mouse (track system mouse position)
     kMouseCtrl_Fullscreen,  // control mouse in fullscreen only
@@ -35,6 +36,15 @@ enum MouseSpeedDef
     kNumMouseSpeedDefs
 };
 
+using AGS::Common::String;
+
+// TODO: reconsider the purpose of this struct.
+// Earlier I was trying to remove the uses of this struct from the engine
+// and restrict it to only config/init stage, while applying its values to
+// respective game/engine subcomponents at init stage.
+// However, it did not work well at all times, and consequently I thought
+// that engine may use a "config" object or combo of objects to store
+// current user config, which may also be changed from script, and saved.
 struct GameSetup {
     int digicard;
     int midicard;
@@ -43,20 +53,22 @@ struct GameSetup {
     bool  no_speech_pack;
     bool  enable_antialiasing;
     bool  disable_exception_handling;
-    AGS::Common::String data_files_dir;
-    AGS::Common::String main_data_filename;
-    AGS::Common::String install_dir; // optional custom install dir path
-    AGS::Common::String install_audio_dir; // optional custom install audio dir path
-    AGS::Common::String install_voice_dir; // optional custom install voice-over dir path
-    AGS::Common::String user_data_dir; // directory to write savedgames and user files to
-    AGS::Common::String shared_data_dir; // directory to write shared game files to
-    AGS::Common::String translation;
+    String data_files_dir;
+    String main_data_filename;
+    String main_data_filepath;
+    String install_dir; // optional custom install dir path
+    String install_audio_dir; // optional custom install audio dir path
+    String install_voice_dir; // optional custom install voice-over dir path
+    String user_data_dir; // directory to write savedgames and user files to
+    String shared_data_dir; // directory to write shared game files to
+    String translation;
     bool  mouse_auto_lock;
     int   override_script_os;
     char  override_multitasking;
     bool  override_upscale;
     float mouse_speed;
-    MouseControl mouse_control;
+    MouseControlWhen mouse_ctrl_when;
+    bool  mouse_ctrl_enabled;
     MouseSpeedDef mouse_speed_def;
     bool  RenderAtScreenRes; // render sprites at screen resolution, as opposed to native one
     int   Supersampling;

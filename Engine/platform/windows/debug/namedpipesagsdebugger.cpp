@@ -12,8 +12,13 @@
 //
 //=============================================================================
 
-#include <stdio.h> // sprintf
+#include "core/platform.h"
+
+#if AGS_PLATFORM_OS_WINDOWS
+
 #include "platform/windows/debug/namedpipesagsdebugger.h"
+
+#include <stdio.h> // sprintf
 
 void NamedPipesAGSDebugger::SendAcknowledgement()
 {
@@ -24,6 +29,8 @@ void NamedPipesAGSDebugger::SendAcknowledgement()
 
 NamedPipesAGSDebugger::NamedPipesAGSDebugger(const char *instanceToken)
 {
+    _hPipeSending = NULL;
+    _hPipeReading = NULL;
     _instanceToken = instanceToken;
 }
 
@@ -89,3 +96,5 @@ char* NamedPipesAGSDebugger::GetNextMessage()
     }
 
 }
+
+#endif // AGS_PLATFORM_OS_WINDOWS

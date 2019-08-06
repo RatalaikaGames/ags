@@ -39,12 +39,12 @@ Bitmap* ScriptDrawingSurface::GetBitmapSurface()
         return spriteset[dynamicSpriteNumber];
     else if (dynamicSurfaceNumber >= 0)
         return dynamicallyCreatedSurfaces[dynamicSurfaceNumber];
-    else if (linkedBitmapOnly != NULL)
+    else if (linkedBitmapOnly != nullptr)
         return linkedBitmapOnly;
     else
         quit("!DrawingSurface: attempted to use surface after Release was called");
 
-    return NULL;
+    return nullptr;
 }
 
 Bitmap *ScriptDrawingSurface::StartDrawing()
@@ -110,15 +110,16 @@ ScriptDrawingSurface::ScriptDrawingSurface()
     dynamicSpriteNumber = -1;
     dynamicSurfaceNumber = -1;
     isLinkedBitmapOnly = false;
-    linkedBitmapOnly = NULL;
+    linkedBitmapOnly = nullptr;
     currentColour = play.raw_color;
     currentColourScript = 0;
     modified = 0;
     hasAlphaChannel = 0;
     highResCoordinates = 0;
-
-    if ((game.options[OPT_NATIVECOORDINATES] != 0) &&
-        (game.IsHiRes()))
+    // NOTE: Normally in contemporary games coordinates ratio will always be 1:1.
+    // But we still support legacy drawing, so have to set this up even for modern games,
+    // otherwise we'd have to complicate conversion conditions further.
+    if (game.IsLegacyHiRes() && game.IsDataInNativeCoordinates())
     {
         highResCoordinates = 1;
     }

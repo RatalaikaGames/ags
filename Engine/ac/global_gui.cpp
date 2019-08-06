@@ -25,6 +25,7 @@
 #include "debug/debug_log.h"
 #include "gui/guimain.h"
 #include "script/runtimescriptvalue.h"
+#include "util/string_compat.h"
 
 using namespace AGS::Common;
 
@@ -45,7 +46,7 @@ int FindGUIID (const char* GUIName) {
             continue;
         if (strcmp(guis[ii].Name, GUIName) == 0)
             return ii;
-        if ((guis[ii].Name[0u] == 'g') && (stricmp(guis[ii].Name.GetCStr() + 1, GUIName) == 0))
+        if ((guis[ii].Name[0u] == 'g') && (ags_stricmp(guis[ii].Name.GetCStr() + 1, GUIName) == 0))
             return ii;
     }
     quit("FindGUIID: No matching GUI found: GUI may have been deleted");
@@ -167,7 +168,7 @@ int GetTextWidth(const char *text, int fontnum) {
   if ((fontnum < 0) || (fontnum >= game.numfonts))
     quit("!GetTextWidth: invalid font number.");
 
-  return divide_down_coordinate(wgettextwidth_compensate(text, fontnum));
+  return game_to_data_coord(wgettextwidth_compensate(text, fontnum));
 }
 
 int GetTextHeight(const char *text, int fontnum, int width) {
@@ -175,23 +176,23 @@ int GetTextHeight(const char *text, int fontnum, int width) {
   if ((fontnum < 0) || (fontnum >= game.numfonts))
     quit("!GetTextHeight: invalid font number.");
 
-  break_up_text_into_lines(multiply_up_coordinate(width), fontnum, text);
+  break_up_text_into_lines(data_to_game_coord(width), fontnum, text);
 
-  return divide_down_coordinate(getheightoflines(fontnum, numlines));
+  return game_to_data_coord(getheightoflines(fontnum, numlines));
 }
 
 int GetFontHeight(int fontnum)
 {
   if ((fontnum < 0) || (fontnum >= game.numfonts))
     quit("!GetFontHeight: invalid font number.");
-  return divide_down_coordinate(getfontheight_outlined(fontnum));
+  return game_to_data_coord(getfontheight_outlined(fontnum));
 }
 
 int GetFontLineSpacing(int fontnum)
 {
   if ((fontnum < 0) || (fontnum >= game.numfonts))
     quit("!GetFontLineSpacing: invalid font number.");
-  return divide_down_coordinate(getfontspacing_outlined(fontnum));
+  return game_to_data_coord(getfontspacing_outlined(fontnum));
 }
 
 void SetGUIBackgroundPic (int guin, int slotn) {
@@ -222,14 +223,14 @@ int IsInterfaceEnabled() {
 
 int GetGUIObjectAt (int xx, int yy) {
     GUIObject *toret = GetGUIControlAtLocation(xx, yy);
-    if (toret == NULL)
+    if (toret == nullptr)
         return -1;
 
     return toret->Id;
 }
 
 int GetGUIAt (int xx,int yy) {
-    multiply_up_coordinates(&xx, &yy);
+    data_to_game_coords(&xx, &yy);
 
     int aa, ll;
     for (ll = game.numgui - 1; ll >= 0; ll--) {

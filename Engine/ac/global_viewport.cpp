@@ -17,16 +17,16 @@
 #include "debug/debug_log.h"
 
 void SetViewport(int offsx, int offsy) {
-    offsx = multiply_up_coordinate(offsx);
-    offsy = multiply_up_coordinate(offsy);
-    play.LockRoomCameraAt(offsx, offsy);
+    offsx = data_to_game_coord(offsx);
+    offsy = data_to_game_coord(offsy);
+    play.GetRoomCamera(0)->LockAt(offsx, offsy);
 }
 void ReleaseViewport() {
-    play.ReleaseRoomCamera();
+    play.GetRoomCamera(0)->Release();
 }
 int GetViewportX () {
-    return divide_down_coordinate(play.GetRoomCamera().Left);
+    return game_to_data_coord(play.GetRoomCamera(0)->GetRect().Left);
 }
 int GetViewportY () {
-    return divide_down_coordinate(play.GetRoomCamera().Top);
+    return game_to_data_coord(play.GetRoomCamera(0)->GetRect().Top);
 }

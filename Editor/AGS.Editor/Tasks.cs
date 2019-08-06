@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Windows.Forms;
 using AGS.Editor.Preferences;
 
 namespace AGS.Editor
@@ -107,6 +108,8 @@ namespace AGS.Editor
                 throw new AGSEditorException("This game cannot be loaded because it is in a folder that has a name longer than 40 characters.");
             }
 
+            List<string> errors = new List<string>();
+
             Directory.SetCurrentDirectory(gameDirectory);
             AddFontIfNotAlreadyThere(0);
             AddFontIfNotAlreadyThere(1);
@@ -127,9 +130,9 @@ namespace AGS.Editor
 
             if (game != null)
             {
+                game.DirectoryPath = gameDirectory;
                 SetDefaultValuesForNewFeatures(game);
 
-                game.DirectoryPath = gameDirectory;
                 Utilities.EnsureStandardSubFoldersExist();
 
                 RecentGame recentGame = new RecentGame(game.Settings.GameName, gameDirectory);
@@ -141,11 +144,13 @@ namespace AGS.Editor
 
                 Factory.Events.OnGamePostLoad();
 
-                Factory.AGSEditor.RefreshEditorAfterGameLoad(game);
+                Factory.AGSEditor.RefreshEditorAfterGameLoad(game, errors);
                 if (needToSave)
                 {
                     Factory.AGSEditor.SaveGameFiles();
                 }
+
+                Factory.AGSEditor.ReportGameLoad(errors);
                 return true;
             }
 
@@ -154,6 +159,9 @@ namespace AGS.Editor
 
         private void SetDefaultValuesForNewFeatures(Game game)
         {
+            // TODO: this may be noticably if upgrading lots of items. Display some kind of
+            // progress window to notify user.
+
             int xmlVersionIndex = 0;
             if (game.SavedXmlVersionIndex.HasValue)
             {
@@ -181,6 +189,64 @@ namespace AGS.Editor
             if (xmlVersionIndex < 15)
             {
                 game.DefaultSetup.SetDefaults();
+            }
+
+            if (xmlVersionIndex < 18)
+            {
+                // Promote sprites to "real" resolution when possible (ideally almost always)
+                foreach (Sprite sprite in game.RootSpriteFolder.GetAllSpritesFromAllSubFolders())
+                {
+                    sprite.Resolution = Utilities.FixupSpriteResolution(sprite.Resolution);
+                }
+            }
+
+            if (xmlVersionIndex < 18)
+            {
+                foreach (Font font in game.Fonts)
+                    font.SizeMultiplier = 1;
+                // Apply font scaling to each individual font settings.
+                // Bitmap fonts save multiplier explicitly, while vector fonts have their size doubled.
+                if (game.IsHighResolution && !game.Settings.FontsForHiRes)
+                {
+                    foreach (Font font in game.Fonts)
+                    {
+                        if (font.PointSize == 0)
+                        {
+                            font.SizeMultiplier = 2;
+                        }
+                        else
+                        {
+                            font.PointSize *= 2;
+                        }
+                    }
+                }
+            }
+
+            if (xmlVersionIndex < 18)
+            {
+                game.Settings.AllowRelativeAssetResolutions = true;
+                game.Settings.DefaultRoomMaskResolution = game.IsHighResolution ? 2 : 1;
+            }
+
+            if (xmlVersionIndex < 19)
+            {
+                game.Settings.GameFileName = AGSEditor.Instance.BaseGameFileName;
+
+                var buildNames = new Dictionary<string, string>();
+                foreach (IBuildTarget target in BuildTargetsInfo.GetRegisteredBuildTargets())
+                {
+                    buildNames[target.Name] = AGSEditor.Instance.BaseGameFileName;
+                }
+                game.WorkspaceState.SetLastBuildGameFiles(buildNames);
+            }
+
+            if (xmlVersionIndex < 20)
+            {
+                // Set the alpha channel requests for re-import based on the presence of an alpha channel
+                foreach (Sprite sprite in game.RootSpriteFolder.GetAllSpritesFromAllSubFolders())
+                {
+                    sprite.ImportAlphaChannel = sprite.AlphaChannel;
+                }
             }
 
             game.SetScriptAPIForOldProject();

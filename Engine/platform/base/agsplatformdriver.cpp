@@ -16,8 +16,7 @@
 //
 //=============================================================================
 
-#include <stdio.h>
-
+#include <thread>
 #include "util/wgt2allg.h"
 #include "platform/base/agsplatformdriver.h"
 #include "ac/common.h"
@@ -31,6 +30,8 @@
 #include "game/savegame.h"
 #include "gfx/bitmap.h"
 #include "plugin/agsplugin.h"
+#include "ac/timer.h"
+#include "media/audio/audio_system.h"
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -39,8 +40,13 @@ using namespace AGS::Engine;
 #include "libcda.h"
 #endif
 
-AGSPlatformDriver* AGSPlatformDriver::instance = NULL;
-AGSPlatformDriver *platform = NULL;
+// We don't have many places where we delay longer than a frame, but where we
+// do, we should give the audio layer a chance to update.
+// 16 milliseconds is rough period for 60fps
+const auto MaximumDelayBetweenPolling = std::chrono::milliseconds(16);
+
+AGSPlatformDriver* AGSPlatformDriver::instance = nullptr;
+AGSPlatformDriver *platform = nullptr;
 
 // ******** DEFAULT IMPLEMENTATIONS *******
 
@@ -58,6 +64,7 @@ void AGSPlatformDriver::AdjustWindowStyleForFullscreen() { }
 void AGSPlatformDriver::RestoreWindowStyle() { }
 void AGSPlatformDriver::RegisterGameWithGameExplorer() { }
 void AGSPlatformDriver::UnRegisterGameWithGameExplorer() { }
+void AGSPlatformDriver::PlayVideo(const char* name, int skip, int flags) {}
 
 int AGSPlatformDriver::InitializeCDPlayer() { return 1; }
 int AGSPlatformDriver::CDPlayerCommand(int cmdd, int datt) { return 0; }
@@ -76,13 +83,13 @@ const char *AGSPlatformDriver::GetDiskWriteAccessTroubleshootingText()
 }
 
 void AGSPlatformDriver::GetSystemTime(ScriptDateTime *sdt) {
-    struct tm *newtime;
-    time_t long_time;
+    time_t t = time(nullptr);
 
     //note: subject to year 2038 problem due to shoving time_t in an integer
     sdt->rawUnixTime = time( &long_time );
     newtime = localtime( &long_time );
 
+    struct tm *newtime = localtime(&t);
     sdt->hour = newtime->tm_hour;
     sdt->minute = newtime->tm_min;
     sdt->second = newtime->tm_sec;
@@ -97,10 +104,14 @@ void AGSPlatformDriver::WriteStdOut(const char *fmt, ...) {
     vprintf(fmt, args);
     va_end(args);
     printf("\n");
+    fflush(stdout);
 }
 
 void AGSPlatformDriver::YieldCPU() {
+    // NOTE: this is called yield, but if we actually yield instead of delay,
+    // we get a massive increase in CPU usage.
     this->Delay(1);
+    //std::this_thread::yield();
 }
 
 void AGSPlatformDriver::InitialiseAbufAtStartup()
@@ -295,3 +306,23 @@ int cd_player_control(int cmdd, int datt) {
 }
 
 #endif // AGS_HAS_CD_AUDIO
+
+void AGSPlatformDriver::Delay(int millis) {
+  auto now = AGS_Clock::now();
+  auto delayUntil = now + std::chrono::milliseconds(millis);
+
+  for (;;) {
+    if (now >= delayUntil) { break; }
+
+    auto duration = std::min<std::chrono::nanoseconds>(delayUntil - now, MaximumDelayBetweenPolling);
+    std::this_thread::sleep_for(duration);
+    now = AGS_Clock::now(); // update now
+
+    if (now >= delayUntil) { break; }
+
+    // don't allow it to check for debug messages, since this Delay()
+    // call might be from within a debugger polling loop
+    update_polled_mp3();
+    now = AGS_Clock::now(); // update now
+  }
+}

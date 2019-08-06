@@ -12,9 +12,7 @@
 //
 //=============================================================================
 
-#include "core/types.h"
 #include "ac/common.h"
-#include "media/audio/audiodefines.h"
 #include "ac/draw.h"
 #include "ac/gamesetup.h"
 #include "ac/gamesetupstruct.h"
@@ -26,12 +24,12 @@
 #include "debug/debug_log.h"
 #include "main/engine.h"
 #include "main/main.h"
-#include "media/audio/soundclip.h"
 #include "gfx/graphicsdriver.h"
 #include "ac/dynobj/cc_audiochannel.h"
 #include "main/graphics_mode.h"
 #include "ac/global_debug.h"
-#include "media/audio/audio.h"
+#include "media/audio/audio_system.h"
+#include "util/string_compat.h"
 
 using namespace AGS::Engine;
 
@@ -79,19 +77,19 @@ int System_GetOS() {
 // compatibility.
 //
 int System_GetScreenWidth() {
-    return game.size.Width;
+    return game.GetGameRes().Width;
 }
 
 int System_GetScreenHeight() {
-    return game.size.Height;
+    return game.GetGameRes().Height;
 }
 
 int System_GetViewportHeight() {
-    return divide_down_coordinate(play.GetMainViewport().GetHeight());
+    return game_to_data_coord(play.GetMainViewport().GetHeight());
 }
 
 int System_GetViewportWidth() {
-    return divide_down_coordinate(play.GetMainViewport().GetWidth());
+    return game_to_data_coord(play.GetMainViewport().GetWidth());
 }
 
 const char *System_GetVersion() {
@@ -134,7 +132,7 @@ int System_GetVsync() {
 }
 
 void System_SetVsync(int newValue) {
-    if(stricmp(gfxDriver->GetDriverID(), "D3D9") != 0)
+    if(ags_stricmp(gfxDriver->GetDriverID(), "D3D9") != 0)
         scsystem.vsync = newValue;
 }
 
@@ -200,14 +198,12 @@ void System_SetVolume(int newvol)
 
     // allegro's set_volume can lose the volumes of all the channels
     // if it was previously set low; so restore them
+    AudioChannelsLock lock;
     for (int i = 0; i <= MAX_SOUND_CHANNELS; i++) 
     {
-        AudioChannelsLock _lock;
-        auto* ch = _lock.GetChannel(i);
-        if ((ch != nullptr) && (ch->done == 0)) 
-        {
+        auto* ch = lock.GetChannelIfPlaying(i);
+        if (ch)
             ch->adjust_volume();
-        }
     }
 }
 

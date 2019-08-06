@@ -26,6 +26,8 @@ class BaseThread
 public:
   typedef void(* AGSThreadEntry)();
 
+  BaseThread() = default;
+  virtual ~BaseThread() = default;
   enum Purpose
   {
       Purpose_AudioThread
@@ -35,9 +37,8 @@ public:
   {
   };
 
-  virtual ~BaseThread()
-  {
-  };
+  BaseThread &operator=(const BaseThread &) = delete;
+  BaseThread(const BaseThread &) = delete;
 
   virtual bool Create(AGSThreadEntry entryPoint, bool looping) = 0;
   virtual bool Start() = 0;
@@ -45,42 +46,22 @@ public:
 
   inline bool CreateAndStart(Purpose purpose, AGSThreadEntry entryPoint, bool looping)
   {
-      this->purpose;
-    if (Create(entryPoint, looping))
-    {
-      if (Start())
-      {
-        return true;
-      }
-    }
-
-    return false;
+  this->purpose = purpose;
+    if (!Create(entryPoint, looping)) { return false; }
+    return Start();
   }
 
 private:
     Purpose purpose;
 };
 
-
 } // namespace Engine
 } // namespace AGS
 
-
-#if defined(WINDOWS_VERSION)
-#include "thread_windows.h"
-
-#elif defined(PSP_VERSION)
-#include "thread_psp.h"
-
-#elif defined(WII_VERSION)
-#include "thread_wii.h"
-
-#elif defined(LINUX_VERSION) \
-   || defined(MAC_VERSION) \
-   || defined(IOS_VERSION) \
-   || defined(ANDROID_VERSION)
-#include "thread_pthread.h"
-
+#if 0
+  // insert platforms here
+#else
+#include "thread_std.h"
 #elif defined(CONSOLE_VERSION)
 #include "thread_console.h"
 

@@ -36,8 +36,8 @@
 #include "ac/mouse.h"
 #include "ac/object.h"
 #include "ac/overlay.h"
-#include "ac/path.h"
 #include "ac/properties.h"
+#include "ac/room.h"
 #include "ac/screenoverlay.h"
 #include "ac/string.h"
 #include "ac/system.h"
@@ -50,15 +50,15 @@
 #include "main/game_run.h"
 #include "main/update.h"
 #include "ac/spritecache.h"
-#include "util/string_utils.h"
+#include "util/string_compat.h"
 #include <math.h>
 #include "gfx/graphicsdriver.h"
-#include "platform/base/override_defines.h"
 #include "script/runtimescriptvalue.h"
 #include "ac/dynobj/cc_character.h"
 #include "ac/dynobj/cc_inventory.h"
 #include "script/script_runtime.h"
 #include "gfx/gfx_def.h"
+#include "media/audio/audio_system.h"
 
 using namespace AGS::Common;
 
@@ -79,9 +79,6 @@ extern int said_speech_line;
 extern int numscreenover;
 extern int said_text;
 extern int our_eip;
-extern int update_music_at;
-extern int current_screen_resolution_multiplier;
-extern int cur_mode;
 extern CCCharacter ccDynamicCharacter;
 extern CCInventory ccDynamicInv;
 
@@ -97,7 +94,7 @@ int char_lowest_yp;
 int face_talking=-1,facetalkview=0,facetalkwait=0,facetalkframe=0;
 int facetalkloop=0, facetalkrepeat = 0, facetalkAllowBlink = 1;
 int facetalkBlinkLoop = 0;
-CharacterInfo *facetalkchar = NULL;
+CharacterInfo *facetalkchar = nullptr;
 // Do override default portrait position during QFG4-style speech overlay update
 bool facetalk_qfg4_override_placement_x = false;
 bool facetalk_qfg4_override_placement_y = false;
@@ -105,8 +102,8 @@ bool facetalk_qfg4_override_placement_y = false;
 // lip-sync speech settings
 int loops_per_character, text_lips_offset, char_speaking = -1;
 int char_thinking = -1;
-const char *text_lips_text = NULL;
-SpeechLipSyncLine *splipsync = NULL;
+const char *text_lips_text = nullptr;
+SpeechLipSyncLine *splipsync = nullptr;
 int numLipLines = 0, curLipLine = -1, curLipLinePhoneme = 0;
 
 // **** CHARACTER: FUNCTIONS ****
@@ -114,7 +111,7 @@ int numLipLines = 0, curLipLine = -1, curLipLinePhoneme = 0;
 void Character_AddInventory(CharacterInfo *chaa, ScriptInvItem *invi, int addIndex) {
     int ee;
 
-    if (invi == NULL)
+    if (invi == nullptr)
         quit("!AddInventoryToCharacter: invalid invnetory number");
 
     int inum = invi->id;
@@ -200,7 +197,7 @@ void Character_Animate(CharacterInfo *chaa, int loop, int delay, int repeat, int
     animate_character(chaa, loop, delay, repeat, 0, direction);
 
     if ((blocking == BLOCKING) || (blocking == 1))
-        GameLoopUntilEvent(UNTIL_SHORTIS0,&chaa->animating);
+        GameLoopUntilValueIsZero(&chaa->animating);
     else if ((blocking != IN_BACKGROUND) && (blocking != 0))
         quit("!Character.Animate: Invalid BLOCKING parameter");
 }
@@ -339,9 +336,9 @@ DirectionalLoop GetDirectionalLoop(CharacterInfo *chinfo, int x_diff, int y_diff
     const bool has_diagonal_loops = useDiagonal(chinfo) == 0; // NOTE: useDiagonal returns 0 for "true"
 
     const bool want_horizontal = (abs(y_diff) < abs(x_diff)) ||
-        new_version && (!has_down_loop || !has_up_loop) ||
+        (new_version && (!has_down_loop || !has_up_loop) )||
         // NOTE: <= 2.72 games switch to horizontal loops only if both vertical ones are missing
-        !new_version && (!has_down_loop && !has_up_loop);
+        (!new_version && (!has_down_loop && !has_up_loop));
     if (want_horizontal)
     {
         const bool want_diagonal = has_diagonal_loops && (abs(y_diff) > abs(x_diff) / 2);
@@ -394,11 +391,11 @@ void FaceDirectionalLoop(CharacterInfo *char1, int direction, int blockingStyle)
                 if (char1->on == 1)
                 {
                     // only do the turning if the character is not hidden
-                    // (otherwise GameLoopUntilEvent will never return)
+                    // (otherwise GameLoopUntilNotMoving will never return)
                     start_character_turning (char1, direction, no_diagonal);
 
                     if ((blockingStyle == BLOCKING) || (blockingStyle == 1))
-                        GameLoopUntilEvent(UNTIL_MOVEEND, &char1->walking);
+                        GameLoopUntilNotMoving(&char1->walking);
                 }
                 else
                     char1->loop = direction;
@@ -432,7 +429,7 @@ void FaceLocationXY(CharacterInfo *char1, int xx, int yy, int blockingStyle)
 
 void Character_FaceDirection(CharacterInfo *char1, int direction, int blockingStyle)
 {
-    if (char1 == NULL)
+    if (char1 == nullptr)
         quit("!FaceDirection: invalid character specified");
 
     if (direction != SCR_NO_VALUE)
@@ -446,21 +443,21 @@ void Character_FaceDirection(CharacterInfo *char1, int direction, int blockingSt
 
 void Character_FaceLocation(CharacterInfo *char1, int xx, int yy, int blockingStyle)
 {
-    if (char1 == NULL)
+    if (char1 == nullptr)
         quit("!FaceLocation: invalid character specified");
 
     FaceLocationXY(char1, xx, yy, blockingStyle);
 }
 
 void Character_FaceObject(CharacterInfo *char1, ScriptObject *obj, int blockingStyle) {
-    if (obj == NULL) 
+    if (obj == nullptr) 
         quit("!FaceObject: invalid object specified");
 
     FaceLocationXY(char1, objs[obj->id].x, objs[obj->id].y, blockingStyle);
 }
 
 void Character_FaceCharacter(CharacterInfo *char1, CharacterInfo *char2, int blockingStyle) {
-    if (char2 == NULL) 
+    if (char2 == nullptr) 
         quit("!FaceCharacter: invalid character specified");
 
     if (char1->room != char2->room)
@@ -474,11 +471,11 @@ void Character_FollowCharacter(CharacterInfo *chaa, CharacterInfo *tofollow, int
     if ((eagerness < 0) || (eagerness > 250))
         quit("!FollowCharacterEx: invalid eagerness: must be 0-250");
 
-    if ((chaa->index_id == game.playercharacter) && (tofollow != NULL) && 
+    if ((chaa->index_id == game.playercharacter) && (tofollow != nullptr) && 
         (tofollow->room != chaa->room))
         quit("!FollowCharacterEx: you cannot tell the player character to follow a character in another room");
 
-    if (tofollow != NULL) {
+    if (tofollow != nullptr) {
         debug_script_log("%s: Start following %s (dist %d, eager %d)", chaa->scrname, tofollow->scrname, distaway, eagerness);
     }
     else {
@@ -492,7 +489,7 @@ void Character_FollowCharacter(CharacterInfo *chaa, CharacterInfo *tofollow, int
             chaa->baseline = -1;
     }
 
-    if (tofollow == NULL)
+    if (tofollow == nullptr)
         chaa->following = -1;
     else
         chaa->following = tofollow->index_id;
@@ -514,7 +511,7 @@ void Character_FollowCharacter(CharacterInfo *chaa, CharacterInfo *tofollow, int
 }
 
 int Character_IsCollidingWithChar(CharacterInfo *char1, CharacterInfo *char2) {
-    if (char2 == NULL)
+    if (char2 == nullptr)
         quit("!AreCharactersColliding: invalid char2");
 
     if (char1->room != char2->room) return 0; // not colliding
@@ -522,8 +519,8 @@ int Character_IsCollidingWithChar(CharacterInfo *char1, CharacterInfo *char2) {
     if ((char1->y > char2->y - 5) && (char1->y < char2->y + 5)) ;
     else return 0;
 
-    int w1 = divide_down_coordinate(GetCharacterWidth(char1->index_id));
-    int w2 = divide_down_coordinate(GetCharacterWidth(char2->index_id));
+    int w1 = game_to_data_coord(GetCharacterWidth(char1->index_id));
+    int w2 = game_to_data_coord(GetCharacterWidth(char2->index_id));
 
     int xps1=char1->x - w1/2;
     int xps2=char2->x - w2/2;
@@ -533,7 +530,7 @@ int Character_IsCollidingWithChar(CharacterInfo *char1, CharacterInfo *char2) {
 }
 
 int Character_IsCollidingWithObject(CharacterInfo *chin, ScriptObject *objid) {
-    if (objid == NULL)
+    if (objid == nullptr)
         quit("!AreCharObjColliding: invalid object number");
 
     if (chin->room != displayed_room)
@@ -541,29 +538,29 @@ int Character_IsCollidingWithObject(CharacterInfo *chin, ScriptObject *objid) {
     if (objs[objid->id].on != 1)
         return 0;
 
-    Bitmap *checkblk = GetObjectImage(objid->id, NULL);
+    Bitmap *checkblk = GetObjectImage(objid->id, nullptr);
     int objWidth = checkblk->GetWidth();
     int objHeight = checkblk->GetHeight();
     int o1x = objs[objid->id].x;
-    int o1y = objs[objid->id].y - divide_down_coordinate(objHeight);
+    int o1y = objs[objid->id].y - game_to_data_coord(objHeight);
 
-    Bitmap *charpic = GetCharacterImage(chin->index_id, NULL);
+    Bitmap *charpic = GetCharacterImage(chin->index_id, nullptr);
 
     int charWidth = charpic->GetWidth();
     int charHeight = charpic->GetHeight();
-    int o2x = chin->x - divide_down_coordinate(charWidth) / 2;
+    int o2x = chin->x - game_to_data_coord(charWidth) / 2;
     int o2y = chin->get_effective_y() - 5;  // only check feet
 
-    if ((o2x >= o1x - divide_down_coordinate(charWidth)) &&
-        (o2x <= o1x + divide_down_coordinate(objWidth)) &&
+    if ((o2x >= o1x - game_to_data_coord(charWidth)) &&
+        (o2x <= o1x + game_to_data_coord(objWidth)) &&
         (o2y >= o1y - 8) &&
-        (o2y <= o1y + divide_down_coordinate(objHeight))) {
+        (o2y <= o1y + game_to_data_coord(objHeight))) {
             // the character's feet are on the object
             if (game.options[OPT_PIXPERFECT] == 0)
                 return 1;
             // check if they're on a transparent bit of the object
-            int stxp = multiply_up_coordinate(o2x - o1x);
-            int styp = multiply_up_coordinate(o2y - o1y);
+            int stxp = data_to_game_coord(o2x - o1x);
+            int styp = data_to_game_coord(o2y - o1y);
             int maskcol = checkblk->GetMaskColor ();
             int maskcolc = charpic->GetMaskColor ();
             int thispix, thispixc;
@@ -639,7 +636,7 @@ void Character_LockViewAlignedEx(CharacterInfo *chap, int vii, int loop, int ali
         quit("!SetCharacterLoop: character has invalid old view number");
 
     int sppic = views[chap->view].loops[chap->loop].frames[chap->frame].pic;
-    int leftSide = multiply_up_coordinate(chap->x) - game.SpriteInfos[sppic].Width / 2;
+    int leftSide = data_to_game_coord(chap->x) - game.SpriteInfos[sppic].Width / 2;
 
     Character_LockViewEx(chap, vii, stopMoving);
 
@@ -649,7 +646,7 @@ void Character_LockViewAlignedEx(CharacterInfo *chap, int vii, int loop, int ali
     chap->loop = loop;
     chap->frame = 0;
     int newpic = views[chap->view].loops[chap->loop].frames[chap->frame].pic;
-    int newLeft = multiply_up_coordinate(chap->x) - game.SpriteInfos[newpic].Width / 2;
+    int newLeft = data_to_game_coord(chap->x) - game.SpriteInfos[newpic].Width / 2;
     int xdiff = 0;
 
     if (align & kMAlignLeft)
@@ -690,24 +687,15 @@ void Character_LockViewOffset(CharacterInfo *chap, int vii, int xoffs, int yoffs
 void Character_LockViewOffsetEx(CharacterInfo *chap, int vii, int xoffs, int yoffs, int stopMoving) {
     Character_LockViewEx(chap, vii, stopMoving);
 
-    if ((current_screen_resolution_multiplier == 1) && (game.IsHiRes())) {
-        // running a 640x400 game at 320x200, adjust
-        xoffs /= 2;
-        yoffs /= 2;
-    }
-    else if ((current_screen_resolution_multiplier > 1) && (!game.IsHiRes())) {
-        // running a 320x200 game at 640x400, adjust
-        xoffs *= 2;
-        yoffs *= 2;
-    }
-
+    // This function takes offsets in real game coordinates as opposed to script coordinates
+    defgame_to_finalgame_coords(xoffs, yoffs);
     chap->pic_xoffs = xoffs;
     chap->pic_yoffs = yoffs;
 }
 
 void Character_LoseInventory(CharacterInfo *chap, ScriptInvItem *invi) {
 
-    if (invi == NULL)
+    if (invi == nullptr)
         quit("!LoseInventoryFromCharacter: invalid invnetory number");
 
     int inum = invi->id;
@@ -1060,20 +1048,20 @@ void Character_WalkStraight(CharacterInfo *chaa, int xx, int yy, int blocking) {
 
     wallscreen = prepare_walkable_areas(chaa->index_id);
 
-    int fromXLowres = convert_to_low_res(chaa->x);
-    int fromYLowres = convert_to_low_res(chaa->y);
-    int toXLowres = convert_to_low_res(xx);
-    int toYLowres = convert_to_low_res(yy);
+    int fromXLowres = room_to_mask_coord(chaa->x);
+    int fromYLowres = room_to_mask_coord(chaa->y);
+    int toXLowres = room_to_mask_coord(xx);
+    int toYLowres = room_to_mask_coord(yy);
 
     if (!can_see_from(fromXLowres, fromYLowres, toXLowres, toYLowres)) {
-        movetox = convert_back_to_high_res(lastcx);
-        movetoy = convert_back_to_high_res(lastcy);
+        movetox = mask_to_room_coord(lastcx);
+        movetoy = mask_to_room_coord(lastcy);
     }
 
     walk_character(chaa->index_id, movetox, movetoy, 1, true);
 
     if ((blocking == BLOCKING) || (blocking == 1))
-        GameLoopUntilEvent(UNTIL_MOVEEND,&chaa->walking);
+        GameLoopUntilNotMoving(&chaa->walking);
     else if ((blocking != IN_BACKGROUND) && (blocking != 0))
         quit("!Character.Walk: Blocking must be BLOCKING or IN_BACKGRUOND");
 
@@ -1113,7 +1101,7 @@ bool Character_SetTextProperty(CharacterInfo *chaa, const char *property, const 
 ScriptInvItem* Character_GetActiveInventory(CharacterInfo *chaa) {
 
     if (chaa->activeinv <= 0)
-        return NULL;
+        return nullptr;
 
     return &scrInv[chaa->activeinv];
 }
@@ -1121,7 +1109,7 @@ ScriptInvItem* Character_GetActiveInventory(CharacterInfo *chaa) {
 void Character_SetActiveInventory(CharacterInfo *chaa, ScriptInvItem* iit) {
     guis_need_update = 1;
 
-    if (iit == NULL) {
+    if (iit == nullptr) {
         chaa->activeinv = -1;
 
         if (chaa->index_id == game.playercharacter) {
@@ -1296,7 +1284,7 @@ int Character_GetIInventoryQuantity(CharacterInfo *chaa, int index) {
 
 int Character_HasInventory(CharacterInfo *chaa, ScriptInvItem *invi)
 {
-    if (invi == NULL)
+    if (invi == nullptr)
         quit("!Character.HasInventory: NULL inventory item supplied");
 
     return (chaa->inv[invi->id] > 0) ? 1 : 0;
@@ -1410,7 +1398,7 @@ int Character_GetDestinationX(CharacterInfo *chaa) {
 int Character_GetDestinationY(CharacterInfo *chaa) {
     if (chaa->walking) {
         MoveList *cmls = &mls[chaa->walking % TURNING_AROUND];
-        return cmls->pos[cmls->numstage - 1] & 0x00ff;
+        return cmls->pos[cmls->numstage - 1] & 0xFFFF;
     }
     else
         return chaa->y;
@@ -1676,10 +1664,10 @@ void walk_character(int chac,int tox,int toy,int ignwal, bool autoWalkAnims) {
     chin->flags &= ~CHF_MOVENOTWALK;
 
     int toxPassedIn = tox, toyPassedIn = toy;
-    int charX = convert_to_low_res(chin->x);
-    int charY = convert_to_low_res(chin->y);
-    tox = convert_to_low_res(tox);
-    toy = convert_to_low_res(toy);
+    int charX = room_to_mask_coord(chin->x);
+    int charY = room_to_mask_coord(chin->y);
+    tox = room_to_mask_coord(tox);
+    toy = room_to_mask_coord(toy);
 
     if ((tox == charX) && (toy == charY)) {
         StopMoving(chac);
@@ -1729,12 +1717,8 @@ void walk_character(int chac,int tox,int toy,int ignwal, bool autoWalkAnims) {
     if (mslot>0) {
         chin->walking = mslot;
         mls[mslot].direct = ignwal;
+        convert_move_path_to_room_resolution(&mls[mslot]);
 
-        if ((game.options[OPT_NATIVECOORDINATES] != 0) &&
-            game.IsHiRes())
-        {
-            convert_move_path_to_high_res(&mls[mslot]);
-        }
         // cancel any pending waits on current animations
         // or if they were already moving, keep the current wait - 
         // this prevents a glitch if MoveCharacter is called when they
@@ -1873,7 +1857,7 @@ int has_hit_another_character(int sourceChar) {
         if (ww == sourceChar) continue;
         if (game.chars[ww].flags & CHF_NOBLOCKING) continue;
 
-        if (is_char_on_another (sourceChar, ww, NULL, NULL)) {
+        if (is_char_on_another (sourceChar, ww, nullptr, nullptr)) {
             // we are now overlapping character 'ww'
             if ((game.chars[ww].walking) && 
                 ((game.chars[ww].flags & CHF_AWAITINGMOVE) == 0))
@@ -1928,16 +1912,16 @@ int find_nearest_walkable_area_within(int *xx, int *yy, int range, int step)
 {
     int ex, ey, nearest = 99999, thisis, nearx = 0, neary = 0;
     int startx = 0, starty = 14;
-    int roomWidthLowRes = convert_to_low_res(thisroom.Width);
-    int roomHeightLowRes = convert_to_low_res(thisroom.Height);
+    int roomWidthLowRes = room_to_mask_coord(thisroom.Width);
+    int roomHeightLowRes = room_to_mask_coord(thisroom.Height);
     int xwidth = roomWidthLowRes, yheight = roomHeightLowRes;
 
-    int xLowRes = convert_to_low_res(xx[0]);
-    int yLowRes = convert_to_low_res(yy[0]);
-    int rightEdge = convert_to_low_res(thisroom.Edges.Right);
-    int leftEdge = convert_to_low_res(thisroom.Edges.Left);
-    int topEdge = convert_to_low_res(thisroom.Edges.Top);
-    int bottomEdge = convert_to_low_res(thisroom.Edges.Bottom);
+    int xLowRes = room_to_mask_coord(xx[0]);
+    int yLowRes = room_to_mask_coord(yy[0]);
+    int rightEdge = room_to_mask_coord(thisroom.Edges.Right);
+    int leftEdge = room_to_mask_coord(thisroom.Edges.Left);
+    int topEdge = room_to_mask_coord(thisroom.Edges.Top);
+    int bottomEdge = room_to_mask_coord(thisroom.Edges.Bottom);
 
     // tweak because people forget to move the edges sometimes
     // if the player is already over the edge, ignore it
@@ -1973,8 +1957,8 @@ int find_nearest_walkable_area_within(int *xx, int *yy, int range, int step)
     }
     if (nearest < 90000) 
     {
-        xx[0] = convert_back_to_high_res(nearx);
-        yy[0] = convert_back_to_high_res(neary);
+        xx[0] = mask_to_room_coord(nearx);
+        yy[0] = mask_to_room_coord(neary);
         return 1;
     }
 
@@ -1983,7 +1967,7 @@ int find_nearest_walkable_area_within(int *xx, int *yy, int range, int step)
 
 void find_nearest_walkable_area (int *xx, int *yy) {
 
-    int pixValue = thisroom.WalkAreaMask->GetPixel(convert_to_low_res(xx[0]), convert_to_low_res(yy[0]));
+    int pixValue = thisroom.WalkAreaMask->GetPixel(room_to_mask_coord(xx[0]), room_to_mask_coord(yy[0]));
     // only fix this code if the game was built with 2.61 or above
     if (pixValue == 0 || (loaded_game_file_version >= kGameVersion_261 && pixValue < 1))
     {
@@ -2034,7 +2018,7 @@ void walk_or_move_character(CharacterInfo *chaa, int x, int y, int blocking, int
         quit("!Character.Walk: Direct must be ANYWHERE or WALKABLE_AREAS");
 
     if ((blocking == BLOCKING) || (blocking == 1))
-        GameLoopUntilEvent(UNTIL_MOVEEND,&chaa->walking);
+        GameLoopUntilNotMoving(&chaa->walking);
     else if ((blocking != IN_BACKGROUND) && (blocking != 0))
         quit("!Character.Walk: Blocking must be BLOCKING or IN_BACKGRUOND");
 
@@ -2185,7 +2169,7 @@ Bitmap *GetCharacterImage(int charid, int *isFlipped)
 {
     if (!gfxDriver->HasAcceleratedTransform())
     {
-        if (actsps[charid + MAX_ROOM_OBJECTS] != NULL) 
+        if (actsps[charid + MAX_ROOM_OBJECTS] != nullptr) 
         {
             // the actsps image is pre-flipped, so no longer register the image as such
             if (isFlipped)
@@ -2201,7 +2185,7 @@ Bitmap *GetCharacterImage(int charid, int *isFlipped)
 CharacterInfo *GetCharacterAtScreen(int xx, int yy) {
     int hsnum = GetCharIDAtScreen(xx, yy);
     if (hsnum < 0)
-        return NULL;
+        return nullptr;
     return &game.chars[hsnum];
 }
 
@@ -2209,7 +2193,7 @@ CharacterInfo *GetCharacterAtRoom(int x, int y)
 {
     int hsnum = is_pos_on_character(x, y);
     if (hsnum < 0)
-        return NULL;
+        return nullptr;
     return &game.chars[hsnum];
 }
 
@@ -2236,15 +2220,15 @@ int is_pos_on_character(int xx,int yy) {
         int usehit = charextra[cc].height;
         if (usewid==0) usewid=game.SpriteInfos[sppic].Width;
         if (usehit==0) usehit= game.SpriteInfos[sppic].Height;
-        int xxx = chin->x - divide_down_coordinate(usewid) / 2;
-        int yyy = chin->get_effective_y() - divide_down_coordinate(usehit);
+        int xxx = chin->x - game_to_data_coord(usewid) / 2;
+        int yyy = chin->get_effective_y() - game_to_data_coord(usehit);
 
         int mirrored = views[chin->view].loops[chin->loop].frames[chin->frame].flags & VFLG_FLIPSPRITE;
         Bitmap *theImage = GetCharacterImage(cc, &mirrored);
 
         if (is_pos_in_sprite(xx,yy,xxx,yyy, theImage,
-            divide_down_coordinate(usewid),
-            divide_down_coordinate(usehit), mirrored) == FALSE)
+            game_to_data_coord(usewid),
+            game_to_data_coord(usehit), mirrored) == FALSE)
             continue;
 
         int use_base = chin->get_baseline();
@@ -2261,7 +2245,7 @@ void get_char_blocking_rect(int charid, int *x1, int *y1, int *width, int *y2) {
     int cwidth, fromx;
 
     if (char1->blocking_width < 1)
-        cwidth = divide_down_coordinate(GetCharacterWidth(charid)) - 4;
+        cwidth = game_to_data_coord(GetCharacterWidth(charid)) - 4;
     else
         cwidth = char1->blocking_width;
 
@@ -2270,8 +2254,8 @@ void get_char_blocking_rect(int charid, int *x1, int *y1, int *width, int *y2) {
         cwidth += fromx;
         fromx = 0;
     }
-    if (fromx + cwidth >= convert_back_to_high_res(walkable_areas_temp->GetWidth()))
-        cwidth = convert_back_to_high_res(walkable_areas_temp->GetWidth()) - fromx;
+    if (fromx + cwidth >= mask_to_room_coord(walkable_areas_temp->GetWidth()))
+        cwidth = mask_to_room_coord(walkable_areas_temp->GetWidth()) - fromx;
 
     if (x1)
         *x1 = fromx;
@@ -2358,8 +2342,8 @@ void _DisplayThoughtCore(int chid, const char *displbuf) {
     if ((game.options[OPT_SPEECHTYPE] == 0) || (game.chars[chid].thinkview <= 0)) {
         // lucasarts-style, so we want a speech bubble actually above
         // their head (or if they have no think anim in Sierra-style)
-        width = multiply_up_coordinate(play.speech_bubble_width);
-        xpp = play.RoomToScreenX(multiply_up_coordinate(game.chars[chid].x)) - width / 2;
+        width = data_to_game_coord(play.speech_bubble_width);
+        xpp = play.RoomToScreenX(data_to_game_coord(game.chars[chid].x)) - width / 2;
         if (xpp < 0)
             xpp = 0;
         // -1 will automatically put it above the char's head
@@ -2416,9 +2400,8 @@ void _displayspeech(const char*texx, int aschar, int xx, int yy, int widd, int i
     play.speech_in_post_state = false;
 
     if (isPause) {
-        if (update_music_at > 0)
-            update_music_at += play.messagetime;
-        GameLoopUntilEvent(UNTIL_INTISNEG,&play.messagetime);
+        postpone_scheduled_music_update_by(std::chrono::milliseconds(play.messagetime * 1000 / frames_per_second));
+        GameLoopUntilValueIsNegative(&play.messagetime);
         return;
     }
 
@@ -2461,22 +2444,11 @@ void _displayspeech(const char*texx, int aschar, int xx, int yy, int widd, int i
     text_lips_offset = 0;
     text_lips_text = texx;
 
-    Bitmap *closeupface=NULL;
-    if (texx[0]=='&') {
-        // auto-speech
-        int igr=atoi(&texx[1]);
-        while ((texx[0]!=' ') & (texx[0]!=0)) texx++;
-        if (texx[0]==' ') texx++;
-        if (igr <= 0)
-            quit("DisplaySpeech: auto-voice symbol '&' not followed by valid integer");
+    Bitmap *closeupface=nullptr;
+    // TODO: we always call _display_at later which may also start voice-over;
+    // find out if this may be refactored and voice started only in one place.
+    try_auto_play_speech(texx, texx, aschar, true);
 
-        text_lips_text = texx;
-
-        if (play_speech(aschar,igr)) {
-            if (play.want_speech == 2)
-                texx = "  ";  // speech only, no text.
-        }
-    }
     if (game.options[OPT_SPEECHTYPE] == 3)
         remove_screen_overlay(OVER_COMPLETE);
     our_eip=1500;
@@ -2505,7 +2477,7 @@ void _displayspeech(const char*texx, int aschar, int xx, int yy, int widd, int i
         // the screen.
         our_eip=1501;
         if (tdxp < 0)
-            tdxp = play.RoomToScreenX(multiply_up_coordinate(speakingChar->x));
+            tdxp = play.RoomToScreenX(data_to_game_coord(speakingChar->x));
         if (tdxp < 2)
             tdxp=2;
 
@@ -2535,7 +2507,7 @@ void _displayspeech(const char*texx, int aschar, int xx, int yy, int widd, int i
         if (tdyp < 0) 
         {
             int sppic = views[speakingChar->view].loops[speakingChar->loop].frames[0].pic;
-            tdyp = play.RoomToScreenY(multiply_up_coordinate(speakingChar->get_effective_y())) - get_fixed_pixel_size(5);
+            tdyp = play.RoomToScreenY(data_to_game_coord(speakingChar->get_effective_y())) - get_fixed_pixel_size(5);
             if (charextra[aschar].height < 1)
                 tdyp -= game.SpriteInfos[sppic].Height;
             else
@@ -2796,7 +2768,7 @@ void _displayspeech(const char*texx, int aschar, int xx, int yy, int widd, int i
             if (widd < 0) {
                 bwidth = ui_view.GetWidth()/2 + ui_view.GetWidth()/6;
                 // If they are close to the screen edge, make the text narrower
-                int relx = play.RoomToScreenX(multiply_up_coordinate(speakingChar->x));
+                int relx = play.RoomToScreenX(data_to_game_coord(speakingChar->x));
                 if ((relx < ui_view.GetWidth() / 4) || (relx > ui_view.GetWidth() - (ui_view.GetWidth() / 4)))
                     bwidth -= ui_view.GetWidth() / 5;
             }
@@ -2826,12 +2798,12 @@ void _displayspeech(const char*texx, int aschar, int xx, int yy, int widd, int i
     _display_at(tdxp,tdyp,bwidth,texx,0,textcol, isThought, allowShrink, overlayPositionFixed);
     our_eip=156;
     if ((play.in_conversation > 0) && (game.options[OPT_SPEECHTYPE] == 3))
-        closeupface = NULL;
-    if (closeupface!=NULL)
+        closeupface = nullptr;
+    if (closeupface!=nullptr)
         remove_screen_overlay(ovr_type);
     mark_screen_dirty();
     face_talking = -1;
-    facetalkchar = NULL;
+    facetalkchar = nullptr;
     our_eip=157;
     if (oldview>=0) {
         speakingChar->flags &= ~CHF_FIXVIEW;
@@ -2852,7 +2824,8 @@ void _displayspeech(const char*texx, int aschar, int xx, int yy, int widd, int i
     }
     char_speaking = -1;
     char_thinking = -1;
-    stop_speech();
+    if (play.IsBlockingVoiceSpeech())
+        stop_voice_speech();
 }
 
 int get_character_currently_talking() {

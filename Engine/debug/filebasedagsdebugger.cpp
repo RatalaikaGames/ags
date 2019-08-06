@@ -17,6 +17,7 @@
 #include "util/stream.h"
 #include "util/textstreamwriter.h"
 #include "util/wgt2allg.h"              // exists()
+#include "platform/base/agsplatformdriver.h"
 
 using AGS::Common::Stream;
 using AGS::Common::TextStreamWriter;
@@ -27,7 +28,7 @@ bool FileBasedAGSDebugger::Initialize()
 {
     if (exists(SENT_MESSAGE_FILE_NAME))
     {
-        unlink(SENT_MESSAGE_FILE_NAME);
+        ::remove(SENT_MESSAGE_FILE_NAME);
     }
     return true;
 }
@@ -60,16 +61,16 @@ bool FileBasedAGSDebugger::IsMessageAvailable()
 char* FileBasedAGSDebugger::GetNextMessage()
 {
     Stream *in = Common::File::OpenFileRead("dbgsend.tmp");
-    if (in == NULL)
+    if (in == nullptr)
     {
         // check again, because the editor might have deleted the file in the meantime
-        return NULL;
+        return nullptr;
     }
     int fileSize = in->GetLength();
     char *msg = (char*)malloc(fileSize + 1);
     in->Read(msg, fileSize);
     delete in;
-    unlink("dbgsend.tmp");
+    ::remove("dbgsend.tmp");
     msg[fileSize] = 0;
     return msg;
 }

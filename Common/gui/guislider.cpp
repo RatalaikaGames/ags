@@ -83,8 +83,8 @@ void GUISlider::Draw(Common::Bitmap *ds)
             handle.Top = bar.Top + (bar.Bottom - bar.Top) / 2 + get_fixed_pixel_size(1);
             handle.Left += get_fixed_pixel_size(2);
         }
-        handle.Top += multiply_up_coordinate(HandleOffset);
-        handle.Bottom += multiply_up_coordinate(HandleOffset);
+        handle.Top += data_to_game_coord(HandleOffset);
+        handle.Bottom += data_to_game_coord(HandleOffset);
     }
     // vertical slider
     else
@@ -104,8 +104,8 @@ void GUISlider::Draw(Common::Bitmap *ds)
             handle.Left = bar.Left + (bar.Right - bar.Left) / 2 + get_fixed_pixel_size(1);
             handle.Top += get_fixed_pixel_size(2);
         }
-        handle.Left += multiply_up_coordinate(HandleOffset);
-        handle.Right += multiply_up_coordinate(HandleOffset);
+        handle.Left += data_to_game_coord(HandleOffset);
+        handle.Right += data_to_game_coord(HandleOffset);
     }
 
     color_t draw_color;
@@ -155,7 +155,7 @@ void GUISlider::Draw(Common::Bitmap *ds)
     {
         // an image for the slider handle
         // TODO: react to sprites initialization/deletion instead!
-        if (spriteset[HandleImage] == NULL)
+        if (spriteset[HandleImage] == nullptr)
             HandleImage = 0;
 
         handle.Left -= get_adjusted_spritewidth(HandleImage) / 2;

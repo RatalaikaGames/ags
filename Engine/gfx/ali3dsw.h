@@ -19,10 +19,14 @@
 #ifndef __AGS_EE_GFX__ALI3DSW_H
 #define __AGS_EE_GFX__ALI3DSW_H
 
-#include "util/stdtr1compat.h"
-#include TR1INCLUDE(memory)
+#include <memory>
+
+#include "core/platform.h"
+#define AGS_DDRAW_GAMMA_CONTROL (AGS_PLATFORM_OS_WINDOWS)
+
 #include <allegro.h>
-#if defined (WINDOWS_VERSION)
+
+#if AGS_DDRAW_GAMMA_CONTROL
 #include <winalleg.h>
 #include <ddraw.h>
 #endif
@@ -48,18 +52,18 @@ public:
     // NOTE by CJ:
     // Transparency is a bit counter-intuitive
     // 0=not transparent, 255=invisible, 1..254 barely visible .. mostly visible
-    virtual void SetTransparency(int transparency) { _transparency = transparency; }
-    virtual void SetFlippedLeftRight(bool isFlipped) { _flipped = isFlipped; }
-    virtual void SetStretch(int width, int height, bool useResampler = true) 
+    void SetTransparency(int transparency) override { _transparency = transparency; }
+    void SetFlippedLeftRight(bool isFlipped) override { _flipped = isFlipped; }
+    void SetStretch(int width, int height, bool useResampler = true) override 
     {
         _stretchToWidth = width;
         _stretchToHeight = height;
     }
-    virtual int GetWidth() { return _width; }
-    virtual int GetHeight() { return _height; }
-    virtual int GetColorDepth() { return _colDepth; }
-    virtual void SetLightLevel(int lightLevel)  { }
-    virtual void SetTint(int red, int green, int blue, int tintSaturation) { }
+    int GetWidth() override { return _width; }
+    int GetHeight() override { return _height; }
+    int GetColorDepth() override { return _colDepth; }
+    void SetLightLevel(int lightLevel) override  { }
+    void SetTint(int red, int green, int blue, int tintSaturation) override { }
 
     Bitmap *_bmp;
     int _width, _height;
@@ -92,7 +96,7 @@ public:
         // do we want to free the bitmap?
     }
 
-    ~ALSoftwareBitmap()
+    ~ALSoftwareBitmap() override
     {
         Dispose();
     }
@@ -107,12 +111,12 @@ public:
     {
     }
 
-    virtual int GetModeCount() const
+    int GetModeCount() const override
     {
         return _gfxModeList ? _gfxModeList->num_modes : 0;
     }
 
-    virtual bool GetMode(int index, DisplayMode &mode) const;
+    bool GetMode(int index, DisplayMode &mode) const override;
 
 private:
     GFX_MODE_LIST *_gfxModeList;
@@ -138,50 +142,53 @@ class ALSoftwareGraphicsDriver : public GraphicsDriverBase
 public:
     ALSoftwareGraphicsDriver();
 
-    virtual const char*GetDriverName() { return "Software renderer"; }
-    virtual const char*GetDriverID() { return "Software"; }
-    virtual void SetTintMethod(TintMethod method);
-    virtual bool SetDisplayMode(const DisplayMode &mode, volatile int *loopTimer);
-    virtual bool SetNativeSize(const Size &src_size);
-    virtual bool SetRenderFrame(const Rect &dst_rect);
-    virtual bool IsModeSupported(const DisplayMode &mode);
-    virtual int  GetDisplayDepthForNativeDepth(int native_color_depth) const;
-    virtual IGfxModeList *GetSupportedModeList(int color_depth);
-    virtual PGfxFilter GetGraphicsFilter() const;
-    virtual void UnInit();
-    virtual void ClearRectangle(int x1, int y1, int x2, int y2, RGB *colorToUse);
-    virtual int  GetCompatibleBitmapFormat(int color_depth);
-    virtual IDriverDependantBitmap* CreateDDBFromBitmap(Bitmap *bitmap, bool hasAlpha, bool opaque);
-    virtual void UpdateDDBFromBitmap(IDriverDependantBitmap* bitmapToUpdate, Bitmap *bitmap, bool hasAlpha);
-    virtual void DestroyDDB(IDriverDependantBitmap* bitmap);
+    const char*GetDriverName() override { return "Software renderer"; }
+    const char*GetDriverID() override { return "Software"; }
+    void SetTintMethod(TintMethod method) override;
+    bool SetDisplayMode(const DisplayMode &mode, volatile int *loopTimer) override;
+    bool SetNativeSize(const Size &src_size) override;
+    bool SetRenderFrame(const Rect &dst_rect) override;
+    bool IsModeSupported(const DisplayMode &mode) override;
+    int  GetDisplayDepthForNativeDepth(int native_color_depth) const override;
+    IGfxModeList *GetSupportedModeList(int color_depth) override;
+    PGfxFilter GetGraphicsFilter() const override;
+    void UnInit();
+    // Clears the screen rectangle. The coordinates are expected in the **native game resolution**.
+    void ClearRectangle(int x1, int y1, int x2, int y2, RGB *colorToUse) override;
+    int  GetCompatibleBitmapFormat(int color_depth) override;
+    IDriverDependantBitmap* CreateDDBFromBitmap(Bitmap *bitmap, bool hasAlpha, bool opaque) override;
+    void UpdateDDBFromBitmap(IDriverDependantBitmap* bitmapToUpdate, Bitmap *bitmap, bool hasAlpha) override;
+    void DestroyDDB(IDriverDependantBitmap* bitmap) override;
 
-    virtual void DrawSprite(int x, int y, IDriverDependantBitmap* bitmap);
+    void DrawSprite(int x, int y, IDriverDependantBitmap* bitmap) override;
 
-    virtual void RenderToBackBuffer();
-    virtual void Render();
-    virtual void Render(GlobalFlipType flip);
-    virtual bool GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_native_res, Size *want_size);
-    virtual void FadeOut(int speed, int targetColourRed, int targetColourGreen, int targetColourBlue);
-    virtual void FadeIn(int speed, PALETTE pal, int targetColourRed, int targetColourGreen, int targetColourBlue);
-    virtual void BoxOutEffect(bool blackingOut, int speed, int delay);
-    virtual bool PlayVideo(const char *filename, bool useAVISound, VideoSkipType skipType, bool stretchToFullScreen);
-    virtual bool SupportsGammaControl() ;
-    virtual void SetGamma(int newGamma);
-    virtual void UseSmoothScaling(bool enabled) { }
-    virtual void EnableVsyncBeforeRender(bool enabled) { _autoVsync = enabled; }
-    virtual void Vsync();
-    virtual void RenderSpritesAtScreenResolution(bool enabled, int supersampling) { }
-    virtual bool RequiresFullRedrawEachFrame() { return false; }
-    virtual bool HasAcceleratedTransform() { return false; }
-    virtual bool UsesMemoryBackBuffer() { return true; }
-    virtual Bitmap *GetMemoryBackBuffer();
-    virtual void SetMemoryBackBuffer(Bitmap *backBuffer, int offx, int offy);
-    virtual Bitmap *GetStageBackBuffer();
-    virtual void SetScreenTint(int red, int green, int blue) { 
+    void RenderToBackBuffer() override;
+    void Render() override;
+    void Render(GlobalFlipType flip) override;
+    bool GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_native_res, GraphicResolution *want_fmt) override;
+    void FadeOut(int speed, int targetColourRed, int targetColourGreen, int targetColourBlue) override;
+    void FadeIn(int speed, PALETTE pal, int targetColourRed, int targetColourGreen, int targetColourBlue) override;
+    void BoxOutEffect(bool blackingOut, int speed, int delay) override;
+#ifndef AGS_NO_VIDEO_PLAYER
+    bool PlayVideo(const char *filename, bool useAVISound, VideoSkipType skipType, bool stretchToFullScreen) override;
+#endif
+    bool SupportsGammaControl() override ;
+    void SetGamma(int newGamma) override;
+    void UseSmoothScaling(bool enabled) override { }
+    void EnableVsyncBeforeRender(bool enabled) override { _autoVsync = enabled; }
+    void Vsync() override;
+    void RenderSpritesAtScreenResolution(bool enabled, int supersampling) override { }
+    bool RequiresFullRedrawEachFrame() override { return false; }
+    bool HasAcceleratedTransform() override { return false; }
+    bool UsesMemoryBackBuffer() override { return true; }
+    Bitmap *GetMemoryBackBuffer() override;
+    void SetMemoryBackBuffer(Bitmap *backBuffer, int offx, int offy) override;
+    Bitmap *GetStageBackBuffer() override;
+    void SetScreenTint(int red, int green, int blue) override { 
         _tint_red = red; _tint_green = green; _tint_blue = blue; }
-    virtual ~ALSoftwareGraphicsDriver();
+    ~ALSoftwareGraphicsDriver() override;
 
-    typedef stdtr1compat::shared_ptr<AllegroGfxFilter> PALSWFilter;
+    typedef std::shared_ptr<AllegroGfxFilter> PALSWFilter;
 
     void SetGraphicsFilter(PALSWFilter filter);
 
@@ -214,7 +221,7 @@ private:
     ALSpriteBatches _spriteBatches;
     GFX_MODE_LIST *_gfxModeList;
 
-#ifdef WINDOWS_VERSION
+#if AGS_DDRAW_GAMMA_CONTROL
     IDirectDrawGammaControl* dxGammaControl;
     // The gamma ramp is a lookup table for each possible R, G and B value
     // in 32-bit colour (from 0-255) it maps them to a brightness value
@@ -224,8 +231,8 @@ private:
     DDCAPS ddrawCaps;
 #endif
 
-    virtual void InitSpriteBatch(size_t index, const SpriteBatchDesc &desc);
-    virtual void ResetAllBatches();
+    void InitSpriteBatch(size_t index, const SpriteBatchDesc &desc) override;
+    void ResetAllBatches() override;
 
     // Use gfx filter to create a new virtual screen
     void CreateVirtualScreen();
@@ -235,8 +242,8 @@ private:
     // Renders single sprite batch on the precreated surface
     void RenderSpriteBatch(const ALSpriteBatch &batch, Common::Bitmap *surface, int surf_offx, int surf_offy);
 
-    void highcolor_fade_out(int speed, int targetColourRed, int targetColourGreen, int targetColourBlue);
-    void highcolor_fade_in(Bitmap *bmp_orig, int speed, int targetColourRed, int targetColourGreen, int targetColourBlue);
+    void highcolor_fade_in(Bitmap *vs, int offx, int offy, int speed, int targetColourRed, int targetColourGreen, int targetColourBlue);
+    void highcolor_fade_out(Bitmap *vs, int offx, int offy, int speed, int targetColourRed, int targetColourGreen, int targetColourBlue);
     void __fade_from_range(PALETTE source, PALETTE dest, int speed, int from, int to) ;
     void __fade_out_range(int speed, int from, int to, int targetColourRed, int targetColourGreen, int targetColourBlue) ;
     int  GetAllegroGfxDriverID(bool windowed);
@@ -246,17 +253,17 @@ private:
 class ALSWGraphicsFactory : public GfxDriverFactoryBase<ALSoftwareGraphicsDriver, AllegroGfxFilter>
 {
 public:
-    virtual ~ALSWGraphicsFactory();
+    ~ALSWGraphicsFactory() override;
 
-    virtual size_t               GetFilterCount() const;
-    virtual const GfxFilterInfo *GetFilterInfo(size_t index) const;
-    virtual String               GetDefaultFilterID() const;
+    size_t               GetFilterCount() const override;
+    const GfxFilterInfo *GetFilterInfo(size_t index) const override;
+    String               GetDefaultFilterID() const override;
 
     static  ALSWGraphicsFactory *GetFactory();
 
 private:
-    virtual ALSoftwareGraphicsDriver *EnsureDriverCreated();
-    virtual AllegroGfxFilter         *CreateFilter(const String &id);
+    ALSoftwareGraphicsDriver *EnsureDriverCreated() override;
+    AllegroGfxFilter         *CreateFilter(const String &id) override;
 
     static ALSWGraphicsFactory *_factory;
 };

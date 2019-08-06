@@ -19,10 +19,12 @@
 #define __AGS_CN_AC__GAMESETUPSTRUCT_H
 
 #include <vector>
+#include "ac/audiocliptype.h"
 #include "ac/characterinfo.h" // TODO: constants to separate header
 #include "ac/gamesetupstructbase.h"
 #include "ac/inventoryiteminfo.h"
 #include "ac/mousecursor.h"
+#include "ac/dynobj/scriptaudioclip.h"
 #include "game/customproperties.h"
 #include "game/main_game_file.h" // TODO: constants to separate header or split out reading functions
 
@@ -33,14 +35,14 @@ namespace AGS
         struct AssetLibInfo;
         struct Interaction;
         struct InteractionScripts;
+        typedef std::shared_ptr<Interaction> PInteraction;
+        typedef std::shared_ptr<InteractionScripts> PInteractionScripts;
     }
 }
 
-using AGS::Common::Interaction;
-using AGS::Common::InteractionScripts;
+using AGS::Common::PInteraction;
+using AGS::Common::PInteractionScripts;
 using AGS::Common::HGameFileError;
-struct ScriptAudioClip;
-struct AudioClipType;
 struct OldGameSetupStruct;
 
 
@@ -48,13 +50,14 @@ struct OldGameSetupStruct;
 struct GameSetupStruct: public GameSetupStructBase {
     // This array is used only to read data into;
     // font parameters are then put and queried in the fonts module
+    // TODO: split into installation params (used only when reading) and runtime params
     std::vector<FontInfo> fonts;
     InventoryItemInfo invinfo[MAX_INV];
     MouseCursor       mcurs[MAX_CURSOR];
-    Interaction     **intrChar;
-    Interaction      *intrInv[MAX_INV];
-    InteractionScripts **charScripts;
-    InteractionScripts **invScripts;
+    std::vector<PInteraction> intrChar;
+    PInteraction intrInv[MAX_INV];
+    std::vector<PInteractionScripts> charScripts;
+    std::vector<PInteractionScripts> invScripts;
     // TODO: why we do not use this in the engine instead of
     // loaded_game_file_version?
     int               filever;  // just used by editor
@@ -74,10 +77,8 @@ struct GameSetupStruct: public GameSetupStructBase {
     int               roomCount;
     int              *roomNumbers;
     char            **roomNames;
-    int               audioClipCount;
-    ScriptAudioClip  *audioClips;
-    int               audioClipTypeCount;
-    AudioClipType    *audioClipTypes;
+    std::vector<ScriptAudioClip> audioClips;
+    std::vector<AudioClipType> audioClipTypes;
     // A clip to play when player gains score in game
     // TODO: find out why OPT_SCORESOUND option cannot be used to store this in >=3.2 games
     int               scoreClipID;
@@ -120,7 +121,7 @@ struct GameSetupStruct: public GameSetupStructBase {
     //------------------------------
     // Part 1
     void read_savegame_info(Common::Stream *in, GameDataVersion data_ver);
-    void read_font_flags(Common::Stream *in, GameDataVersion data_ver);
+    void read_font_infos(Common::Stream *in, GameDataVersion data_ver);
     HGameFileError read_cursors(Common::Stream *in, GameDataVersion data_ver);
     void read_interaction_scripts(Common::Stream *in, GameDataVersion data_ver);
     void read_words_dictionary(Common::Stream *in);
@@ -143,7 +144,7 @@ struct GameSetupStruct: public GameSetupStructBase {
     HGameFileError read_audio(Common::Stream *in, GameDataVersion data_ver);
     void read_room_names(Common::Stream *in, GameDataVersion data_ver);
 
-    void ReadAudioClips_Aligned(Common::Stream *in);
+    void ReadAudioClips_Aligned(Common::Stream *in, size_t count);
     //--------------------------------------------------------------------
 
     // Functions for reading and writing appropriate data from/to save game

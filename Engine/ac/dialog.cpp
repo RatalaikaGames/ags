@@ -45,7 +45,6 @@
 #include "gui/guimain.h"
 #include "gui/guitextbox.h"
 #include "main/game_run.h"
-#include "media/audio/audio.h"
 #include "platform/base/agsplatformdriver.h"
 #include "script/script.h"
 #include "ac/spritecache.h"
@@ -53,6 +52,7 @@
 #include "gfx/gfx_util.h"
 #include "gfx/graphicsdriver.h"
 #include "ac/mouse.h"
+#include "media/audio/audio_system.h"
 
 using namespace AGS::Common;
 
@@ -74,7 +74,7 @@ ScriptDrawingSurface* dialogOptionsRenderingSurface;
 int said_speech_line; // used while in dialog to track whether screen needs updating
 
 // Old dialog support
-std::vector< stdtr1compat::shared_ptr<unsigned char> > old_dialog_scripts;
+std::vector< std::shared_ptr<unsigned char> > old_dialog_scripts;
 std::vector<String> old_speech_lines;
 
 int said_text = 0;
@@ -231,12 +231,12 @@ int run_dialog_script(DialogTopic*dtpp, int dialogID, int offse, int optionIndex
           break;
 
         case DCMD_OPTOFF:
-          get_dialog_script_parameters(script, &param1, NULL);
+          get_dialog_script_parameters(script, &param1, nullptr);
           SetDialogOption(dialogID, param1 + 1, 0, true);
           break;
 
         case DCMD_OPTON:
-          get_dialog_script_parameters(script, &param1, NULL);
+          get_dialog_script_parameters(script, &param1, nullptr);
           SetDialogOption(dialogID, param1 + 1, DFLG_ON, true);
           break;
 
@@ -250,29 +250,29 @@ int run_dialog_script(DialogTopic*dtpp, int dialogID, int offse, int optionIndex
           break;
 
         case DCMD_OPTOFFFOREVER:
-          get_dialog_script_parameters(script, &param1, NULL);
+          get_dialog_script_parameters(script, &param1, nullptr);
           SetDialogOption(dialogID, param1 + 1, DFLG_OFFPERM, true);
           break;
 
         case DCMD_RUNTEXTSCRIPT:
-          get_dialog_script_parameters(script, &param1, NULL);
+          get_dialog_script_parameters(script, &param1, nullptr);
           result = run_dialog_request(param1);
           script_running = (result == RUN_DIALOG_STAY);
           break;
 
         case DCMD_GOTODIALOG:
-          get_dialog_script_parameters(script, &param1, NULL);
+          get_dialog_script_parameters(script, &param1, nullptr);
           result = param1;
           script_running = false;
           break;
 
         case DCMD_PLAYSOUND:
-          get_dialog_script_parameters(script, &param1, NULL);
+          get_dialog_script_parameters(script, &param1, nullptr);
           play_sound(param1);
           break;
 
         case DCMD_ADDINV:
-          get_dialog_script_parameters(script, &param1, NULL);
+          get_dialog_script_parameters(script, &param1, nullptr);
           add_inventory(param1);
           break;
 
@@ -282,7 +282,7 @@ int run_dialog_script(DialogTopic*dtpp, int dialogID, int offse, int optionIndex
           break;
 
         case DCMD_NEWROOM:
-          get_dialog_script_parameters(script, &param1, NULL);
+          get_dialog_script_parameters(script, &param1, nullptr);
           NewRoom(param1);
           in_new_room = 1;
           result = RUN_DIALOG_STOP_DIALOG;
@@ -295,7 +295,7 @@ int run_dialog_script(DialogTopic*dtpp, int dialogID, int offse, int optionIndex
           break;
 
         case DCMD_GIVESCORE:
-          get_dialog_script_parameters(script, &param1, NULL);
+          get_dialog_script_parameters(script, &param1, nullptr);
           GiveScore(param1);
           break;
 
@@ -305,7 +305,7 @@ int run_dialog_script(DialogTopic*dtpp, int dialogID, int offse, int optionIndex
           break;
 
         case DCMD_LOSEINV:
-          get_dialog_script_parameters(script, &param1, NULL);
+          get_dialog_script_parameters(script, &param1, nullptr);
           lose_inventory(param1);
           break;
 
@@ -380,7 +380,7 @@ int write_dialog_options(Bitmap *ds, bool ds_has_alpha, int dlgxp, int curyp, in
       curyp+=linespacing;
     }
     if (ww < numdisp-1)
-      curyp += multiply_up_coordinate(game.options[OPT_DIALOGGAP]);
+      curyp += data_to_game_coord(game.options[OPT_DIALOGGAP]);
   }
   return curyp;
 }
@@ -391,9 +391,9 @@ int write_dialog_options(Bitmap *ds, bool ds_has_alpha, int dlgxp, int curyp, in
   needheight = 0;\
   for (int i = 0; i < numdisp; ++i) {\
     break_up_text_into_lines(areawid-(2*padding+2+bullet_wid),usingfont,get_translation(dtop->optionnames[disporder[i]]));\
-    needheight += getheightoflines(usingfont, numlines) + multiply_up_coordinate(game.options[OPT_DIALOGGAP]);\
+    needheight += getheightoflines(usingfont, numlines) + data_to_game_coord(game.options[OPT_DIALOGGAP]);\
   }\
-  if (parserInput) needheight += parserInput->Height + multiply_up_coordinate(game.options[OPT_DIALOGGAP]);\
+  if (parserInput) needheight += parserInput->Height + data_to_game_coord(game.options[OPT_DIALOGGAP]);\
  }
 
 
@@ -489,10 +489,10 @@ void DialogOptions::Prepare(int _dlgnum, bool _runGameLoopsInBackground)
   linespacing = getfontspacing_outlined(usingfont);
   curswas=cur_cursor;
   bullet_wid = 0;
-  ddb = NULL;
-  subBitmap = NULL;
-  parserInput = NULL;
-  dtop = NULL;
+  ddb = nullptr;
+  subBitmap = nullptr;
+  parserInput = nullptr;
+  dtop = nullptr;
 
   if ((dlgnum < 0) || (dlgnum >= game.numdialog))
     quit("!RunDialog: invalid dialog number specified");
@@ -546,7 +546,7 @@ void DialogOptions::Show()
   if (numdisp<1) quit("!DoDialog: all options have been turned off");
   // Don't display the options if there is only one and the parser
   // is not enabled.
-  if (!((numdisp > 1) || (parserInput != NULL) || (play.show_single_dialog_option)))
+  if (!((numdisp > 1) || (parserInput != nullptr) || (play.show_single_dialog_option)))
   {
       chose = disporder[0];  // only one choice, so select it
       return;
@@ -569,10 +569,10 @@ void DialogOptions::Show()
     if (get_custom_dialog_options_dimensions(dlgnum))
     {
       usingCustomRendering = true;
-      dirtyx = multiply_up_coordinate(ccDialogOptionsRendering.x);
-      dirtyy = multiply_up_coordinate(ccDialogOptionsRendering.y);
-      dirtywidth = multiply_up_coordinate(ccDialogOptionsRendering.width);
-      dirtyheight = multiply_up_coordinate(ccDialogOptionsRendering.height);
+      dirtyx = data_to_game_coord(ccDialogOptionsRendering.x);
+      dirtyy = data_to_game_coord(ccDialogOptionsRendering.y);
+      dirtywidth = data_to_game_coord(ccDialogOptionsRendering.width);
+      dirtyheight = data_to_game_coord(ccDialogOptionsRendering.height);
       dialog_abs_x = dirtyx;
     }
     else if (game.options[OPT_DIALOGIFACE] > 0)
@@ -620,7 +620,7 @@ void DialogOptions::Show()
       dialog_abs_x = 0;
     }
     if (!is_textwindow)
-      areawid -= multiply_up_coordinate(play.dialog_options_x) * 2;
+      areawid -= data_to_game_coord(play.dialog_options_x) * 2;
 
     orixp = dlgxp;
     oriyp = dlgyp;
@@ -646,8 +646,8 @@ void DialogOptions::Redraw()
     if (usingCustomRendering)
     {
       tempScrn = recycle_bitmap(tempScrn, game.GetColorDepth(), 
-        multiply_up_coordinate(ccDialogOptionsRendering.width), 
-        multiply_up_coordinate(ccDialogOptionsRendering.height));
+        data_to_game_coord(ccDialogOptionsRendering.width), 
+        data_to_game_coord(ccDialogOptionsRendering.height));
     }
 
     tempScrn->ClearTransparent();
@@ -675,9 +675,9 @@ void DialogOptions::Redraw()
 
       if (parserInput)
       {
-        parserInput->X = multiply_up_coordinate(ccDialogOptionsRendering.parserTextboxX);
-        curyp = multiply_up_coordinate(ccDialogOptionsRendering.parserTextboxY);
-        areawid = multiply_up_coordinate(ccDialogOptionsRendering.parserTextboxWidth);
+        parserInput->X = data_to_game_coord(ccDialogOptionsRendering.parserTextboxX);
+        curyp = data_to_game_coord(ccDialogOptionsRendering.parserTextboxY);
+        areawid = data_to_game_coord(ccDialogOptionsRendering.parserTextboxWidth);
         if (areawid == 0)
           areawid = tempScrn->GetWidth();
       }
@@ -685,7 +685,7 @@ void DialogOptions::Redraw()
     }
     else if (is_textwindow) {
       // text window behind the options
-      areawid = multiply_up_coordinate(play.max_dialogoption_width);
+      areawid = data_to_game_coord(play.max_dialogoption_width);
       int biggest = 0;
       padding = guis[game.options[OPT_DIALOGIFACE]].Padding;
       for (int i = 0; i < numdisp; ++i) {
@@ -696,8 +696,8 @@ void DialogOptions::Redraw()
       if (biggest < areawid - ((2*padding+6)+bullet_wid))
         areawid = biggest + ((2*padding+6)+bullet_wid);
 
-      if (areawid < multiply_up_coordinate(play.min_dialogoption_width)) {
-        areawid = multiply_up_coordinate(play.min_dialogoption_width);
+      if (areawid < data_to_game_coord(play.min_dialogoption_width)) {
+        areawid = data_to_game_coord(play.min_dialogoption_width);
         if (play.min_dialogoption_width > play.max_dialogoption_width)
           quit("!game.min_dialogoption_width is larger than game.max_dialogoption_width");
       }
@@ -712,8 +712,8 @@ void DialogOptions::Redraw()
         xspos = (ui_view.GetWidth() - areawid) - get_fixed_pixel_size(10);
 
       // needs to draw the right text window, not the default
-      Bitmap *text_window_ds = NULL;
-      draw_text_window(&text_window_ds, false, &txoffs,&tyoffs,&xspos,&yspos,&areawid,NULL,needheight, game.options[OPT_DIALOGIFACE]);
+      Bitmap *text_window_ds = nullptr;
+      draw_text_window(&text_window_ds, false, &txoffs,&tyoffs,&xspos,&yspos,&areawid,nullptr,needheight, game.options[OPT_DIALOGIFACE]);
       options_surface_has_alpha = guis[game.options[OPT_DIALOGIFACE]].HasAlphaChannel();
       // since draw_text_window incrases the width, restore it
       areawid = savedwid;
@@ -772,8 +772,8 @@ void DialogOptions::Redraw()
         options_surface_has_alpha = false;
       }
 
-      dlgxp += multiply_up_coordinate(play.dialog_options_x);
-      dlgyp += multiply_up_coordinate(play.dialog_options_y);
+      dlgxp += data_to_game_coord(play.dialog_options_x);
+      dlgyp += data_to_game_coord(play.dialog_options_y);
 
       // if they use a negative dialog_options_y, make sure the
       // area gets marked as dirty
@@ -795,7 +795,7 @@ void DialogOptions::Redraw()
 
     if (parserInput) {
       // Set up the text box, if present
-      parserInput->Y = curyp + multiply_up_coordinate(game.options[OPT_DIALOGGAP]);
+      parserInput->Y = curyp + data_to_game_coord(game.options[OPT_DIALOGGAP]);
       parserInput->Width = areawid - get_fixed_pixel_size(10);
       parserInput->TextColor = playerchar->talkcolor;
       if (mouseison == DLG_OPTION_PARSER)
@@ -832,15 +832,15 @@ void DialogOptions::Redraw()
       subBitmap->Blit(tempScrn, dirtyx, dirtyy, 0, 0, dirtywidth, dirtyheight);
     }
 
-    if ((ddb != NULL) && 
+    if ((ddb != nullptr) && 
       ((ddb->GetWidth() != dirtywidth) ||
        (ddb->GetHeight() != dirtyheight)))
     {
       gfxDriver->DestroyDDB(ddb);
-      ddb = NULL;
+      ddb = nullptr;
     }
     
-    if (ddb == NULL)
+    if (ddb == nullptr)
       ddb = gfxDriver->CreateDDBFromBitmap(subBitmap, options_surface_has_alpha, false);
     else
       gfxDriver->UpdateDDBFromBitmap(ddb, subBitmap, options_surface_has_alpha);
@@ -864,10 +864,8 @@ bool DialogOptions::Run()
       else
       {
         timerloop = 0;
-
+        update_audio_system_on_game_loop();
         render_graphics(ddb, dirtyx, dirtyy);
-      
-        update_polled_audio_and_crossfade();
       }
 
       if (new_custom_render)
@@ -948,7 +946,7 @@ bool DialogOptions::Run()
         if ((mouseison<0) | (mouseison>=numdisp)) mouseison=-1;
       }
 
-      if (parserInput != NULL) {
+      if (parserInput != nullptr) {
         int relativeMousey = mousey;
         if (usingCustomRendering)
           relativeMousey -= dirtyy;
@@ -1050,7 +1048,13 @@ bool DialogOptions::Run()
             return true; // continue running loop
         }
       }
-      PollUntilNextFrame();
+
+      update_polled_stuff_if_runtime();
+
+      if (play.fast_forward == 0)
+      {
+          WaitForNextFrame();
+      }
       return true; // continue running loop
 }
 
@@ -1069,10 +1073,10 @@ void DialogOptions::Close()
 
   if (parserInput) {
     delete parserInput;
-    parserInput = NULL;
+    parserInput = nullptr;
   }
 
-  if (ddb != NULL)
+  if (ddb != nullptr)
     gfxDriver->DestroyDDB(ddb);
   delete subBitmap;
 

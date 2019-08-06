@@ -18,6 +18,7 @@
 #endif
 
 #include <stdlib.h>
+#include <stdio.h>
 #include "ac/common.h"	// quit, update_polled_stuff
 #include "gfx/bitmap.h"
 #include "util/compress.h"
@@ -28,7 +29,7 @@
 
 using namespace AGS::Common;
 
-void cpackbitl(unsigned char *line, int size, Stream *out)
+void cpackbitl(const uint8_t *line, int size, Stream *out)
 {
   int cnt = 0;                  // bytes encoded
 
@@ -64,7 +65,7 @@ void cpackbitl(unsigned char *line, int size, Stream *out)
   } // end while
 }
 
-void cpackbitl16(unsigned short *line, int size, Stream *out)
+void cpackbitl16(const uint16_t *line, int size, Stream *out)
 {
   int cnt = 0;                  // bytes encoded
 
@@ -100,7 +101,7 @@ void cpackbitl16(unsigned short *line, int size, Stream *out)
   } // end while
 }
 
-void cpackbitl32(unsigned int *line, int size, Stream *out)
+void cpackbitl32(const uint32_t *line, int size, Stream *out)
 {
   int cnt = 0;                  // bytes encoded
 
@@ -167,7 +168,7 @@ void csavecompressed(Stream *out, const unsigned char * tobesaved, const color p
   free(ress);
 }
 
-int cunpackbitl(unsigned char *line, int size, Stream *in)
+int cunpackbitl(uint8_t *line, int size, Stream *in)
 {
   int n = 0;                    // number of bytes decoded
 
@@ -205,7 +206,7 @@ int cunpackbitl(unsigned char *line, int size, Stream *in)
   return in->HasErrors() ? -1 : 0;
 }
 
-int cunpackbitl16(unsigned short *line, int size, Stream *in)
+int cunpackbitl16(uint16_t *line, int size, Stream *in)
 {
   int n = 0;                    // number of bytes decoded
 
@@ -243,7 +244,7 @@ int cunpackbitl16(unsigned short *line, int size, Stream *in)
   return in->HasErrors() ? -1 : 0;
 }
 
-int cunpackbitl32(unsigned int *line, int size, Stream *in)
+int cunpackbitl32(uint32_t *line, int size, Stream *in)
 {
   int n = 0;                    // number of bytes decoded
 
@@ -311,6 +312,7 @@ void save_lzw(Stream *out, const Bitmap *bmpp, const color *pall)
 
   // Delete temp file
   delete lz_temp_s;
+  
 
   ags_unlink(lztempfnm);
 
@@ -337,7 +339,7 @@ void load_lzw(Stream *in, Bitmap **dst_bmp, int dst_bpp, color *pall) {
 
   loptr = (int *)&membuffer[0];
   membuffer += 8;
-#if defined(AGS_BIG_ENDIAN)
+#if AGS_PLATFORM_ENDIAN_BIG
   loptr[0] = BBOp::SwapBytesInt32(loptr[0]);
   loptr[1] = BBOp::SwapBytesInt32(loptr[1]);
   int bitmapNumPixels = loptr[0]*loptr[1]/ dst_bpp;
@@ -369,12 +371,12 @@ void load_lzw(Stream *in, Bitmap **dst_bmp, int dst_bpp, color *pall) {
       break;
     }
   }
-#endif // defined(AGS_BIG_ENDIAN)
+#endif // AGS_PLATFORM_ENDIAN_BIG
 
   update_polled_stuff_if_runtime();
 
   Bitmap *bmm = BitmapHelper::CreateBitmap((loptr[0] / dst_bpp), loptr[1], dst_bpp * 8);
-  if (bmm == NULL)
+  if (bmm == nullptr)
     quit("!load_room: not enough memory to load room background");
 
   update_polled_stuff_if_runtime();
@@ -418,7 +420,7 @@ void loadcompressed_allegro(Stream *in, Bitmap **bimpp, color *pall) {
   widd = in->ReadInt16();
   hitt = in->ReadInt16();
   Bitmap *bim = BitmapHelper::CreateBitmap(widd, hitt, 8);
-  if (bim == NULL)
+  if (bim == nullptr)
     quit("!load_room: not enough memory to decompress masks");
 
   for (ii = 0; ii < hitt; ii++) {

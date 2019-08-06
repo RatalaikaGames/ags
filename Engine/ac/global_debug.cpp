@@ -68,7 +68,7 @@ String GetRuntimeInfo()
         "[Game resolution %d x %d (%d-bit)"
         "[Running %d x %d at %d-bit%s%s[GFX: %s; %s[Draw frame %d x %d["
         "Sprite cache size: %d KB (limit %d KB; %d locked)",
-        EngineVersion.LongString.GetCStr(), game.size.Width, game.size.Height, game.GetColorDepth(),
+        EngineVersion.LongString.GetCStr(), game.GetGameRes().Width, game.GetGameRes().Height, game.GetColorDepth(),
         mode.Width, mode.Height, mode.ColorDepth, (convert_16bit_bgr) ? " BGR" : "",
         mode.Windowed ? " W" : "",
         gfxDriver->GetDriverName(), filter->GetInfo().Name.GetCStr(),
@@ -78,11 +78,11 @@ String GetRuntimeInfo()
         runtimeInfo.Append("[AUDIO.VOX enabled");
     if (play.want_speech >= 1)
         runtimeInfo.Append("[SPEECH.VOX enabled");
-    if (transtree != NULL) {
+    if (transtree != nullptr) {
         runtimeInfo.Append("[Using translation ");
         runtimeInfo.Append(transFileName);
     }
-    if (opts.mod_player == 0)
+    if (usetup.mod_player == 0)
         runtimeInfo.Append("[(mod/xm player discarded)");
 
     return runtimeInfo;
@@ -107,12 +107,14 @@ void script_debug(int cmdd,int dataa) {
     else if (cmdd==2) 
     {  // show walkable areas from here
         // TODO: support multiple viewports?!
+        const int viewport_index = 0;
+        const int camera_index = 0;
         Bitmap *tempw=BitmapHelper::CreateBitmap(thisroom.WalkAreaMask->GetWidth(),thisroom.WalkAreaMask->GetHeight());
         tempw->Blit(prepare_walkable_areas(-1),0,0,0,0,tempw->GetWidth(),tempw->GetHeight());
-        const Rect &viewport = play.GetRoomViewport();
-        const Rect &camera = play.GetRoomCamera();
+        const Rect &viewport = play.GetRoomViewport(viewport_index);
+        const Rect &camera = play.GetRoomCamera(camera_index)->GetRect();
         Bitmap *view_bmp = BitmapHelper::CreateBitmap(viewport.GetWidth(), viewport.GetHeight());
-        Rect mask_src = Rect(camera.Left / thisroom.Resolution, camera.Top / thisroom.Resolution, camera.Right / thisroom.Resolution, camera.Bottom / thisroom.Resolution);
+        Rect mask_src = Rect(camera.Left / thisroom.MaskResolution, camera.Top / thisroom.MaskResolution, camera.Right / thisroom.MaskResolution, camera.Bottom / thisroom.MaskResolution);
         view_bmp->StretchBlt(tempw, mask_src, RectWH(0, 0, viewport.GetWidth(), viewport.GetHeight()), Common::kBitmap_Transparency);
 
         IDriverDependantBitmap *ddb = gfxDriver->CreateDDBFromBitmap(view_bmp, false, true);
@@ -167,10 +169,13 @@ void script_debug(int cmdd,int dataa) {
             tempw->DrawLine(Line(srcx, srcy, targetx, targety), MakeColor(i+1));
         }
 
-        const Rect &viewport = play.GetRoomViewport();
-        const Rect &camera = play.GetRoomCamera();
+        // TODO: support multiple viewports?!
+        const int viewport_index = 0;
+        const int camera_index = 0;
+        const Rect &viewport = play.GetRoomViewport(viewport_index);
+        const Rect &camera = play.GetRoomCamera(camera_index)->GetRect();
         Bitmap *view_bmp = BitmapHelper::CreateBitmap(viewport.GetWidth(), viewport.GetHeight());
-        Rect mask_src = Rect(camera.Left / thisroom.Resolution, camera.Top / thisroom.Resolution, camera.Right / thisroom.Resolution, camera.Bottom / thisroom.Resolution);
+        Rect mask_src = Rect(camera.Left / thisroom.MaskResolution, camera.Top / thisroom.MaskResolution, camera.Right / thisroom.MaskResolution, camera.Bottom / thisroom.MaskResolution);
         view_bmp->StretchBlt(tempw, mask_src, RectWH(0, 0, viewport.GetWidth(), viewport.GetHeight()), Common::kBitmap_Transparency);
 
         IDriverDependantBitmap *ddb = gfxDriver->CreateDDBFromBitmap(view_bmp, false, true);

@@ -21,10 +21,13 @@
 #include "font/ttffontrenderer.h"
 #include "font/wfnfontrenderer.h"
 #include "gfx/bitmap.h"
+#include "gui/guidefines.h" // MAXLINE
+#include "util/string_utils.h"
+
+#define STD_BUFFER_SIZE 3000
 
 using namespace AGS::Common;
 
-int wtext_multiply = 1;
 static int alternative = 0;
 
 namespace AGS
@@ -42,8 +45,8 @@ struct Font
 };
 
 Font::Font()
-    : Renderer(NULL)
-    , Renderer2(NULL)
+    : Renderer(nullptr)
+    , Renderer2(nullptr)
 {}
 
 } // Common
@@ -64,6 +67,7 @@ static int remap(int fontNumber)
 FontInfo::FontInfo()
     : Flags(0)
     , SizePt(0)
+    , SizeMultiplier(1)
     , Outline(FONT_OUTLINE_NONE)
     , YOffset(0)
     , LineSpacing(0)
@@ -93,17 +97,29 @@ void adjust_y_coordinate_for_text(int* ypos, size_t fontnum)
 
 bool font_first_renderer_loaded()
 {
-  return fonts.size() > 0 && fonts[0].Renderer != NULL;
+  return fonts.size() > 0 && fonts[0].Renderer != nullptr;
+}
+
+bool is_font_loaded(size_t fontNumber)
+{
+    return fontNumber < fonts.size() && fonts[fontNumber].Renderer != nullptr;;
 }
 
 IAGSFontRenderer* font_replace_renderer(size_t fontNumber, IAGSFontRenderer* renderer)
 {
   if (fontNumber >= fonts.size())
-    return NULL;
+    return nullptr;
   IAGSFontRenderer* oldRender = fonts[fontNumber].Renderer;
   fonts[fontNumber].Renderer = renderer;
-  fonts[fontNumber].Renderer2 = NULL;
+  fonts[fontNumber].Renderer2 = nullptr;
   return oldRender;
+}
+
+bool is_bitmap_font(size_t fontNumber)
+{
+    if (fontNumber >= fonts.size() || !fonts[fontNumber].Renderer2)
+        return false;
+    return fonts[fontNumber].Renderer2->IsBitmapFont();
 }
 
 bool font_supports_extended_characters(size_t fontNumber)
@@ -120,6 +136,13 @@ void ensure_text_valid_for_font(char *text, size_t fontnum)
   if (fontnum >= fonts.size() || !fonts[fontnum].Renderer)
     return;
   fonts[fontnum].Renderer->EnsureTextValidForFont(text, fontnum);
+}
+
+int get_font_scaling_mul(size_t fontNumber)
+{
+    if (fontNumber >= fonts.size() || !fonts[fontNumber].Renderer)
+        return 0;
+    return fonts[fontNumber].Info.SizeMultiplier;
 }
 
 int wgettextwidth(const char *texx, size_t fontNumber)
@@ -185,6 +208,85 @@ bool use_default_linespacing(size_t fontNumber)
     return fonts[fontNumber].Info.LineSpacing == 0;
 }
 
+char lines[MAXLINE][200];
+int  numlines;
+
+// Project-dependent implementation
+extern int wgettextwidth_compensate(const char *tex, int font);
+
+// Break up the text into lines
+void split_lines(const char *todis, int wii, int fonnt) {
+    // v2.56.636: rewrote this function because the old version
+    // was crap and buggy
+    int i = 0;
+    int nextCharWas;
+    int splitAt;
+    char *theline;
+    // make a copy, since we change characters in the original string
+    // and this might be in a read-only bit of memory
+    char textCopyBuffer[STD_BUFFER_SIZE];
+    strcpy(textCopyBuffer, todis);
+    theline = textCopyBuffer;
+    unescape(theline);
+
+    while (1) {
+        splitAt = -1;
+
+        if (theline[i] == 0) {
+            // end of the text, add the last line if necessary
+            if (i > 0) {
+                strcpy(lines[numlines], theline);
+                numlines++;
+            }
+            break;
+        }
+
+        // temporarily terminate the line here and test its width
+        nextCharWas = theline[i + 1];
+        theline[i + 1] = 0;
+
+        // force end of line with the \n character
+        if (theline[i] == '\n')
+            splitAt = i;
+        // otherwise, see if we are too wide
+        else if (wgettextwidth_compensate(theline, fonnt) >= wii) {
+            int endline = i;
+            while ((theline[endline] != ' ') && (endline > 0))
+                endline--;
+
+            // single very wide word, display as much as possible
+            if (endline == 0)
+                endline = i - 1;
+
+            splitAt = endline;
+        }
+
+        // restore the character that was there before
+        theline[i + 1] = nextCharWas;
+
+        if (splitAt >= 0) {
+            // add this line
+            nextCharWas = theline[splitAt];
+            theline[splitAt] = 0;
+            strcpy(lines[numlines], theline);
+            numlines++;
+            theline[splitAt] = nextCharWas;
+            if (numlines >= MAXLINE) {
+                strcat(lines[numlines - 1], "...");
+                break;
+            }
+            // the next line starts from here
+            theline += splitAt;
+            // skip the space or new line that caused the line break
+            if ((theline[0] == ' ') || (theline[0] == '\n'))
+                theline++;
+            i = -1;
+        }
+
+        i++;
+    }
+}
+
 void wouttextxy(Common::Bitmap *ds, int xxx, int yyy, size_t fontNumber, color_t text_color, const char *texx)
 {
     fontNumber = remap(fontNumber);
@@ -194,7 +296,7 @@ void wouttextxy(Common::Bitmap *ds, int xxx, int yyy, size_t fontNumber, color_t
   if (yyy > ds->GetClip().Bottom)
     return;                   // each char is clipped but this speeds it up
 
-  if (fonts[fontNumber].Renderer != NULL)
+  if (fonts[fontNumber].Renderer != nullptr)
   {
     fonts[fontNumber].Renderer->RenderText(texx, fontNumber, (BITMAP*)ds->GetAllegroBitmap(), xxx, yyy, text_color);
   }
@@ -207,15 +309,18 @@ void set_fontinfo(size_t fontNumber, const FontInfo &finfo)
 }
 
 // Loads a font from disk
-bool wloadfont_size(size_t fontNumber, const FontInfo &font_info, const FontRenderParams *params)
+bool wloadfont_size(size_t fontNumber, const FontInfo &font_info)
 {
   fonts.resize(fontNumber + 1);
-  if (ttfRenderer.LoadFromDiskEx(fontNumber, font_info.SizePt, params))
+  FontRenderParams params;
+  params.SizeMultiplier = font_info.SizeMultiplier;
+
+  if (ttfRenderer.LoadFromDiskEx(fontNumber, font_info.SizePt, &params))
   {
     fonts[fontNumber].Renderer  = &ttfRenderer;
     fonts[fontNumber].Renderer2 = &ttfRenderer;
   }
-  else if (wfnRenderer.LoadFromDiskEx(fontNumber, font_info.SizePt, params))
+  else if (wfnRenderer.LoadFromDiskEx(fontNumber, font_info.SizePt, &params))
   {
     fonts[fontNumber].Renderer  = &wfnRenderer;
     fonts[fontNumber].Renderer2 = &wfnRenderer;
@@ -249,10 +354,10 @@ void wfreefont(size_t fontNumber)
   if (fontNumber >= fonts.size())
     return;
 
-  if (fonts[fontNumber].Renderer != NULL)
+  if (fonts[fontNumber].Renderer != nullptr)
     fonts[fontNumber].Renderer->FreeMemory(fontNumber);
 
-  fonts[fontNumber].Renderer = NULL;
+  fonts[fontNumber].Renderer = nullptr;
 }
 
 void font_select_alternative(int alternative)

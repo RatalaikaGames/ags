@@ -28,13 +28,13 @@
 #include "debug/debug_log.h"
 #include "gui/guidialog.h"
 #include "main/game_run.h"
-#include "media/audio/audio.h"
 #include "platform/base/agsplatformdriver.h"
 #include "ac/spritecache.h"
 #include "script/runtimescriptvalue.h"
 #include "ac/dynobj/cc_character.h"
 #include "ac/dynobj/cc_inventory.h"
 #include "util/math.h"
+#include "media/audio/audio_system.h"
 
 using namespace AGS::Common;
 
@@ -57,7 +57,7 @@ int in_inv_screen = 0, inv_screen_newroom = -1;
 // *** INV WINDOW FUNCTIONS
 
 void InvWindow_SetCharacterToUse(GUIInvWindow *guii, CharacterInfo *chaa) {
-  if (chaa == NULL)
+  if (chaa == nullptr)
     guii->CharId = -1;
   else
     guii->CharId = chaa->index_id;
@@ -69,7 +69,7 @@ void InvWindow_SetCharacterToUse(GUIInvWindow *guii, CharacterInfo *chaa) {
 
 CharacterInfo* InvWindow_GetCharacterToUse(GUIInvWindow *guii) {
   if (guii->CharId < 0)
-    return NULL;
+    return nullptr;
 
   return &game.chars[guii->CharId];
 }
@@ -135,7 +135,7 @@ void InvWindow_ScrollUp(GUIInvWindow *guii) {
 
 ScriptInvItem* InvWindow_GetItemAtIndex(GUIInvWindow *guii, int index) {
   if ((index < 0) || (index >= charextra[guii->GetCharacterId()].invorder_count))
-    return NULL;
+    return nullptr;
   return &scrInv[charextra[guii->GetCharacterId()].invorder[index]];
 }
 
@@ -143,11 +143,11 @@ ScriptInvItem* InvWindow_GetItemAtIndex(GUIInvWindow *guii, int index) {
 
 int offset_over_inv(GUIInvWindow *inv) {
 
-    int mover = mouse_ifacebut_xoffs / multiply_up_coordinate(inv->ItemWidth);
+    int mover = mouse_ifacebut_xoffs / data_to_game_coord(inv->ItemWidth);
     // if it's off the edge of the visible items, ignore
     if (mover >= inv->ColCount)
         return -1;
-    mover += (mouse_ifacebut_yoffs / multiply_up_coordinate(inv->ItemHeight)) * inv->ColCount;
+    mover += (mouse_ifacebut_yoffs / data_to_game_coord(inv->ItemHeight)) * inv->ColCount;
     if (mover >= inv->ColCount * inv->RowCount)
         return -1;
 
@@ -219,13 +219,17 @@ void InventoryScreen::Prepare()
     in_inv_screen++;
     inv_screen_newroom = -1;
 
-    // sprites 2041, 2042 and 2043 were hardcoded in the older versions
-    // of the engine to be used in the built-in inventory window
-    if (spriteset[2041] == NULL || spriteset[2042] == NULL || spriteset[2043] == NULL)
-        debug_script_warn("InventoryScreen: one or more of the inventory screen graphics (sprites 2041, 2042, 2043) does not exist, using sprite 0 instead");
-    btn_look_sprite = spriteset[2041] != NULL ? 2041 : 0;
-    btn_select_sprite = spriteset[2042] != NULL ? 2042 : 0;
-    btn_ok_sprite = spriteset[2043] != NULL ? 2043 : 0;
+    // Sprites 2041, 2042 and 2043 were hardcoded in the older versions of
+    // the engine to be used in the built-in inventory window.
+    // If they did not exist engine first fell back to sprites 0, 1, 2 instead.
+    // Fun fact: this fallback does not seem to be intentional, and was a
+    // coincidental result of SpriteCache incorrectly remembering "last seeked
+    // sprite" as 2041/2042/2043 while in fact stream was after sprite 0.
+    if (spriteset[2041] == nullptr || spriteset[2042] == nullptr || spriteset[2043] == nullptr)
+        debug_script_warn("InventoryScreen: one or more of the inventory screen graphics (sprites 2041, 2042, 2043) does not exist, fallback to sprites 0, 1, 2 instead");
+    btn_look_sprite = spriteset[2041] != nullptr ? 2041 : 0;
+    btn_select_sprite = spriteset[2042] != nullptr ? 2042 : (spriteset[1] != nullptr ? 1 : 0);
+    btn_ok_sprite = spriteset[2043] != nullptr ? 2043 : (spriteset[2] != nullptr ? 2 : 0);
 
     break_code = 0;
 }
@@ -352,9 +356,9 @@ bool InventoryScreen::Run()
     }
 
         timerloop = 0;
-        refresh_gui_screen();
         //ags_domouse(DOMOUSE_UPDATE);
-        update_polled_audio_and_crossfade();
+        update_audio_system_on_game_loop();
+        refresh_gui_screen();
 
         // NOTE: this is because old code was working with full game screen
         const int mousex = ::mousex - windowxp;
@@ -471,7 +475,10 @@ bool InventoryScreen::Run()
             //ags_domouse(DOMOUSE_ENABLE);
         }
         wasonitem=isonitem;
-        PollUntilNextFrame();
+
+        update_polled_stuff_if_runtime();
+
+        WaitForNextFrame();
 
     return true; // continue inventory screen loop
 }

@@ -18,16 +18,17 @@
 
 #include "ac/listbox.h"
 #include "ac/common.h"
+#include "ac/game.h"
 #include "ac/gamesetupstruct.h"
 #include "ac/gamestate.h"
 #include "ac/global_game.h"
 #include "ac/path_helper.h"
 #include "ac/string.h"
 #include "gui/guimain.h"
+#include "debug/debug_log.h"
 
 using namespace AGS::Common;
 
-extern char saveGameDirectory[260];
 extern GameState play;
 extern GameSetupStruct game;
 
@@ -69,14 +70,14 @@ void ListBox_FillDirList(GUIListBox *listbox, const char *filemask) {
   listbox->Clear();
   guis_need_update = 1;
 
-  String path, alt_path;
-  if (!ResolveScriptPath(filemask, true, path, alt_path))
+  ResolvedPath rp;
+  if (!ResolveScriptPath(filemask, true, rp))
     return;
 
   std::set<String> files;
-  FillDirList(files, path);
-  if (!alt_path.IsEmpty() && alt_path.Compare(path) != 0)
-    FillDirList(files, alt_path);
+  FillDirList(files, rp.FullPath);
+  if (!rp.AltPath.IsEmpty() && rp.AltPath.Compare(rp.FullPath) != 0)
+    FillDirList(files, rp.AltPath);
 
   for (std::set<String>::const_iterator it = files.begin(); it != files.end(); ++it)
   {
@@ -100,8 +101,8 @@ int ListBox_FillSaveGameList(GUIListBox *listbox) {
   long filedates[MAXSAVEGAMES];
   char buff[200];
 
-  char searchPath[260];
-  sprintf(searchPath, "%s""agssave.*", saveGameDirectory);
+  String svg_dir = get_save_game_directory();
+  String searchPath = String::FromFormat("%s""agssave.*", svg_dir.GetCStr());
 
   int don = al_findfirst(searchPath, &ffb, FA_SEARCH);
   while (!don) {
@@ -109,7 +110,7 @@ int ListBox_FillSaveGameList(GUIListBox *listbox) {
     if (numsaves >= MAXSAVEGAMES)
       break;
     // only list games .000 to .099 (to allow higher slots for other perposes)
-    if (strstr(ffb.name,".0")==NULL) {
+    if (strstr(ffb.name,".0")==nullptr) {
       don = al_findnext(&ffb);
       continue;
     }
@@ -159,7 +160,7 @@ int ListBox_GetItemAtLocation(GUIListBox *listbox, int x, int y) {
   if (!guis[listbox->ParentId].IsDisplayed())
     return -1;
 
-  multiply_up_coordinates(&x, &y);
+  data_to_game_coords(&x, &y);
   x = (x - listbox->X) - guis[listbox->ParentId].X;
   y = (y - listbox->Y) - guis[listbox->ParentId].Y;
 

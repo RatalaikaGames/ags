@@ -52,9 +52,9 @@ void InteractionValue::Write(Stream *out) const
 //-----------------------------------------------------------------------------
 
 InteractionCommand::InteractionCommand()
+    : Type(0)
+    , Parent(nullptr)
 {
-    Type = 0;
-    memset(Data, 0, sizeof(Data));
 }
 
 InteractionCommand::InteractionCommand(const InteractionCommand &ic)
@@ -66,7 +66,7 @@ void InteractionCommand::Assign(const InteractionCommand &ic, InteractionCommand
 {
     Type = ic.Type;
     memcpy(Data, ic.Data, sizeof(Data));
-    Children.reset(ic.Children.get() ? new InteractionCommandList(*ic.Children) : NULL);
+    Children.reset(ic.Children.get() ? new InteractionCommandList(*ic.Children) : nullptr);
     Parent = parent;
 }
 
@@ -75,7 +75,7 @@ void InteractionCommand::Reset()
     Type = 0;
     memset(Data, 0, sizeof(Data));
     Children.reset();
-    Parent = NULL;
+    Parent = nullptr;
 }
 
 void InteractionCommand::ReadValues_Aligned(Stream *in)
@@ -120,7 +120,7 @@ InteractionCommand &InteractionCommand::operator = (const InteractionCommand &ic
 {
     Type = ic.Type;
     memcpy(Data, ic.Data, sizeof(Data));
-    Children.reset(ic.Children.get() ? new InteractionCommandList(*ic.Children) : NULL);
+    Children.reset(ic.Children.get() ? new InteractionCommandList(*ic.Children) : nullptr);
     Parent = ic.Parent;
     return *this;
 }
@@ -201,7 +201,7 @@ void InteractionCommandList::Write_v321(Stream *out) const
 
     for (size_t i = 0; i < cmd_count; ++i)
     {
-        if (Cmds[i].Children.get() != NULL)
+        if (Cmds[i].Children.get() != nullptr)
             Cmds[i].Children->Write_v321(out);
     }
 }
@@ -223,7 +223,7 @@ InteractionEvent &InteractionEvent::operator = (const InteractionEvent &ie)
 {
     Type = ie.Type;
     TimesRun = ie.TimesRun;
-    Response.reset(ie.Response.get() ? new InteractionCommandList(*ie.Response) : NULL);
+    Response.reset(ie.Response.get() ? new InteractionCommandList(*ie.Response) : nullptr);
     return *this;
 }
 
@@ -250,7 +250,8 @@ Interaction &Interaction::operator =(const Interaction &ni)
 
 void Interaction::CopyTimesRun(const Interaction &inter)
 {
-    size_t count = Math::Max(Events.size(), inter.Events.size());
+    assert(Events.size() == inter.Events.size());
+    size_t count = Math::Min(Events.size(), inter.Events.size());
     for (size_t i = 0; i < count; ++i)
     {
         Events[i].TimesRun = inter.Events[i].TimesRun;
@@ -265,7 +266,7 @@ void Interaction::Reset()
 Interaction *Interaction::CreateFromStream(Stream *in)
 {
     if (in->ReadInt32() != kInteractionVersion_Initial)
-        return NULL; // unsupported format
+        return nullptr; // unsupported format
 
     const size_t evt_count = in->ReadInt32();
     if (evt_count > MAX_NEWINTERACTION_EVENTS)
@@ -328,7 +329,7 @@ void Interaction::ReadFromSavedgame_v321(Stream *in)
     const size_t padding = (MAX_NEWINTERACTION_EVENTS - evt_count);
     for (size_t i = 0; i < padding; ++i)
         in->ReadInt32(); // cannot skip when reading aligned structs
-    ReadTimesRunFromSavedgame(in);
+    ReadTimesRunFromSave_v321(in);
 
     // Skip an array of dummy 32-bit pointers
     for (size_t i = 0; i < MAX_NEWINTERACTION_EVENTS; ++i)
@@ -345,13 +346,13 @@ void Interaction::WriteToSavedgame_v321(Stream *out) const
         out->WriteInt32(Events[i].Type);
     }
     out->WriteByteCount(0, (MAX_NEWINTERACTION_EVENTS - evt_count) * sizeof(int32_t));
-    WriteTimesRunToSavedgame(out);
+    WriteTimesRunToSave_v321(out);
 
     // Array of dummy 32-bit pointers
     out->WriteByteCount(0, MAX_NEWINTERACTION_EVENTS * sizeof(int32_t));
 }
 
-void Interaction::ReadTimesRunFromSavedgame(Stream *in)
+void Interaction::ReadTimesRunFromSave_v321(Stream *in)
 {
     const size_t evt_count = Events.size();
     for (size_t i = 0; i < evt_count; ++i)
@@ -363,7 +364,7 @@ void Interaction::ReadTimesRunFromSavedgame(Stream *in)
         in->ReadInt32(); // cannot skip when reading aligned structs
 }
 
-void Interaction::WriteTimesRunToSavedgame(Stream *out) const
+void Interaction::WriteTimesRunToSave_v321(Stream *out) const
 {
     const size_t evt_count = Events.size();
     for (size_t i = 0; i < Events.size(); ++i)
@@ -412,7 +413,7 @@ InteractionScripts *InteractionScripts::CreateFromStream(Stream *in)
     if (evt_count > MAX_NEWINTERACTION_EVENTS)
     {
         quit("Can't deserialize interaction scripts: too many events");
-        return NULL;
+        return nullptr;
     }
 
     InteractionScripts *scripts = new InteractionScripts();

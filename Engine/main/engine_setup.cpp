@@ -12,6 +12,7 @@
 //
 //=============================================================================
 
+#include "core/platform.h"
 #include "ac/common.h"
 #include "ac/display.h"
 #include "ac/draw.h"
@@ -19,6 +20,7 @@
 #include "ac/gamesetup.h"
 #include "ac/gamesetupstruct.h"
 #include "ac/gamestate.h"
+#include "ac/mouse.h"
 #include "ac/runtime_defines.h"
 #include "ac/walkbehind.h"
 #include "ac/dynobj/scriptsystem.h"
@@ -40,132 +42,105 @@ using namespace AGS::Engine;
 extern GameSetupStruct game;
 extern ScriptSystem scsystem;
 extern int _places_r, _places_g, _places_b;
-extern int current_screen_resolution_multiplier;
 extern IGraphicsDriver *gfxDriver;
 
 int convert_16bit_bgr = 0;
 
-int ff; // whatever!
-
-int adjust_pixel_size_for_loaded_data(int size, int filever)
+// Convert guis position and size to proper game resolution.
+// Necessary for pre 3.1.0 games only to sync with modern engine.
+void convert_gui_to_game_resolution(GameDataVersion filever)
 {
-    if (filever < kGameVersion_310)
+    if (filever > kGameVersion_310)
+        return;
+
+    const int mul = game.GetDataUpscaleMult();
+    for (int i = 0; i < game.numcursors; ++i)
     {
-        return multiply_up_coordinate(size);
-    }
-    return size;
-}
-
-void adjust_pixel_sizes_for_loaded_data(int *x, int *y, int filever)
-{
-    x[0] = adjust_pixel_size_for_loaded_data(x[0], filever);
-    y[0] = adjust_pixel_size_for_loaded_data(y[0], filever);
-}
-
-void adjust_sizes_for_resolution(int filever)
-{
-    int ee;
-    for (ee = 0; ee < game.numcursors; ee++) 
-    {
-        game.mcurs[ee].hotx = adjust_pixel_size_for_loaded_data(game.mcurs[ee].hotx, filever);
-        game.mcurs[ee].hoty = adjust_pixel_size_for_loaded_data(game.mcurs[ee].hoty, filever);
+        game.mcurs[i].hotx *= mul;
+        game.mcurs[i].hoty *= mul;
     }
 
-    for (ee = 0; ee < game.numinvitems; ee++) 
+    for (int i = 0; i < game.numinvitems; ++i)
     {
-        adjust_pixel_sizes_for_loaded_data(&game.invinfo[ee].hotx, &game.invinfo[ee].hoty, filever);
+        game.invinfo[i].hotx *= mul;
+        game.invinfo[i].hoty *= mul;
     }
 
-    for (ee = 0; ee < game.numgui; ee++) 
+    for (int i = 0; i < game.numgui; ++i)
     {
-        GUIMain*cgp=&guis[ee];
-        adjust_pixel_sizes_for_loaded_data(&cgp->X, &cgp->Y, filever);
+        GUIMain*cgp = &guis[i];
+        cgp->X *= mul;
+        cgp->Y *= mul;
         if (cgp->Width < 1)
             cgp->Width = 1;
         if (cgp->Height < 1)
             cgp->Height = 1;
-        // Temp fix for older games
-        if (cgp->Width == play.GetNativeSize().Width - 1)
-            cgp->Width = play.GetNativeSize().Width;
+        // This is probably a way to fix GUIs meant to be covering whole screen
+        if (cgp->Width == game.GetDataRes().Width - 1)
+            cgp->Width = game.GetDataRes().Width;
 
-        adjust_pixel_sizes_for_loaded_data(&cgp->Width, &cgp->Height, filever);
+        cgp->Width *= mul;
+        cgp->Height *= mul;
 
-        cgp->PopupAtMouseY = adjust_pixel_size_for_loaded_data(cgp->PopupAtMouseY, filever);
+        cgp->PopupAtMouseY *= mul;
 
-        for (ff = 0; ff < cgp->GetControlCount(); ff++)
+        for (int j = 0; j < cgp->GetControlCount(); ++j)
         {
-            GUIObject *guio = cgp->GetControl(ff);
-            adjust_pixel_sizes_for_loaded_data(&guio->X, &guio->Y, filever);
-            adjust_pixel_sizes_for_loaded_data(&guio->Width, &guio->Height, filever);
+            GUIObject *guio = cgp->GetControl(j);
+            guio->X *= mul;
+            guio->Y *= mul;
+            guio->Width *= mul;
+            guio->Height *= mul;
             guio->IsActivated = false;
+            guio->OnResized();
         }
     }
+}
 
-    if ((filever >= 37) && (game.options[OPT_NATIVECOORDINATES] == 0) &&
-        game.IsHiRes())
+// Convert certain coordinates to data resolution (only if it's different from game resolution).
+// Necessary for 3.1.0 and above games with legacy "low-res coordinates" setting.
+void convert_objects_to_data_resolution(GameDataVersion filever)
+{
+    if (filever < kGameVersion_310 || game.GetDataUpscaleMult() == 1)
+        return;
+
+    const int mul = game.GetDataUpscaleMult();
+    for (int i = 0; i < game.numcharacters; ++i) 
     {
-        // New 3.1 format game file, but with Use Native Coordinates off
-
-        for (ee = 0; ee < game.numcharacters; ee++) 
-        {
-            game.chars[ee].x /= 2;
-            game.chars[ee].y /= 2;
-        }
-
-        for (ee = 0; ee < numguiinv; ee++)
-        {
-            guiinv[ee].ItemWidth /= 2;
-            guiinv[ee].ItemHeight /= 2;
-        }
+        game.chars[i].x /= mul;
+        game.chars[i].y /= mul;
     }
 
+    for (int i = 0; i < numguiinv; ++i)
+    {
+        guiinv[i].ItemWidth /= mul;
+        guiinv[i].ItemHeight /= mul;
+        guiinv[i].OnResized();
+    }
 }
 
 void engine_setup_system_gamesize()
 {
-    scsystem.width = game.size.Width;
-    scsystem.height = game.size.Height;
-    scsystem.viewport_width = divide_down_coordinate(play.GetMainViewport().GetWidth());
-    scsystem.viewport_height = divide_down_coordinate(play.GetMainViewport().GetHeight());
+    scsystem.width = game.GetGameRes().Width;
+    scsystem.height = game.GetGameRes().Height;
+    scsystem.viewport_width = game_to_data_coord(play.GetMainViewport().GetWidth());
+    scsystem.viewport_height = game_to_data_coord(play.GetMainViewport().GetHeight());
 }
 
 void engine_init_resolution_settings(const Size game_size)
 {
     Debug::Printf("Initializing resolution settings");
-
-    // Initialize default viewports and room camera
-    Rect viewport = RectWH(game_size);
-    play.SetMainViewport(viewport);
-    play.SetUIViewport(viewport);
-    play.SetRoomViewport(viewport);
-    play.SetRoomCameraSize(viewport.GetSize());
-
-    Size native_size = game_size;
-    if (game.IsHiRes())
-    {
-        if (!game.options[OPT_NATIVECOORDINATES])
-        {
-            native_size.Width = game_size.Width / 2;
-            native_size.Height = game_size.Height / 2;
-        }
-        current_screen_resolution_multiplier = 2;
-        wtext_multiply = 2;
-    }
-    else
-    {
-        native_size.Width = game_size.Width;
-        native_size.Height = game_size.Height;
-        current_screen_resolution_multiplier = 1;
-        wtext_multiply = 1;
-    }
-    play.SetNativeSize(native_size);
-
     usetup.textheight = getfontheight_outlined(0) + 1;
 
     Debug::Printf(kDbgMsg_Init, "Game native resolution: %d x %d (%d bit)%s", game_size.Width, game_size.Height, game.color_depth * 8,
         game.IsLegacyLetterbox() ? " letterbox-by-design" : "");
 
-    adjust_sizes_for_resolution(loaded_game_file_version);
+    convert_gui_to_game_resolution(loaded_game_file_version);
+    convert_objects_to_data_resolution(loaded_game_file_version);
+
+    Rect viewport = RectWH(game_size);
+    play.SetMainViewport(viewport);
+    play.SetUIViewport(viewport);
     engine_setup_system_gamesize();
 }
 
@@ -180,10 +155,10 @@ void engine_post_gfxmode_driver_setup()
 // Reset gfx driver callbacks
 void engine_pre_gfxmode_driver_cleanup()
 {
-    gfxDriver->SetCallbackForPolling(NULL);
-    gfxDriver->SetCallbackToDrawScreen(NULL);
-    gfxDriver->SetCallbackForNullSprite(NULL);
-    gfxDriver->SetMemoryBackBuffer(NULL);
+    gfxDriver->SetCallbackForPolling(nullptr);
+    gfxDriver->SetCallbackToDrawScreen(nullptr);
+    gfxDriver->SetCallbackForNullSprite(nullptr);
+    gfxDriver->SetMemoryBackBuffer(nullptr);
 }
 
 // Setup virtual screen
@@ -205,25 +180,13 @@ void engine_pre_gfxmode_screen_cleanup()
 void engine_pre_gfxsystem_screen_destroy()
 {
     delete sub_vscreen;
-    sub_vscreen = NULL;
+    sub_vscreen = nullptr;
 }
 
 // Setup color conversion parameters
 void engine_setup_color_conversions(int coldepth)
 {
     // default shifts for how we store the sprite data1
-#if defined(PSP_VERSION)
-    // PSP: Switch b<>r for 15/16 bit.
-    _rgb_r_shift_32 = 16;
-    _rgb_g_shift_32 = 8;
-    _rgb_b_shift_32 = 0;
-    _rgb_b_shift_16 = 11;
-    _rgb_g_shift_16 = 5;
-    _rgb_r_shift_16 = 0;
-    _rgb_b_shift_15 = 10;
-    _rgb_g_shift_15 = 5;
-    _rgb_r_shift_15 = 0;
-#else
     _rgb_r_shift_32 = 16;
     _rgb_g_shift_32 = 8;
     _rgb_b_shift_32 = 0;
@@ -233,7 +196,7 @@ void engine_setup_color_conversions(int coldepth)
     _rgb_r_shift_15 = 10;
     _rgb_g_shift_15 = 5;
     _rgb_b_shift_15 = 0;
-#endif
+
     // Most cards do 5-6-5 RGB, which is the format the files are saved in
     // Some do 5-6-5 BGR, or  6-5-5 RGB, in which case convert the gfx
     if ((coldepth == 16) && ((_rgb_b_shift_16 != 0) || (_rgb_r_shift_16 != 11)))
@@ -251,7 +214,7 @@ void engine_setup_color_conversions(int coldepth)
         // when we're using 32-bit colour, it converts hi-color images
         // the wrong way round - so fix that
 
-#if defined(IOS_VERSION) || defined(ANDROID_VERSION) || defined(PSP_VERSION) || defined(MAC_VERSION)
+#if AGS_PLATFORM_OS_IOS || AGS_PLATFORM_OS_ANDROID
         _rgb_b_shift_16 = 0;
         _rgb_g_shift_16 = 5;
         _rgb_r_shift_16 = 11;
@@ -273,25 +236,15 @@ void engine_setup_color_conversions(int coldepth)
     {
         // ensure that any 32-bit graphics displayed are converted
         // properly to the current depth
-#if defined(PSP_VERSION)
-        _rgb_r_shift_32 = 0;
-        _rgb_g_shift_32 = 8;
-        _rgb_b_shift_32 = 16;
-
-        _rgb_b_shift_15 = 0;
-        _rgb_g_shift_15 = 5;
-        _rgb_r_shift_15 = 10;
-#else
         _rgb_r_shift_32 = 16;
         _rgb_g_shift_32 = 8;
         _rgb_b_shift_32 = 0;
-#endif
     }
     else if (coldepth < 16)
     {
         // ensure that any 32-bit graphics displayed are converted
         // properly to the current depth
-#if defined (WINDOWS_VERSION)
+#if AGS_PLATFORM_OS_WINDOWS
         _rgb_r_shift_32 = 16;
         _rgb_g_shift_32 = 8;
         _rgb_b_shift_32 = 0;
@@ -328,29 +281,18 @@ void engine_post_gfxmode_mouse_setup(const DisplayMode &dm, const Size &init_des
 {
     // Assign mouse control parameters.
     //
-    // Whether mouse movement should be controlled by the engine - this is
-    // determined based on related config option.
-    const bool should_control_mouse = usetup.mouse_control == kMouseCtrl_Always ||
-        usetup.mouse_control == kMouseCtrl_Fullscreen && !dm.Windowed;
-    // Whether mouse movement control is supported by the engine - this is
-    // determined on per platform basis. Some builds may not have such
-    // capability, e.g. because of how backend library implements mouse utils.
-    const bool can_control_mouse = platform->IsMouseControlSupported(dm.Windowed);
-    // The resulting choice is made based on two aforementioned factors.
-    const bool control_sens = should_control_mouse && can_control_mouse;
-    if (control_sens)
+    // NOTE that we setup speed and other related properties regardless of
+    // whether mouse control was requested because it may be enabled later.
+    Mouse::SetSpeedUnit(1.f);
+    if (usetup.mouse_speed_def == kMouseSpeed_CurrentDisplay)
     {
-        Mouse::EnableControl(!dm.Windowed);
-        Mouse::SetSpeedUnit(1.f);
-        if (usetup.mouse_speed_def == kMouseSpeed_CurrentDisplay)
-        {
-            Size cur_desktop;
-            if (get_desktop_resolution(&cur_desktop.Width, &cur_desktop.Height) == 0)
-                Mouse::SetSpeedUnit(Math::Max((float)cur_desktop.Width / (float)init_desktop.Width,
-                                              (float)cur_desktop.Height / (float)init_desktop.Height));
-        }
-        Mouse::SetSpeed(usetup.mouse_speed);
+        Size cur_desktop;
+        if (get_desktop_resolution(&cur_desktop.Width, &cur_desktop.Height) == 0)
+            Mouse::SetSpeedUnit(Math::Max((float)cur_desktop.Width / (float)init_desktop.Width,
+            (float)cur_desktop.Height / (float)init_desktop.Height));
     }
+
+    Mouse_EnableControl(usetup.mouse_ctrl_enabled);
     Debug::Printf(kDbgMsg_Init, "Mouse control: %s, base: %f, speed: %f", Mouse::IsControlEnabled() ? "on" : "off",
         Mouse::GetSpeedUnit(), Mouse::GetSpeed());
 

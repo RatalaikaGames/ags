@@ -15,17 +15,7 @@
 #ifndef __AC_SOUNDINTERNALDEFS_H
 #define __AC_SOUNDINTERNALDEFS_H
 
-
-#if defined(ANDROID_VERSION) && defined(SOUND_CACHE_DEBUG)
-extern "C" void android_debug_printf(char* format, ...);
-#define printf android_debug_printf
-#endif
-
-
 //#define MP3CHUNKSIZE 100000
-
-#ifndef MP3CHUNKSIZE
 #define MP3CHUNKSIZE 32768
-#endif
 
 #endif // __AC_SOUNDINTERNALDEFS_H

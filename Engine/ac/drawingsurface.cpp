@@ -46,8 +46,6 @@ extern ObjectCache objcache[MAX_ROOM_OBJECTS];
 extern SpriteCache spriteset;
 extern Bitmap *dynamicallyCreatedSurfaces[MAX_DYNAMIC_SURFACES];
 
-extern int current_screen_resolution_multiplier;
-
 // ** SCRIPT DRAWINGSURFACE OBJECT
 
 void DrawingSurface_Release(ScriptDrawingSurface* sds)
@@ -72,7 +70,7 @@ void DrawingSurface_Release(ScriptDrawingSurface* sds)
         {
             int tt;
             // force a refresh of any cached object or character images
-            if (croom != NULL) 
+            if (croom != nullptr) 
             {
                 for (tt = 0; tt < croom->numobj; tt++) 
                 {
@@ -101,73 +99,31 @@ void DrawingSurface_Release(ScriptDrawingSurface* sds)
     if (sds->dynamicSurfaceNumber >= 0)
     {
         delete dynamicallyCreatedSurfaces[sds->dynamicSurfaceNumber];
-        dynamicallyCreatedSurfaces[sds->dynamicSurfaceNumber] = NULL;
+        dynamicallyCreatedSurfaces[sds->dynamicSurfaceNumber] = nullptr;
         sds->dynamicSurfaceNumber = -1;
     }
     sds->modified = 0;
 }
 
-void ScriptDrawingSurface::MultiplyCoordinates(int *xcoord, int *ycoord)
+void ScriptDrawingSurface::PointToGameResolution(int *xcoord, int *ycoord)
 {
-    if (this->highResCoordinates)
-    {
-        if (current_screen_resolution_multiplier == 1) 
-        {
-            // using high-res co-ordinates but game running at low-res
-            xcoord[0] /= 2;
-            ycoord[0] /= 2;
-        }
-    }
-    else
-    {
-        if (current_screen_resolution_multiplier > 1) 
-        {
-            // using low-res co-ordinates but game running at high-res
-            xcoord[0] *= 2;
-            ycoord[0] *= 2;
-        }
-    }
+    ctx_data_to_game_coord(*xcoord, *ycoord, highResCoordinates != 0);
 }
 
-void ScriptDrawingSurface::MultiplyThickness(int *valueToAdjust)
+void ScriptDrawingSurface::SizeToGameResolution(int *width, int *height)
 {
-    if (this->highResCoordinates)
-    {
-        if (current_screen_resolution_multiplier == 1) 
-        {
-            valueToAdjust[0] /= 2;
-            if (valueToAdjust[0] < 1)
-                valueToAdjust[0] = 1;
-        }
-    }
-    else
-    {
-        if (current_screen_resolution_multiplier > 1) 
-        {
-            valueToAdjust[0] *= 2;
-        }
-    }
+    ctx_data_to_game_size(*width, *height, highResCoordinates != 0);
+}
+
+void ScriptDrawingSurface::SizeToGameResolution(int *valueToAdjust)
+{
+    *valueToAdjust = ctx_data_to_game_size(*valueToAdjust, highResCoordinates != 0);
 }
 
 // convert actual co-ordinate back to what the script is expecting
-void ScriptDrawingSurface::UnMultiplyThickness(int *valueToAdjust)
+void ScriptDrawingSurface::SizeToDataResolution(int *valueToAdjust)
 {
-    if (this->highResCoordinates)
-    {
-        if (current_screen_resolution_multiplier == 1) 
-        {
-            valueToAdjust[0] *= 2;
-        }
-    }
-    else
-    {
-        if (current_screen_resolution_multiplier > 1) 
-        {
-            valueToAdjust[0] /= 2;
-            if (valueToAdjust[0] < 1)
-                valueToAdjust[0] = 1;
-        }
-    }
+    *valueToAdjust = game_to_ctx_data_size(*valueToAdjust, highResCoordinates != 0);
 }
 
 ScriptDrawingSurface* DrawingSurface_CreateCopy(ScriptDrawingSurface *sds)
@@ -176,7 +132,7 @@ ScriptDrawingSurface* DrawingSurface_CreateCopy(ScriptDrawingSurface *sds)
 
     for (int i = 0; i < MAX_DYNAMIC_SURFACES; i++)
     {
-        if (dynamicallyCreatedSurfaces[i] == NULL)
+        if (dynamicallyCreatedSurfaces[i] == nullptr)
         {
             dynamicallyCreatedSurfaces[i] = BitmapHelper::CreateBitmapCopy(sourceBitmap);
             ScriptDrawingSurface *newSurface = new ScriptDrawingSurface();
@@ -188,7 +144,7 @@ ScriptDrawingSurface* DrawingSurface_CreateCopy(ScriptDrawingSurface *sds)
     }
 
     quit("!DrawingSurface.CreateCopy: too many copied surfaces created");
-    return NULL;
+    return nullptr;
 }
 
 void DrawingSurface_DrawSurface(ScriptDrawingSurface* target, ScriptDrawingSurface* source, int translev) {
@@ -219,7 +175,7 @@ void DrawingSurface_DrawSurface(ScriptDrawingSurface* target, ScriptDrawingSurfa
 
 void DrawingSurface_DrawImage(ScriptDrawingSurface* sds, int xx, int yy, int slot, int trans, int width, int height)
 {
-    if ((slot < 0) || (spriteset[slot] == NULL))
+    if ((slot < 0) || (spriteset[slot] == nullptr))
         quit("!DrawingSurface.DrawImage: invalid sprite slot number specified");
 
     if ((trans < 0) || (trans > 100))
@@ -239,7 +195,7 @@ void DrawingSurface_DrawImage(ScriptDrawingSurface* sds, int xx, int yy, int slo
         if ((width < 1) || (height < 1))
             return;
 
-        sds->MultiplyCoordinates(&width, &height);
+        sds->SizeToGameResolution(&width, &height);
 
         // resize the sprite to the requested size
         Bitmap *newPic = BitmapHelper::CreateBitmap(width, height, sourcePic->GetColorDepth());
@@ -254,7 +210,7 @@ void DrawingSurface_DrawImage(ScriptDrawingSurface* sds, int xx, int yy, int slo
     }
 
     Bitmap *ds = sds->StartDrawing();
-    sds->MultiplyCoordinates(&xx, &yy);
+    sds->PointToGameResolution(&xx, &yy);
 
     if (sourcePic->GetColorDepth() != ds->GetColorDepth()) {
         debug_script_warn("RawDrawImage: Sprite %d colour depth %d-bit not same as background depth %d-bit", slot, spriteset[slot]->GetColorDepth(), ds->GetColorDepth());
@@ -294,7 +250,8 @@ int DrawingSurface_GetDrawingColor(ScriptDrawingSurface *sds)
 
 void DrawingSurface_SetUseHighResCoordinates(ScriptDrawingSurface *sds, int highRes) 
 {
-    sds->highResCoordinates = (highRes) ? 1 : 0;
+    if (game.AllowRelativeRes())
+        sds->highResCoordinates = (highRes) ? 1 : 0;
 }
 
 int DrawingSurface_GetUseHighResCoordinates(ScriptDrawingSurface *sds) 
@@ -307,7 +264,7 @@ int DrawingSurface_GetHeight(ScriptDrawingSurface *sds)
     Bitmap *ds = sds->StartDrawing();
     int height = ds->GetHeight();
     sds->FinishedDrawingReadOnly();
-    sds->UnMultiplyThickness(&height);
+    sds->SizeToGameResolution(&height);
     return height;
 }
 
@@ -316,7 +273,7 @@ int DrawingSurface_GetWidth(ScriptDrawingSurface *sds)
     Bitmap *ds = sds->StartDrawing();
     int width = ds->GetWidth();
     sds->FinishedDrawingReadOnly();
-    sds->UnMultiplyThickness(&width);
+    sds->SizeToGameResolution(&width);
     return width;
 }
 
@@ -338,8 +295,8 @@ void DrawingSurface_Clear(ScriptDrawingSurface *sds, int colour)
 
 void DrawingSurface_DrawCircle(ScriptDrawingSurface *sds, int x, int y, int radius)
 {
-    sds->MultiplyCoordinates(&x, &y);
-    sds->MultiplyThickness(&radius);
+    sds->PointToGameResolution(&x, &y);
+    sds->SizeToGameResolution(&radius);
 
     Bitmap *ds = sds->StartDrawing();
     ds->FillCircle(Circle(x, y, radius), sds->currentColour);
@@ -348,8 +305,8 @@ void DrawingSurface_DrawCircle(ScriptDrawingSurface *sds, int x, int y, int radi
 
 void DrawingSurface_DrawRectangle(ScriptDrawingSurface *sds, int x1, int y1, int x2, int y2)
 {
-    sds->MultiplyCoordinates(&x1, &y1);
-    sds->MultiplyCoordinates(&x2, &y2);
+    sds->PointToGameResolution(&x1, &y1);
+    sds->PointToGameResolution(&x2, &y2);
 
     Bitmap *ds = sds->StartDrawing();
     ds->FillRect(Rect(x1,y1,x2,y2), sds->currentColour);
@@ -358,9 +315,9 @@ void DrawingSurface_DrawRectangle(ScriptDrawingSurface *sds, int x1, int y1, int
 
 void DrawingSurface_DrawTriangle(ScriptDrawingSurface *sds, int x1, int y1, int x2, int y2, int x3, int y3)
 {
-    sds->MultiplyCoordinates(&x1, &y1);
-    sds->MultiplyCoordinates(&x2, &y2);
-    sds->MultiplyCoordinates(&x3, &y3);
+    sds->PointToGameResolution(&x1, &y1);
+    sds->PointToGameResolution(&x2, &y2);
+    sds->PointToGameResolution(&x3, &y3);
 
     Bitmap *ds = sds->StartDrawing();
     ds->DrawTriangle(Triangle(x1,y1,x2,y2,x3,y3), sds->currentColour);
@@ -369,7 +326,7 @@ void DrawingSurface_DrawTriangle(ScriptDrawingSurface *sds, int x1, int y1, int 
 
 void DrawingSurface_DrawString(ScriptDrawingSurface *sds, int xx, int yy, int font, const char* text)
 {
-    sds->MultiplyCoordinates(&xx, &yy);
+    sds->PointToGameResolution(&xx, &yy);
     Bitmap *ds = sds->StartDrawing();
     // don't use wtextcolor because it will do a 16->32 conversion
     color_t text_color = sds->currentColour;
@@ -387,8 +344,8 @@ void DrawingSurface_DrawStringWrapped_Old(ScriptDrawingSurface *sds, int xx, int
 
 void DrawingSurface_DrawStringWrapped(ScriptDrawingSurface *sds, int xx, int yy, int wid, int font, int alignment, const char *msg) {
     int linespacing = getfontspacing_outlined(font);
-    sds->MultiplyCoordinates(&xx, &yy);
-    sds->MultiplyThickness(&wid);
+    sds->PointToGameResolution(&xx, &yy);
+    sds->SizeToGameResolution(&wid);
 
     break_up_text_into_lines(wid, font, (char*)msg);
 
@@ -426,9 +383,9 @@ void DrawingSurface_DrawMessageWrapped(ScriptDrawingSurface *sds, int xx, int yy
 }
 
 void DrawingSurface_DrawLine(ScriptDrawingSurface *sds, int fromx, int fromy, int tox, int toy, int thickness) {
-    sds->MultiplyCoordinates(&fromx, &fromy);
-    sds->MultiplyCoordinates(&tox, &toy);
-    sds->MultiplyThickness(&thickness);
+    sds->PointToGameResolution(&fromx, &fromy);
+    sds->PointToGameResolution(&tox, &toy);
+    sds->SizeToGameResolution(&thickness);
     int ii,jj,xx,yy;
     Bitmap *ds = sds->StartDrawing();
     // draw several lines to simulate the thickness
@@ -446,9 +403,9 @@ void DrawingSurface_DrawLine(ScriptDrawingSurface *sds, int fromx, int fromy, in
 }
 
 void DrawingSurface_DrawPixel(ScriptDrawingSurface *sds, int x, int y) {
-    sds->MultiplyCoordinates(&x, &y);
+    sds->PointToGameResolution(&x, &y);
     int thickness = 1;
-    sds->MultiplyThickness(&thickness);
+    sds->SizeToGameResolution(&thickness);
     int ii,jj;
     Bitmap *ds = sds->StartDrawing();
     // draw several pixels to simulate the thickness
@@ -464,7 +421,7 @@ void DrawingSurface_DrawPixel(ScriptDrawingSurface *sds, int x, int y) {
 }
 
 int DrawingSurface_GetPixel(ScriptDrawingSurface *sds, int x, int y) {
-    sds->MultiplyCoordinates(&x, &y);
+    sds->PointToGameResolution(&x, &y);
     Bitmap *ds = sds->StartDrawing();
     unsigned int rawPixel = ds->GetPixel(x, y);
     unsigned int maskColor = ds->GetMaskColor();

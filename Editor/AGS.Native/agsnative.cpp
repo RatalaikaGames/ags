@@ -1,4 +1,3 @@
-#define USE_CLIB
 #include <stdio.h>
 void ThrowManagedException(const char *message);
 #pragma unmanaged
@@ -6,12 +5,9 @@ void ThrowManagedException(const char *message);
 extern bool Scintilla_RegisterClasses(void *hInstance);
 extern int Scintilla_LinkLexers();
 
-int antiAliasFonts = 0;
-bool ShouldAntiAliasText() { return (antiAliasFonts != 0); }
-
-int mousex, mousey;
 #include "agsnative.h"
 #include "util/wgt2allg.h"
+#include <winalleg.h>
 #include "util/misc.h"
 #include "ac/spritecache.h"
 #include "ac/actiontype.h"
@@ -37,6 +33,8 @@ int mousex, mousey;
 #include "gfx/bitmap.h"
 #include "core/assetmanager.h"
 #include "NativeUtils.h"
+
+using AGS::Types::AGSEditorException;
 
 using AGS::Common::AlignedStream;
 using AGS::Common::Stream;
@@ -73,15 +71,17 @@ inline void Cstretch_sprite(Common::Bitmap *dst, Common::Bitmap *src, int x, int
 
 void save_room_file(const char *path);
 
-int sxmult = 1, symult = 1;
+int mousex = 0, mousey = 0;
+int antiAliasFonts = 0;
 int dsc_want_hires = 0;
 bool enable_greyed_out_masks = true;
-bool outlineGuiObjects;
-color*palette;
+bool outlineGuiObjects = false;
+color*palette = NULL;
 GameSetupStruct thisgame;
 SpriteCache spriteset(thisgame.SpriteInfos);
 GUIMain tempgui;
-const char*sprsetname = "acsprset.spr";
+const char *sprsetname = "acsprset.spr";
+const char *sprindexname = "sprindex.dat";
 const char *old_editor_data_file = "editor.dat";
 const char *new_editor_data_file = "game.agf";
 const char *old_editor_main_game_file = "ac2game.dta";
@@ -90,26 +90,32 @@ const char *ROOM_TEMPLATE_ID_FILE = "rtemplate.dat";
 const int ROOM_TEMPLATE_ID_FILE_SIGNATURE = 0x74673812;
 bool spritesModified = false;
 RoomStruct thisroom;
-bool roomModified = false;
-std::unique_ptr<AGSBitmap> drawBuffer;
-std::unique_ptr<AGSBitmap> undoBuffer;
-std::unique_ptr<AGSBitmap> roomBkgBuffer;
-int loaded_room_number = -1;
 
 GameDataVersion loaded_game_file_version = kGameVersion_Current;
 
 // stuff for importing old games
-int numScriptModules;
+int numScriptModules = 0;
 ScriptModule* scModules = NULL;
-DialogTopic *dialog;
+DialogTopic *dialog = NULL;
 std::vector<Common::String> dlgscript;
 std::vector<GUIMain> guis;
-ViewStruct *newViews;
+ViewStruct *newViews = NULL;
 int numNewViews = 0;
 
 // A reference color depth, for correct color selection;
 // originally was defined by 'abuf' bitmap.
-int BaseColorDepth;
+int BaseColorDepth = 0;
+
+
+struct NativeRoomTools
+{
+    bool roomModified = false;
+    int loaded_room_number = -1;
+    std::unique_ptr<AGSBitmap> drawBuffer;
+    std::unique_ptr<AGSBitmap> undoBuffer;
+    std::unique_ptr<AGSBitmap> roomBkgBuffer;
+};
+std::unique_ptr<NativeRoomTools> RoomTools;
 
 
 bool reload_font(int curFont);
@@ -118,14 +124,14 @@ void drawBlockScaledAt(int hdc, Common::Bitmap *todraw ,int x, int y, float scal
 void write_log(const char *) { }
 SysBitmap^ ConvertBlockToBitmap(Common::Bitmap *todraw, bool useAlphaChannel);
 
-int multiply_up_coordinate(int coord)
+int data_to_game_coord(int coord)
 {
-	return coord * sxmult;
+	return coord * thisgame.GetDataUpscaleMult();
 }
 
 int get_fixed_pixel_size(int coord)
 {
-	return coord * sxmult;
+	return coord * thisgame.GetDataUpscaleMult();
 }
 
 // jibbles the sprite around to fix hi-color problems, by swapping
@@ -176,7 +182,7 @@ Common::Bitmap *get_sprite (int spnr) {
 void SetNewSprite(int slot, Common::Bitmap *sprit) {
   delete spriteset[slot];
 
-  spriteset.SetSpriteAndLock(slot, sprit);
+  spriteset.SetSprite(slot, sprit);
   spritesModified = true;
 }
 
@@ -213,17 +219,12 @@ int GetSpriteHeight(int slot) {
 	return get_sprite(slot)->GetHeight();
 }
 
-int GetRelativeSpriteWidth(int slot) {
-	return GetSpriteWidth(slot) / ((thisgame.SpriteInfos[slot].Flags & SPF_640x400) ? 2 : 1);
-}
-
-int GetRelativeSpriteHeight(int slot) {
-	return GetSpriteHeight(slot) / ((thisgame.SpriteInfos[slot].Flags & SPF_640x400) ? 2 : 1);
-}
-
-int GetSpriteResolutionMultiplier(int slot)
-{
-	return ((thisgame.SpriteInfos[slot].Flags & SPF_640x400) ? 1 : 2);
+void GetSpriteInfo(int slot, ::SpriteInfo &info) {
+    // TODO: find out if we may get width/height from SpriteInfos
+    // or it is necessary to go through get_sprite and check bitmaps in cache?
+    info.Width = GetSpriteWidth(slot);
+    info.Height = GetSpriteHeight(slot);
+    info.Flags = thisgame.SpriteInfos[slot].Flags;
 }
 
 unsigned char* GetRawSpriteData(int spriteSlot) {
@@ -243,21 +244,23 @@ void transform_string(char *text) {
 }
 
 int find_free_sprite_slot() {
-  return spriteset.AddNewSprite();
+  return spriteset.GetFreeIndex();
 }
 
-void update_sprite_resolution(int spriteNum, bool isHighRes)
+void update_sprite_resolution(int spriteNum, bool isVarRes, bool isHighRes)
 {
-	thisgame.SpriteInfos[spriteNum].Flags &= ~SPF_640x400;
-	if (isHighRes)
-	{
-		thisgame.SpriteInfos[spriteNum].Flags |= SPF_640x400;
-	}
+	thisgame.SpriteInfos[spriteNum].Flags &= ~(SPF_HIRES | SPF_VAR_RESOLUTION);
+    if (isVarRes)
+    {
+        thisgame.SpriteInfos[spriteNum].Flags |= SPF_VAR_RESOLUTION;
+        if (isHighRes)
+            thisgame.SpriteInfos[spriteNum].Flags |= SPF_HIRES;
+    }
 }
 
 void change_sprite_number(int oldNumber, int newNumber) {
 
-  spriteset.SetSpriteAndLock(newNumber, spriteset[oldNumber]);
+  spriteset.SetSprite(newNumber, spriteset[oldNumber]);
   spriteset.RemoveSprite(oldNumber, false);
 
   thisgame.SpriteInfos[newNumber].Flags = thisgame.SpriteInfos[oldNumber].Flags;
@@ -358,7 +361,7 @@ int crop_sprite_edges(int numSprites, int *sprites, bool symmetric) {
     newsprit->Blit(sprit, left, top, 0, 0, newWidth, newHeight);
     delete sprit;
 
-    spriteset.SetSpriteAndLock(sprites[aa], newsprit);
+    spriteset.SetSprite(sprites[aa], newsprit);
   }
 
   spritesModified = true;
@@ -565,43 +568,6 @@ int load_template_file(const char *fileName, char **iconDataBuffer, long *iconDa
   return 0;
 }
 
-const char* save_sprites(bool compressSprites) 
-{
-  const char *errorMsg = NULL;
-  char backupname[100];
-  sprintf(backupname, "backup_%s", sprsetname);
-
-  if ((spritesModified) || (compressSprites != spriteset.IsFileCompressed()))
-  {
-    spriteset.DetachFile();
-    if (exists(backupname) && (unlink(backupname) != 0)) {
-      errorMsg = "Unable to overwrite the old backup file. Make sure the backup sprite file is not read-only";
-    }
-    else if (rename(sprsetname, backupname)) {
-      errorMsg = "Unable to create the backup sprite file. Make sure the backup sprite file is not read-only";
-    }
-    else if (spriteset.AttachFile(backupname)) {
-      errorMsg = "An error occurred attaching to the backup sprite file. Check write permissions on your game folder";
-    }
-    else if (spriteset.SaveToFile(sprsetname, compressSprites)) {
-      errorMsg = "Unable to save the sprites. An error occurred writing the sprite file.";
-    }
-
-    // reset the sprite cache
-    spriteset.Reset();
-    HAGSError err = spriteset.InitFile(sprsetname);
-    if (!err)
-    {
-      if (errorMsg == NULL)
-        errorMsg = "Unable to re-initialize sprite file after save.";
-    }
-
-    if (errorMsg == NULL)
-      spritesModified = false;
-  }
-  return errorMsg;
-}
-
 void drawBlockDoubleAt (int hdc, Common::Bitmap *todraw ,int x, int y) {
   drawBlockScaledAt (hdc, todraw, x, y, 2);
 }
@@ -644,15 +610,17 @@ void draw_gui_sprite(Common::Bitmap *g, int sprnum, int atxp, int atyp, bool use
     }
 
   int nwid=towrite->GetWidth(),nhit=towrite->GetHeight();
-  if (thisgame.SpriteInfos[sprnum].Flags & SPF_640x400) {
-    if (dsc_want_hires == 0) {
-      nwid/=2;
-      nhit/=2;
+  if (thisgame.AllowRelativeRes() && thisgame.SpriteInfos[sprnum].IsRelativeRes()) {
+    if (thisgame.SpriteInfos[sprnum].IsLegacyHiRes()) {
+      if (dsc_want_hires == 0) {
+        nwid/=2;
+        nhit/=2;
+      }
     }
-  }
-  else if (dsc_want_hires) {
-    nwid *= 2;
-    nhit *= 2;
+    else if (dsc_want_hires) {
+      nwid *= 2;
+      nhit *= 2;
+    }
   }
   wputblock_stretch(g, atxp,atyp,towrite,nwid,nhit);
   if (needtofree) delete towrite;
@@ -675,6 +643,7 @@ enum RoomAreaMask
 };
 
 // TODO: mask's bitmap, as well as coordinate factor, should be a property of the room or some room's mask class
+// TODO: create weak_ptr here?
 AGSBitmap *get_bitmap_for_mask(RoomStruct *roomptr, RoomAreaMask maskType)
 {
 	switch (maskType) 
@@ -686,18 +655,19 @@ AGSBitmap *get_bitmap_for_mask(RoomStruct *roomptr, RoomAreaMask maskType)
 	}
     return NULL;
 }
-    // TODO: create weak_ptr here?
+
 float get_scale_for_mask(RoomStruct *roomptr, RoomAreaMask maskType)
 {
     switch (maskType)
     {
-    case RoomAreaMask::Hotspots: return 1.f / roomptr->Resolution;
-    case RoomAreaMask::Regions: return 1.f / roomptr->Resolution;
-    case RoomAreaMask::WalkableAreas: return 1.f / roomptr->Resolution;
-    case RoomAreaMask::WalkBehinds: return 1.f;
+    case RoomAreaMask::Hotspots: return 1.f / roomptr->MaskResolution;
+    case RoomAreaMask::Regions: return 1.f / roomptr->MaskResolution;
+    case RoomAreaMask::WalkableAreas: return 1.f / roomptr->MaskResolution;
+    case RoomAreaMask::WalkBehinds: return 1.f; // walk-behinds always 1:1 with room size
     }
     return 0.f;
 }
+
 
 void copy_walkable_to_regions (void *roomptr) {
     RoomStruct *theRoom = (RoomStruct*)roomptr;
@@ -735,6 +705,7 @@ void draw_fill_onto_mask(void *roomptr, int maskType, int x1, int y1, int color)
 void create_undo_buffer(void *roomptr, int maskType) 
 {
 	Common::Bitmap *mask = get_bitmap_for_mask((RoomStruct*)roomptr, (RoomAreaMask)maskType);
+    auto &undoBuffer = RoomTools->undoBuffer;
   if (undoBuffer != NULL)
   {
     if ((undoBuffer->GetWidth() != mask->GetWidth()) || (undoBuffer->GetHeight() != mask->GetHeight())) 
@@ -751,14 +722,14 @@ void create_undo_buffer(void *roomptr, int maskType)
 
 bool does_undo_buffer_exist()
 {
-  return (undoBuffer != NULL);
+  return (RoomTools->undoBuffer != NULL);
 }
 
 void clear_undo_buffer() 
 {
   if (does_undo_buffer_exist()) 
   {
-    undoBuffer.reset();
+      RoomTools->undoBuffer.reset();
   }
 }
 
@@ -767,7 +738,7 @@ void restore_from_undo_buffer(void *roomptr, int maskType)
   if (does_undo_buffer_exist())
   {
   	Common::Bitmap *mask = get_bitmap_for_mask((RoomStruct*)roomptr, (RoomAreaMask)maskType);
-    mask->Blit(undoBuffer.get(), 0, 0, 0, 0, mask->GetWidth(), mask->GetHeight());
+    mask->Blit(RoomTools->undoBuffer.get(), 0, 0, 0, 0, mask->GetWidth(), mask->GetHeight());
   }
 }
 
@@ -880,6 +851,8 @@ void draw_room_background(void *roomvoidptr, int hdc, int x, int y, int bgnum, f
   if (srcBlock == NULL)
     return;
 
+    auto &drawBuffer = RoomTools->drawBuffer;
+    auto &roomBkgBuffer = RoomTools->roomBkgBuffer;
 	if (drawBuffer != NULL) 
 	{
         if (!roomBkgBuffer || roomBkgBuffer->GetSize() != srcBlock->GetSize() || roomBkgBuffer->GetColorDepth() != srcBlock->GetColorDepth())
@@ -930,33 +903,6 @@ void draw_room_background(void *roomvoidptr, int hdc, int x, int y, int bgnum, f
 		drawBlockScaledAt(hdc, srcBlock.get(), x, y, scaleFactor);
 	}
 	
-}
-
-void update_font_sizes() {
-  int multiplyWas = wtext_multiply;
-
-  // scale up fonts if necessary
-  wtext_multiply = 1;
-  if ((thisgame.options[OPT_NOSCALEFNT] == 0) &&
-      thisgame.IsHiRes()) {
-    wtext_multiply = 2;
-  }
-
-  if (multiplyWas != wtext_multiply) {
-    // resolution or Scale Up Fonts has changed, reload at new size
-    for (int bb=0;bb<thisgame.numfonts;bb++)
-      reload_font (bb);
-  }
-
-  if (thisgame.IsHiRes()) {
-    sxmult = 2;
-    symult = 2;
-  }
-  else {
-    sxmult = 1;
-    symult = 1;
-  }
-
 }
 
 const char* import_sci_font(const char*fnn,int fslot) {
@@ -1033,13 +979,15 @@ int drawFontAt (int hdc, int fontnum, int x, int y, int width) {
     return 0;
   }
 
-  update_font_sizes();
+  if (!is_font_loaded(fontnum))
+    reload_font(fontnum);
 
-  int doubleSize = (!thisgame.IsHiRes()) ? 2 : 1;
-  int blockSize = (!thisgame.IsHiRes()) ? 1 : 2;
+  // TODO: rewrite this, use actual font size (maybe related to window size) and not game's resolution type
+  int doubleSize = (!thisgame.IsLegacyHiRes()) ? 2 : 1;
+  int blockSize = (!thisgame.IsLegacyHiRes()) ? 1 : 2;
   antiAliasFonts = thisgame.options[OPT_ANTIALIASFONTS];
 
-  int char_height = thisgame.fonts[fontnum].SizePt;
+  int char_height = thisgame.fonts[fontnum].SizePt * thisgame.fonts[fontnum].SizeMultiplier;
   int grid_size   = max(10, char_height);
   int grid_margin = max(4, grid_size / 4);
   grid_size += grid_margin * 2;
@@ -1155,38 +1103,35 @@ static void doDrawViewLoop (int hdc, int numFrames, ViewFrame *frames, int x, in
   delete todraw;
 }
 
+// TODO: these functions duplicate ones in the engine, because game struct
+// is referenced differently. Refactor this somehow.
+int ctx_data_to_game_size(int val, bool hires_ctx)
+{
+    if (hires_ctx && !thisgame.IsLegacyHiRes())
+        return AGSMath::Max(1, (val / HIRES_COORD_MULTIPLIER));
+    if (!hires_ctx && thisgame.IsLegacyHiRes())
+        return val * HIRES_COORD_MULTIPLIER;
+    return val;
+}
+
 int get_adjusted_spritewidth(int spr) {
   Common::Bitmap *tsp = get_sprite(spr);
-  if (tsp == NULL) return 0;
-
+  if (tsp == NULL)
+      return 0;
   int retval = tsp->GetWidth();
-
-  if (thisgame.SpriteInfos[spr].Flags & SPF_640x400) {
-    if (sxmult == 1)
-      retval /= 2;
-  }
-  else {
-    if (sxmult == 2)
-      retval *= 2;
-  }
-  return retval;
+  if (!thisgame.AllowRelativeRes() || !thisgame.SpriteInfos[spr].IsRelativeRes())
+      return retval;
+  return ctx_data_to_game_size(retval, thisgame.SpriteInfos[spr].IsLegacyHiRes());
 }
 
 int get_adjusted_spriteheight(int spr) {
   Common::Bitmap *tsp = get_sprite(spr);
-  if (tsp == NULL) return 0;
-
+  if (tsp == NULL)
+      return 0;
   int retval = tsp->GetHeight();
-
-  if (thisgame.SpriteInfos[spr].Flags & SPF_640x400) {
-    if (symult == 1)
-      retval /= 2;
-  }
-  else {
-    if (symult == 2)
-      retval *= 2;
-  }
-  return retval;
+  if (!thisgame.AllowRelativeRes() || !thisgame.SpriteInfos[spr].IsRelativeRes())
+      return retval;
+  return ctx_data_to_game_size(retval, thisgame.SpriteInfos[spr].IsLegacyHiRes());
 }
 
 void drawBlockOfColour(int hdc, int x,int y, int width, int height, int colNum)
@@ -1223,7 +1168,7 @@ bool initialize_native()
 {
     Common::AssetManager::CreateInstance();
 
-  set_uformat(U_ASCII);  // required to stop ALFONT screwing up text
+	set_uformat(U_ASCII);  // required to stop ALFONT screwing up text
 	install_allegro(SYSTEM_NONE, &errno, atexit);
 	//set_gdi_color_format();
 	palette = &thisgame.defpal[0];
@@ -1234,7 +1179,7 @@ bool initialize_native()
 	new_font();
 
 	spriteset.Reset();
-	HAGSError err = spriteset.InitFile(sprsetname);
+	HAGSError err = spriteset.InitFile(sprsetname, sprindexname);
 	if (!err)
 	  return false;
 	spriteset.SetMaxCacheSize(100 * 1024 * 1024);  // 100 mb cache // TODO: set this up in preferences?
@@ -1242,19 +1187,17 @@ bool initialize_native()
 	if (!Scintilla_RegisterClasses (GetModuleHandle(NULL)))
       return false;
 
-  init_font_renderer();
+	init_font_renderer();
 
+	RoomTools.reset(new NativeRoomTools());
 	return true;
 }
 
 void shutdown_native()
 {
+    RoomTools.reset();
     // We must dispose all native bitmaps before shutting down the library
     thisroom.Free();
-    drawBuffer.reset();
-    undoBuffer.reset();
-    roomBkgBuffer.reset();
-
     shutdown_font_renderer();
     spriteset.Reset();
     allegro_exit();
@@ -1271,7 +1214,8 @@ void drawBlockScaledAt (int hdc, Common::Bitmap *todraw ,int x, int y, float sca
 }
 
 void drawSprite(int hdc, int x, int y, int spriteNum, bool flipImage) {
-	int scaleFactor = ((thisgame.SpriteInfos[spriteNum].Flags & SPF_640x400) != 0) ? 1 : 2;
+	int scaleFactor = (thisgame.AllowRelativeRes() && thisgame.SpriteInfos[spriteNum].IsRelativeRes()) ?
+        (thisgame.SpriteInfos[spriteNum].IsLegacyHiRes() ? 1 : 2) : 1;
 	Common::Bitmap *theSprite = get_sprite(spriteNum);
 
   if (theSprite == NULL)
@@ -1432,25 +1376,12 @@ void update_abuf_coldepth() {
 bool reload_font(int curFont)
 {
   wfreefont(curFont);
-
-  FontInfo fi = thisgame.fonts[curFont];
-
-  // TODO: for some reason these compat fixes are different in the engine, investigate
-  // if the font is designed for 640x400, half it
-  if (thisgame.options[OPT_NOSCALEFNT]) {
-    if (!thisgame.IsHiRes())
-      fi.SizePt /= 2;
-  }
-  else if (thisgame.IsHiRes()) {
-    // designed for 320x200, double it up
-    fi.SizePt *= 2;
-  }
-  return wloadfont_size(curFont, fi);
+  return wloadfont_size(curFont, thisgame.fonts[curFont]);
 }
 
 HAGSError reset_sprite_file() {
   spriteset.Reset();
-  HAGSError err = spriteset.InitFile(sprsetname);
+  HAGSError err = spriteset.InitFile(sprsetname, sprindexname);
   if (!err)
     return err;
   spriteset.SetMaxCacheSize(100 * 1024 * 1024);  // 100 mb cache // TODO: set in preferences?
@@ -1678,7 +1609,7 @@ void validate_mask(Common::Bitmap *toValidate, const char *name, int maxColour) 
        "entry 0 corresponds to No Area, palette index 1 corresponds to area 1, and "
        "so forth.", name);
 	MessageBox(NULL, errorBuf, "Mask Error", MB_OK);
-    roomModified = true;
+    RoomTools->roomModified = true;
   }
 }
 
@@ -1705,7 +1636,7 @@ void copy_global_palette_to_room_palette()
 
 const char* load_room_file(const char*rtlo) {
 
-  load_room(rtlo, &thisroom, thisgame.IsHiRes(), thisgame.SpriteInfos);
+  load_room(rtlo, &thisroom, thisgame.IsLegacyHiRes(), thisgame.SpriteInfos);
 
   // Allocate enough memory to add extra variables
   thisroom.LocalVariables.resize(MAX_GLOBAL_VARIABLES);
@@ -1723,20 +1654,9 @@ const char* load_room_file(const char*rtlo) {
   // Fix hi-color screens
   // TODO: find out why this is necessary. Probably has something to do with
   // Allegro switching color components at certain version update long time ago.
+  // do we need to do this in the engine too?
   for (size_t i = 0; i < thisroom.BgFrameCount; ++i)
     fix_block (thisroom.BgFrames[i].Graphic.get());
-
-  // TODO: find out how old this conversion is; was this ever a thing?
-  // Perhaps merge this in UpdateRoomData and simply do this non-conditionally for every mask that does not match background size?
-  if ((thisroom.Resolution > 1) && (thisroom.WalkBehindMask->GetWidth() < thisroom.Width)) {
-    // 640x400 room with 320x200-res walkbehind
-    // resize it up to 640x400-res
-    int oldw = thisroom.WalkBehindMask->GetWidth(), oldh=thisroom.WalkBehindMask->GetHeight();
-    Common::Bitmap *tempb = Common::BitmapHelper::CreateBitmap(thisroom.Width, thisroom.Height, thisroom.WalkBehindMask->GetColorDepth());
-    tempb->Fill(0);
-    tempb->StretchBlt(thisroom.WalkBehindMask.get(),RectWH(0,0,oldw,oldh),RectWH(0,0,tempb->GetWidth(),tempb->GetHeight()));
-    thisroom.WalkBehindMask.reset(tempb);
-  }
 
   set_palette_range(palette, 0, 255, 0);
   
@@ -1744,7 +1664,7 @@ const char* load_room_file(const char*rtlo) {
       (thisgame.color_depth == 1))
     MessageBox(NULL,"WARNING: This room is hi-color, but your game is currently 256-colour. You will not be able to use this room in this game. Also, the room background will not look right in the editor.", "Colour depth warning", MB_OK);
 
-  roomModified = false;
+  RoomTools->roomModified = false;
 
   validate_mask(thisroom.HotspotMask.get(), "hotspot", MAX_ROOM_HOTSPOTS);
   validate_mask(thisroom.WalkBehindMask.get(), "walk-behind", MAX_WALK_AREAS + 1);
@@ -2084,17 +2004,9 @@ void ThrowManagedException(const char *message)
 	throw gcnew AGS::Types::AGSEditorException(gcnew String((const char*)message));
 }
 
-void save_game(bool compressSprites)
-{
-	const char *errorMsg = save_sprites(compressSprites);
-	if (errorMsg != NULL)
-	{
-		throw gcnew AGSEditorException(gcnew String(errorMsg));
-	}
-}
-
 void CreateBuffer(int width, int height)
 {
+    auto &drawBuffer = RoomTools->drawBuffer;
     if (!drawBuffer || drawBuffer->GetWidth() != width || drawBuffer->GetHeight() != height || drawBuffer->GetColorDepth() != 32)
         drawBuffer.reset(new AGSBitmap(width, height, 32));
     drawBuffer->Clear(0x00D0D0D0);
@@ -2105,14 +2017,14 @@ void DrawSpriteToBuffer(int sprNum, int x, int y, float scale) {
 	if (todraw == NULL)
 	  todraw = spriteset[0];
 
-	if (((thisgame.SpriteInfos[sprNum].Flags & SPF_640x400) == 0) &&
-		thisgame.IsHiRes())
+	if (thisgame.AllowRelativeRes() && thisgame.SpriteInfos[sprNum].IsRelativeRes() &&
+        !thisgame.SpriteInfos[sprNum].IsLegacyHiRes() && thisgame.IsLegacyHiRes())
 	{
 		scale *= 2.0f;
 	}
 
 	Common::Bitmap *imageToDraw = todraw;
-
+    auto &drawBuffer = RoomTools->drawBuffer;
 	if (todraw->GetColorDepth() != drawBuffer->GetColorDepth()) 
 	{
 		int oldColorConv = get_color_conversion();
@@ -2151,24 +2063,167 @@ void DrawSpriteToBuffer(int sprNum, int x, int y, float scale) {
 
 void RenderBufferToHDC(int hdc) 
 {
+    auto &drawBuffer = RoomTools->drawBuffer;
 	blit_to_hdc(drawBuffer->GetAllegroBitmap(), (HDC)hdc, 0, 0, 0, 0, drawBuffer->GetWidth(), drawBuffer->GetHeight());
 }
 
-void UpdateSpriteFlags(SpriteFolder ^folder) 
+void UpdateNativeSprites(SpriteFolder ^folder, size_t &missing_count)
 {
 	for each (Sprite ^sprite in folder->Sprites)
 	{
-		thisgame.SpriteInfos[sprite->Number].Flags = 0;
-		if (sprite->Resolution == SpriteImportResolution::HighRes)
-			thisgame.SpriteInfos[sprite->Number].Flags |= SPF_640x400;
+        if (!spriteset.DoesSpriteExist(sprite->Number))
+        {
+            missing_count++;
+            spriteset.SetEmptySprite(sprite->Number);
+        }
+
+        int flags = 0;
+        if (sprite->Resolution != SpriteImportResolution::Real)
+        {
+            flags |= SPF_VAR_RESOLUTION;
+            if (sprite->Resolution == SpriteImportResolution::HighRes)
+                flags |= SPF_HIRES;
+        }
 		if (sprite->AlphaChannel)
-			thisgame.SpriteInfos[sprite->Number].Flags |= SPF_ALPHACHANNEL;
+            flags |= SPF_ALPHACHANNEL;
+        thisgame.SpriteInfos[sprite->Number].Flags = flags;
 	}
 
 	for each (SpriteFolder^ subFolder in folder->SubFolders) 
 	{
-		UpdateSpriteFlags(subFolder);
+        UpdateNativeSprites(subFolder, missing_count);
 	}
+}
+
+void UpdateNativeSpritesToGame(Game ^game, List<String^> ^errors)
+{
+    size_t missing_count = 0;
+    UpdateNativeSprites(game->RootSpriteFolder, missing_count);
+    if (missing_count > 0)
+    {
+        spritesModified = true;
+        errors->Add(String::Format(
+            "Sprite file (acsprset.spr) contained less sprites than the game project referenced ({0} sprites were missing). This could happen if it was not saved properly last time. Some sprites could be missing actual images. You may try restoring them by reimporting from the source files.",
+            missing_count));
+    }
+}
+
+// Attempts to save the current spriteset contents into the temporary file
+// provided by the system API. On success assigns saved_filename.
+void SaveTempSpritefile(bool compressSprites, AGSString &saved_spritefile, AGSString &saved_indexfile)
+{
+    // First save new sprite set into the temporary file
+    String ^temp_spritefile = nullptr;
+    String ^temp_indexfile = nullptr;
+    try
+    {
+        temp_spritefile = IO::Path::GetTempFileName();
+        temp_indexfile = IO::Path::GetTempFileName();
+    }
+    catch (Exception ^e)
+    {
+        throw gcnew AGSEditorException("Unable to create a temporary file to save sprites to.", e);
+    }
+
+    AGSString n_temp_spritefile = ConvertStringToNativeString(temp_spritefile);
+    AGSString n_temp_indexfile = ConvertStringToNativeString(temp_indexfile);
+    SpriteFileIndex index;
+    if (spriteset.SaveToFile(n_temp_spritefile, compressSprites, index) != 0)
+        throw gcnew AGSEditorException(String::Format("Unable to save the sprites. An error occurred whilst writing the sprite file.{0}Temp path: {1}",
+            Environment::NewLine, temp_spritefile));
+    saved_spritefile = n_temp_spritefile;
+    if (spriteset.SaveSpriteIndex(n_temp_indexfile, index) == 0)
+        saved_indexfile = n_temp_indexfile;
+}
+
+// Updates the backup and spritefile, moving it from the temp location.
+void PutNewSpritefileIntoProject(const AGSString &temp_spritefile, const AGSString &temp_indexfile)
+{
+    spriteset.DetachFile();
+    // Now when sprites are safe, move last sprite file to backup file
+    String ^sprfilename = gcnew String(sprsetname);
+    String ^backupname = String::Format("backup_{0}", sprfilename);
+    try
+    {
+        if (IO::File::Exists(backupname))
+            IO::File::Delete(backupname);
+        if (IO::File::Exists(sprfilename))
+            IO::File::Move(sprfilename, backupname);
+    }
+    catch (Exception ^e)
+    {// TODO: ignore for now, but proper warning output system in needed here
+    }
+
+    // And then temp file to its final location
+    String ^sprindexfilename = gcnew String(sprindexname);
+    try
+    {
+        if (IO::File::Exists(sprfilename))
+            IO::File::Delete(sprfilename);
+        IO::File::Move(gcnew String(temp_spritefile), sprfilename);
+    }
+    catch (Exception ^e)
+    {
+        throw gcnew AGSEditorException("Unable to replace the previous sprite file in your project folder.", e);
+    }
+
+    // Sprite index is wanted but optional, so react to exceptions separately
+    try
+    {
+        if (IO::File::Exists(sprindexfilename))
+            IO::File::Delete(sprindexfilename);
+        if (!temp_indexfile.IsEmpty())
+            IO::File::Move(gcnew String(temp_indexfile), sprindexfilename);
+    }
+    catch (Exception ^e)
+    {// TODO: ignore for now, but proper warning output system in needed here
+    }
+}
+
+void SaveNativeSprites(bool compressSprites)
+{
+    if (!spritesModified && (compressSprites == spriteset.IsFileCompressed()))
+        return;
+
+    AGSString saved_spritefile;
+    AGSString saved_indexfile;
+    SaveTempSpritefile(compressSprites, saved_spritefile, saved_indexfile);
+
+    Exception ^main_exception;
+    try
+    {
+        PutNewSpritefileIntoProject(saved_spritefile, saved_indexfile);
+        saved_spritefile = sprsetname;
+        saved_indexfile = sprindexname;
+    }
+    catch (Exception ^e)
+    {
+        main_exception = e;
+    }
+    finally
+    {
+        // Reset the sprite cache to whichever file was successfully saved
+        spriteset.Reset();
+        HAGSError err = spriteset.InitFile(saved_spritefile, saved_indexfile);
+        if (!err)
+        {
+            throw gcnew AGSEditorException(
+                String::Format("Unable to re-initialize sprite file after save.{0}{1}",
+                    Environment::NewLine, gcnew String(err->FullMessage().GetCStr())), main_exception);
+        }
+        else if (err && main_exception != nullptr)
+        {
+            throw gcnew AGSEditorException(
+                String::Format("Unable to save sprites in your project folder. The sprites were saved to a temporary location:{0}{1}",
+                    Environment::NewLine, gcnew String(saved_spritefile)), main_exception);
+        }
+    }
+    spritesModified = false;
+}
+
+void SaveGame(bool compressSprites)
+{
+    SaveNativeSprites(compressSprites);
 }
 
 void SetGameResolution(Game ^game)
@@ -2178,8 +2233,10 @@ void SetGameResolution(Game ^game)
     if (game->Settings->LetterboxMode)
         thisgame.SetDefaultResolution((GameResolutionType)game->Settings->LegacyLetterboxResolution);
     else
-        thisgame.SetCustomResolution(::Size(game->Settings->CustomResolution.Width, game->Settings->CustomResolution.Height));
+        thisgame.SetDefaultResolution(::Size(game->Settings->CustomResolution.Width, game->Settings->CustomResolution.Height));
 }
+
+void GameFontUpdated(Game ^game, int fontNumber);
 
 void GameUpdated(Game ^game) {
   // TODO: this function may get called when only one item is added/removed or edited;
@@ -2187,10 +2244,8 @@ void GameUpdated(Game ^game) {
   thisgame.color_depth = (int)game->Settings->ColorDepth;
   SetGameResolution(game);
 
-  thisgame.options[OPT_NOSCALEFNT] = game->Settings->FontsForHiRes;
   thisgame.options[OPT_ANTIALIASFONTS] = game->Settings->AntiAliasFonts;
   antiAliasFonts = thisgame.options[OPT_ANTIALIASFONTS];
-  update_font_sizes();
 
   //delete abuf;
   //abuf = Common::BitmapHelper::CreateBitmap(32, 32, thisgame.color_depth * 8);
@@ -2213,19 +2268,31 @@ void GameUpdated(Game ^game) {
   thisgame.fonts.resize(thisgame.numfonts);
   for (int i = 0; i < thisgame.numfonts; i++) 
   {
-	  thisgame.fonts[i].SizePt = game->Fonts[i]->PointSize;
-      thisgame.fonts[i].YOffset = game->Fonts[i]->VerticalOffset;
-      thisgame.fonts[i].LineSpacing = game->Fonts[i]->LineSpacing;
-	  reload_font(i);
-	  game->Fonts[i]->Height = getfontheight(i);
+      GameFontUpdated(game, i);
   }
 }
 
 void GameFontUpdated(Game ^game, int fontNumber)
 {
-    thisgame.fonts[fontNumber].YOffset = game->Fonts[fontNumber]->VerticalOffset;
-    thisgame.fonts[fontNumber].LineSpacing = game->Fonts[fontNumber]->LineSpacing;
-    set_fontinfo(fontNumber, thisgame.fonts[fontNumber]);
+    FontInfo &font_info = thisgame.fonts[fontNumber];
+    AGS::Types::Font ^font = game->Fonts[fontNumber];
+
+    int old_sizept = font_info.SizePt;
+    int old_scaling = font_info.SizeMultiplier;
+
+    font_info.SizePt = font->PointSize;
+    font_info.SizeMultiplier = font->SizeMultiplier;
+    font_info.YOffset = font->VerticalOffset;
+    font_info.LineSpacing = font->LineSpacing;
+    set_fontinfo(fontNumber, font_info);
+
+    if (font_info.SizePt != old_sizept ||
+        font_info.SizeMultiplier != old_scaling)
+    {
+        reload_font(fontNumber);
+    }
+
+    font->Height = getfontheight(fontNumber);
 }
 
 void drawViewLoop (int hdc, ViewLoop^ loopToDraw, int x, int y, int size, int cursel)
@@ -2409,8 +2476,9 @@ void ImportBackground(Room ^room, int backgroundNumber, System::Drawing::Bitmap 
 	RoomStruct *theRoom = (RoomStruct*)(void*)room->_roomStructPtr;
 	theRoom->Width = room->Width;
 	theRoom->Height = room->Height;
-	bool resolutionChanged = (theRoom->Resolution != (int)room->Resolution);
-	theRoom->Resolution = (int)room->Resolution;
+	bool resolutionChanged = (theRoom->GetResolutionType() != (AGS::Common::RoomResolutionType)room->Resolution);
+	theRoom->SetResolution((AGS::Common::RoomResolutionType)room->Resolution);
+    theRoom->MaskResolution = theRoom->MaskResolution;
 
 	if (newbg->GetColorDepth() == 8) 
 	{
@@ -2448,10 +2516,10 @@ void ImportBackground(Room ^room, int backgroundNumber, System::Drawing::Bitmap 
 	if ((newbg->GetWidth() != theRoom->WalkBehindMask->GetWidth()) || (newbg->GetHeight() != theRoom->WalkBehindMask->GetHeight()) ||
       (theRoom->Width != theRoom->WalkBehindMask->GetWidth()) || (resolutionChanged))
 	{
-        theRoom->WalkAreaMask.reset(new AGSBitmap(theRoom->Width / theRoom->Resolution, theRoom->Height / theRoom->Resolution, 8));
-        theRoom->HotspotMask.reset(new AGSBitmap(theRoom->Width / theRoom->Resolution, theRoom->Height / theRoom->Resolution, 8));
+        theRoom->WalkAreaMask.reset(new AGSBitmap(theRoom->Width / theRoom->MaskResolution, theRoom->Height / theRoom->MaskResolution, 8));
+        theRoom->HotspotMask.reset(new AGSBitmap(theRoom->Width / theRoom->MaskResolution, theRoom->Height / theRoom->MaskResolution, 8));
         theRoom->WalkBehindMask.reset(new AGSBitmap(theRoom->Width, theRoom->Height, 8));
-        theRoom->RegionMask.reset(new AGSBitmap(theRoom->Width / theRoom->Resolution, theRoom->Height / theRoom->Resolution, 8));
+        theRoom->RegionMask.reset(new AGSBitmap(theRoom->Width / theRoom->MaskResolution, theRoom->Height / theRoom->MaskResolution, 8));
         theRoom->WalkAreaMask->Clear();
         theRoom->HotspotMask->Clear();
         theRoom->WalkBehindMask->Clear();
@@ -2516,7 +2584,7 @@ void set_opaque_alpha_channel(Common::Bitmap *image)
 	}
 }
 
-int SetNewSpriteFromBitmap(int slot, System::Drawing::Bitmap^ bmp, int spriteImportMethod, bool remapColours, bool useRoomBackgroundColours, bool alphaChannel) 
+AGS::Types::SpriteImportResolution SetNewSpriteFromBitmap(int slot, System::Drawing::Bitmap^ bmp, int spriteImportMethod, bool remapColours, bool useRoomBackgroundColours, bool alphaChannel)
 {
 	color imgPalBuf[256];
   int importedColourDepth;
@@ -2527,15 +2595,10 @@ int SetNewSpriteFromBitmap(int slot, System::Drawing::Bitmap^ bmp, int spriteImp
 		sort_out_transparency(tempsprite, spriteImportMethod, imgPalBuf, useRoomBackgroundColours, importedColourDepth);
 	}
 
-	thisgame.SpriteInfos[slot].Flags = 0;
-	if (thisgame.IsHiRes())
-	{
-		thisgame.SpriteInfos[slot].Flags |= SPF_640x400;
-	}
+    int flags = 0;
 	if (alphaChannel)
 	{
-		thisgame.SpriteInfos[slot].Flags |= SPF_ALPHACHANNEL;
-
+        flags |= SPF_ALPHACHANNEL;
 		if (tempsprite->GetColorDepth() == 32)
 		{
 			set_rgb_mask_from_alpha_channel(tempsprite);
@@ -2545,10 +2608,11 @@ int SetNewSpriteFromBitmap(int slot, System::Drawing::Bitmap^ bmp, int spriteImp
 	{
 		set_opaque_alpha_channel(tempsprite);
 	}
+    thisgame.SpriteInfos[slot].Flags = flags;
 
 	SetNewSprite(slot, tempsprite);
 
-	return thisgame.IsHiRes() ? 1 : 0;
+	return AGS::Types::SpriteImportResolution::Real;
 }
 
 void SetBitmapPaletteFromGlobalPalette(System::Drawing::Bitmap ^bmp)
@@ -2674,6 +2738,13 @@ System::Drawing::Bitmap^ getBackgroundAsBitmap(Room ^room, int backgroundNumber)
 
   RoomStruct *roomptr = (RoomStruct*)(void*)room->_roomStructPtr;
   return ConvertBlockToBitmap32(roomptr->BgFrames[backgroundNumber].Graphic.get(), room->Width, room->Height, false);
+}
+
+void FixRoomMasks(Room ^room)
+{
+    RoomStruct *roomptr = (RoomStruct*)(void*)room->_roomStructPtr;
+    roomptr->MaskResolution = room->MaskResolution;
+    AGS::Common::FixRoomMasks(roomptr);
 }
 
 void PaletteUpdated(cli::array<PaletteEntry^>^ newPalette) 
@@ -2868,7 +2939,9 @@ Dictionary<int, Sprite^>^ load_sprite_dimensions()
 		Common::Bitmap *spr = spriteset[i];
 		if (spr != NULL)
 		{
-			sprites->Add(i, gcnew Sprite(i, spr->GetWidth(), spr->GetHeight(), spr->GetColorDepth(), (thisgame.SpriteInfos[i].Flags & SPF_640x400) ? SpriteImportResolution::HighRes : SpriteImportResolution::LowRes, (thisgame.SpriteInfos[i].Flags & SPF_ALPHACHANNEL) ? true : false));
+			sprites->Add(i, gcnew Sprite(i, spr->GetWidth(), spr->GetHeight(), spr->GetColorDepth(),
+                thisgame.SpriteInfos[i].IsRelativeRes() ? (thisgame.SpriteInfos[i].IsLegacyHiRes() ? SpriteImportResolution::HighRes : SpriteImportResolution::LowRes) : SpriteImportResolution::Real,
+                (thisgame.SpriteInfos[i].Flags & SPF_ALPHACHANNEL) ? true : false));
 		}
 	}
 
@@ -3136,7 +3209,7 @@ void ConvertInteractionCommandList(System::Text::StringBuilder^ sb, InteractionC
 	}
 }
 
-void CopyInteractions(AGS::Types::Interactions ^destination, ::InteractionScripts *source)
+void CopyInteractions(AGS::Types::Interactions ^destination, AGS::Common::InteractionScripts *source)
 {
     if (source->ScriptFuncNames.size() > (size_t)destination->ScriptFunctionNames->Length) 
 	{
@@ -3187,7 +3260,7 @@ Game^ import_compiled_game_dta(const char *fileName)
 	}
 
 	Game^ game = gcnew Game();
-	game->Settings->AlwaysDisplayTextAsSpeech = (thisgame.options[OPT_ALWAYSSPCH] != 0);
+    game->Settings->AlwaysDisplayTextAsSpeech = (thisgame.options[OPT_ALWAYSSPCH] != 0);
 	game->Settings->AntiAliasFonts = (thisgame.options[OPT_ANTIALIASFONTS] != 0);
 	game->Settings->AntiGlideMode = (thisgame.options[OPT_ANTIGLIDE] != 0);
 	game->Settings->AutoMoveInWalkMode = !thisgame.options[OPT_NOWALKMODE];
@@ -3204,7 +3277,7 @@ Game^ import_compiled_game_dta(const char *fileName)
 	game->Settings->EnforceNewStrings = (thisgame.options[OPT_STRICTSTRINGS] != 0);
   game->Settings->EnforceNewAudio = false;
 	game->Settings->EnforceObjectBasedScript = (thisgame.options[OPT_STRICTSCRIPTING] != 0);
-	game->Settings->FontsForHiRes = (thisgame.options[OPT_NOSCALEFNT] != 0);
+	game->Settings->FontsForHiRes = (thisgame.options[OPT_HIRES_FONTS] != 0);
 	game->Settings->GameName = gcnew String(thisgame.gamename);
 	game->Settings->UseGlobalSpeechAnimationDelay = true; // this was always on in pre-3.0 games
 	game->Settings->GUIAlphaStyle = GUIAlphaStyle::Classic;
@@ -3218,7 +3291,7 @@ Game^ import_compiled_game_dta(const char *fileName)
     game->Settings->NumberDialogOptions = (thisgame.options[OPT_DIALOGNUMBERED] != 0) ? DialogOptionsNumbering::Normal : DialogOptionsNumbering::KeyShortcutsOnly;
 	game->Settings->PixelPerfect = (thisgame.options[OPT_PIXPERFECT] != 0);
 	game->Settings->PlaySoundOnScore = thisgame.options[OPT_SCORESOUND];
-	game->Settings->Resolution = (GameResolutions)thisgame.GetDefaultResolution();
+	game->Settings->Resolution = (GameResolutions)thisgame.GetResolutionType();
 	game->Settings->RoomTransition = (RoomTransitionStyle)thisgame.options[OPT_FADETYPE];
 	game->Settings->SaveScreenshots = (thisgame.options[OPT_SAVESCREENSHOT] != 0);
 	game->Settings->SkipSpeech = (SkipSpeechStyle)thisgame.options[OPT_NOSKIPTEXT];
@@ -3232,8 +3305,9 @@ Game^ import_compiled_game_dta(const char *fileName)
 	game->Settings->WalkInLookMode = (thisgame.options[OPT_WALKONLOOK] != 0);
 	game->Settings->WhenInterfaceDisabled = (InterfaceDisabledAction)thisgame.options[OPT_DISABLEOFF];
 	game->Settings->UniqueID = thisgame.uniqueid;
-  game->Settings->SaveGameFolderName = gcnew String(thisgame.gamename);
-  game->Settings->RenderAtScreenResolution = (RenderAtScreenResolution)thisgame.options[OPT_RENDERATSCREENRES];
+    game->Settings->SaveGameFolderName = gcnew String(thisgame.gamename);
+    game->Settings->RenderAtScreenResolution = (RenderAtScreenResolution)thisgame.options[OPT_RENDERATSCREENRES];
+    game->Settings->AllowRelativeAssetResolutions = (thisgame.options[OPT_RELATIVEASSETRES] != 0);
 
 	game->Settings->InventoryHotspotMarker->DotColor = thisgame.hotdot;
 	game->Settings->InventoryHotspotMarker->CrosshairColor = thisgame.hotdotouter;
@@ -3351,7 +3425,7 @@ Game^ import_compiled_game_dta(const char *fileName)
 
 		char scriptFuncPrefix[100];
 		sprintf(scriptFuncPrefix, "character%d_", i);
-		ConvertInteractions(character->Interactions, thisgame.intrChar[i], gcnew String(scriptFuncPrefix), game, 3);
+		ConvertInteractions(character->Interactions, thisgame.intrChar[i].get(), gcnew String(scriptFuncPrefix), game, 3);
 	}
 	game->PlayerCharacter = game->Characters[thisgame.playercharacter];
 
@@ -3464,7 +3538,7 @@ Game^ import_compiled_game_dta(const char *fileName)
 
 		char scriptFuncPrefix[100];
 		sprintf(scriptFuncPrefix, "inventory%d_", i);
-		ConvertInteractions(invItem->Interactions, thisgame.intrInv[i], gcnew String(scriptFuncPrefix), game, 5);
+		ConvertInteractions(invItem->Interactions, thisgame.intrInv[i].get(), gcnew String(scriptFuncPrefix), game, 5);
 
 		game->InventoryItems->Add(invItem);
 	}
@@ -3656,7 +3730,7 @@ System::String ^load_room_script(System::String ^fileName)
 
 int GetCurrentlyLoadedRoomNumber()
 {
-  return loaded_room_number;
+  return RoomTools->loaded_room_number;
 }
 
 AGS::Types::Room^ load_crm_file(UnloadedRoom ^roomToLoad)
@@ -3669,7 +3743,7 @@ AGS::Types::Room^ load_crm_file(UnloadedRoom ^roomToLoad)
 		throw gcnew AGSEditorException(gcnew String(errorMsg));
 	}
 
-  loaded_room_number = roomToLoad->Number;
+    RoomTools->loaded_room_number = roomToLoad->Number;
 
 	Room ^room = gcnew Room(roomToLoad->Number);
 	room->Description = roomToLoad->Description;
@@ -3688,14 +3762,8 @@ AGS::Types::Room^ load_crm_file(UnloadedRoom ^roomToLoad)
 	room->ColorDepth = thisroom.BgFrames[0].Graphic->GetColorDepth();
 	room->BackgroundAnimationDelay = thisroom.BgAnimSpeed;
 	room->BackgroundCount = thisroom.BgFrameCount;
-  if (thisroom.Resolution > 2)
-  {
-    room->Resolution = RoomResolution::HighRes;
-  }
-  else
-  {
-  	room->Resolution = (RoomResolution)thisroom.Resolution;
-  }
+    room->Resolution = (AGS::Types::RoomResolution)thisroom.GetResolutionType();
+    room->MaskResolution = thisroom.MaskResolution;
 
 	for (size_t i = 0; i < thisroom.LocalVariables.size(); ++i)
 	{
@@ -3851,7 +3919,8 @@ void save_crm_file(Room ^room)
     // Convert managed Room object into the native roomstruct that is going
     // to be saved using native procedure.
     //
-	thisroom.Resolution = (int)room->Resolution;
+	thisroom.SetResolution((AGS::Common::RoomResolutionType)room->Resolution);
+    thisroom.MaskResolution = room->MaskResolution;
 
 	thisroom.GameID = room->GameID;
 	thisroom.Edges.Bottom = room->BottomEdgeY;
@@ -3977,7 +4046,7 @@ void save_crm_file(Room ^room)
 
 PInteractionScripts convert_interaction_scripts(Interactions ^interactions)
 {
-    InteractionScripts *native_scripts = new InteractionScripts();
+    AGS::Common::InteractionScripts *native_scripts = new AGS::Common::InteractionScripts();
 	for each (String^ funcName in interactions->ScriptFunctionNames)
 	{
         native_scripts->ScriptFuncNames.push_back(ConvertStringToNativeString(funcName));

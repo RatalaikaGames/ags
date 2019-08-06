@@ -123,41 +123,12 @@ namespace AGS.Editor
             foreach (RoomObject obj in _objectBaselines)
             {
                 if (!DesignItems[GetItemID(obj)].Visible) continue;
-                int height = GetSpriteHeightForGameResolution(obj.Image);
+                int width, height;
+                Utilities.GetSizeSpriteWillBeRenderedInGame(obj.Image, out width, out height);
                 int ypos = state.RoomYToWindow(obj.StartY - height);
 				Factory.NativeProxy.DrawSpriteToBuffer(obj.Image, state.RoomXToWindow(obj.StartX), ypos, state.Scale);
             }
             
-        }
-
-        private int GetSpriteHeightForGameResolution(int spriteSlot)
-        {
-            int height;
-            if (Factory.AGSEditor.CurrentGame.IsHighResolution)
-            {
-                height = Factory.NativeProxy.GetSpriteResolutionMultiplier(spriteSlot) *
-                         Factory.NativeProxy.GetActualSpriteHeight(spriteSlot);
-            }
-            else
-            {
-                height = Factory.NativeProxy.GetRelativeSpriteHeight(spriteSlot);
-            }
-            return height;
-        }
-
-        private int GetSpriteWidthForGameResolution(int spriteSlot)
-        {
-            int width;
-            if (Factory.AGSEditor.CurrentGame.IsHighResolution)
-            {
-                width = Factory.NativeProxy.GetSpriteResolutionMultiplier(spriteSlot) *
-                         Factory.NativeProxy.GetActualSpriteWidth(spriteSlot);
-            }
-            else
-            {
-                width = Factory.NativeProxy.GetRelativeSpriteWidth(spriteSlot);
-            }
-            return width;
         }
 
         public virtual void Paint(Graphics graphics, RoomEditorState state)
@@ -171,8 +142,10 @@ namespace AGS.Editor
             if (!design.Visible)
                 return;
 
-            int width = state.RoomSizeToWindow(GetSpriteWidthForGameResolution(_selectedObject.Image));
-			int height = state.RoomSizeToWindow(GetSpriteHeightForGameResolution(_selectedObject.Image));
+            int width, height;
+            Utilities.GetSizeSpriteWillBeRenderedInGame(_selectedObject.Image, out width, out height);
+            width = state.RoomSizeToWindow(width);
+			height = state.RoomSizeToWindow(height);
 			xPos = state.RoomXToWindow(_selectedObject.StartX);
 			yPos = state.RoomYToWindow(_selectedObject.StartY) - height;
             Pen pen = new Pen(Color.Goldenrod);
@@ -254,9 +227,9 @@ namespace AGS.Editor
         }
 
         private bool HitTest(RoomObject obj, int x, int y)
-        { 
-            int width = GetSpriteWidthForGameResolution(obj.Image);
-            int height = GetSpriteHeightForGameResolution(obj.Image);
+        {
+            int width, height;
+            Utilities.GetSizeSpriteWillBeRenderedInGame(obj.Image, out width, out height);
             return ((x >= obj.StartX) && (x < obj.StartX + width) &&
                 (y >= obj.StartY - height) && (y < obj.StartY));
         }
@@ -265,14 +238,7 @@ namespace AGS.Editor
         {
             int tempx = _menuClickX;
             int tempy = _menuClickY;
-
-            if ((Factory.AGSEditor.CurrentGame.Settings.UseLowResCoordinatesInScript) &&
-             (_room.Resolution == RoomResolution.HighRes))
-            {
-                tempx /= 2;
-                tempy /= 2;
-            }
-
+            RoomEditorState.AdjustCoordsToMatchEngine(_room, ref tempx, ref tempy);
             string textToCopy = tempx.ToString() + ", " + tempy.ToString();
             Utilities.CopyTextToClipboard(textToCopy);
         }
@@ -308,11 +274,11 @@ namespace AGS.Editor
                             UpdateObjectRef(obj, oldID);
                         }
                     }
+                    OnItemsChanged(this, null);
                     _selectedObject = null;
                     Factory.GUIController.SetPropertyGridObject(_room);
                     SetPropertyGridList();
                     _room.Modified = true;
-                    OnItemsChanged(this, null);
                     _panel.Invalidate();
                 }
             }
@@ -329,25 +295,18 @@ namespace AGS.Editor
                 newObj.StartY = SetObjectCoordinate(_menuClickY);
                 _room.Objects.Add(newObj);
                 AddObjectRef(newObj);
+                OnItemsChanged(this, null);
                 SetSelectedObject(newObj);
                 SetPropertyGridList();
                 Factory.GUIController.SetPropertyGridObject(newObj);
                 _room.Modified = true;
-                OnItemsChanged(this, null);
                 _panel.Invalidate();                
             }
             else if (item.Name == MENU_ITEM_OBJECT_COORDS)
             {
                 int tempx = _selectedObject.StartX;
                 int tempy = _selectedObject.StartY;
-
-                if ((Factory.AGSEditor.CurrentGame.Settings.UseLowResCoordinatesInScript) &&
-                	(_room.Resolution == RoomResolution.HighRes))
-                {
-                    tempx = tempx / 2;
-                    tempy = tempy / 2;
-                }
-
+                RoomEditorState.AdjustCoordsToMatchEngine(_room, ref tempx, ref tempy);
                 string textToCopy = tempx.ToString() + ", " + tempy.ToString();
                 Utilities.CopyTextToClipboard(textToCopy);
             }
@@ -434,20 +393,14 @@ namespace AGS.Editor
             return true;            
         }
 
-        private bool IsHighResGameWithLowResScript()
-        {
-            return (Factory.AGSEditor.CurrentGame.IsHighResolution) &&
-                (Factory.AGSEditor.CurrentGame.Settings.UseLowResCoordinatesInScript);
-        }
-
         private int GetArrowMoveStepSize()
         {
-            return IsHighResGameWithLowResScript() ? 2 : 1;
+            return RoomEditorState.IsHighResRoomWithLowResScript(_room) ? 2 : 1;
         }
 
         private int SetObjectCoordinate(int newCoord)
         {
-            if (IsHighResGameWithLowResScript())
+            if (RoomEditorState.IsHighResRoomWithLowResScript(_room))
             {
                 // Round co-ordinate to nearest even number to reflect what
                 // will happen in the engine

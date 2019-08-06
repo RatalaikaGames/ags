@@ -32,6 +32,8 @@ void shutdown_font_renderer();
 void adjust_y_coordinate_for_text(int* ypos, size_t fontnum);
 IAGSFontRenderer* font_replace_renderer(size_t fontNumber, IAGSFontRenderer* renderer);
 bool font_first_renderer_loaded();
+bool is_font_loaded(size_t fontNumber);
+bool is_bitmap_font(size_t fontNumber);
 bool font_supports_extended_characters(size_t fontNumber);
 // TODO: with changes to WFN font renderer that implemented safe rendering of
 // strings containing invalid chars (since 3.3.1) this function is not
@@ -40,6 +42,8 @@ bool font_supports_extended_characters(size_t fontNumber);
 // at random times (usually - drawing routines).
 // Need to check whether it is safe to completely remove it.
 void ensure_text_valid_for_font(char *text, size_t fontnum);
+int get_font_scaling_mul(size_t fontNumber);
+// Calculate actual width of a line of text
 int wgettextwidth(const char *texx, size_t fontNumber);
 // Calculates actual height of a line of text
 int wgettextheight(const char *text, size_t fontNumber);
@@ -53,11 +57,14 @@ int  get_font_outline(size_t font_number);
 void set_font_outline(size_t font_number, int outline_type);
 // Outputs a single line of text on the defined position on bitmap, using defined font, color and parameters
 int getfontlinespacing(size_t fontNumber);
+// Break up the text into lines restricted by the given width
+void split_lines(const char *texx, int width, int fontNumber);
+// Print text on a surface using a given font
 void wouttextxy(Common::Bitmap *ds, int xxx, int yyy, size_t fontNumber, color_t text_color, const char *texx);
 // Assigns FontInfo to the font
 void set_fontinfo(size_t fontNumber, const FontInfo &finfo);
 // Loads a font from disk
-bool wloadfont_size(size_t fontNumber, const FontInfo &font_info, const FontRenderParams *params = NULL);
+bool wloadfont_size(size_t fontNumber, const FontInfo &font_info);
 void wgtprintf(Common::Bitmap *ds, int xxx, int yyy, size_t fontNumber, color_t text_color, char *fmt, ...);
 void wfreefont(size_t fontNumber);
 

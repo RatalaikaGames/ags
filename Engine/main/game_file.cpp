@@ -57,8 +57,6 @@ extern DialogTopic *dialog;
 extern AGSPlatformDriver *platform;
 extern int numScriptModules;
 
-String game_file_name;
-
 
 // Test if engine supports extended capabilities required to run the game
 bool test_game_caps(const std::set<String> &caps, std::set<String> &failed_caps)
@@ -120,7 +118,7 @@ void PreReadSaveFileInfo(Stream *in, GameDataVersion data_ver)
     game.ReadFromFile(&align_s);
     // Discard game messages we do not need here
     delete [] game.load_messages;
-    game.load_messages = NULL;
+    game.load_messages = nullptr;
     game.read_savegame_info(in, data_ver);
 }
 
@@ -157,6 +155,6 @@ HError load_game_file()
 
 void display_game_file_error(HError err)
 {
-    platform->DisplayAlert(String::FromFormat("Loading game failed with error:\n%s.\n\nThe game files may be incomplete, corrupt or from unsupported version of AGS.",
-        err->FullMessage().GetCStr()));
+    platform->DisplayAlert("Loading game failed with error:\n%s.\n\nThe game files may be incomplete, corrupt or from unsupported version of AGS.",
+        err->FullMessage().GetCStr());
 }

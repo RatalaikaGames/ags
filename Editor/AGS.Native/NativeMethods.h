@@ -25,7 +25,7 @@ namespace AGS
 			NativeMethods(String ^version);
 
 			void Initialize();
-			void NewGameLoaded(Game^ game);
+			void NewGameLoaded(Game^ game, List<String^> ^errors);
 			void SaveGame(Game^ game);
 			void GameSettingsChanged(Game^ game);
 			void PaletteColoursUpdated(Game ^game);
@@ -43,11 +43,9 @@ namespace AGS
       Bitmap^ GetBitmapForSpritePreserveColDepth(int spriteSlot);
 			void DeleteSprite(int spriteSlot);
 			int  GetFreeSpriteSlot();
-			int  GetRelativeSpriteWidth(int spriteSlot);
-			int  GetRelativeSpriteHeight(int spriteSlot);
-			int  GetActualSpriteWidth(int spriteSlot);
-			int  GetActualSpriteHeight(int spriteSlot);
-			int  GetSpriteResolutionMultiplier(int spriteSlot);
+            Types::SpriteInfo^ GetSpriteInfo(int spriteSlot);
+			int  GetSpriteWidth(int spriteSlot);
+			int  GetSpriteHeight(int spriteSlot);
 			bool CropSpriteEdges(System::Collections::Generic::IList<Sprite^>^ sprites, bool symmetric);
 			bool DoesSpriteExist(int spriteNumber);
 			void ChangeSpriteNumber(Sprite^ sprite, int newNumber);
@@ -65,6 +63,7 @@ namespace AGS
 			void ImportBackground(Room ^room, int backgroundNumber, Bitmap ^bmp, bool useExactPalette, bool sharePalette);
 			void DeleteBackground(Room ^room, int backgroundNumber);
 			Bitmap^ GetBitmapForBackground(Room ^room, int backgroundNumber);
+            void AdjustRoomMaskResolution(Room ^room);
 			void DrawLineOntoMask(Room ^room, RoomAreaMaskType maskType, int x1, int y1, int x2, int y2, int color);
 			void DrawFilledRectOntoMask(Room ^room, RoomAreaMaskType maskType, int x1, int y1, int x2, int y2, int color);
 			void DrawFillOntoMask(Room ^room, RoomAreaMaskType maskType, int x1, int y1, int color);

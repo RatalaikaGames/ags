@@ -19,8 +19,7 @@
 #ifndef __AGS_EE_GFX__GRAPHICSDRIVER_H
 #define __AGS_EE_GFX__GRAPHICSDRIVER_H
 
-#include "util/stdtr1compat.h"
-#include TR1INCLUDE(memory)
+#include <memory>
 #include "gfx/gfxdefines.h"
 #include "gfx/gfxmodelist.h"
 #include "util/geometry.h"
@@ -31,7 +30,7 @@ namespace AGS
 namespace Common
 {
     class Bitmap;
-    typedef stdtr1compat::shared_ptr<Common::Bitmap> PBitmap;
+    typedef std::shared_ptr<Common::Bitmap> PBitmap;
 }
 
 namespace Engine
@@ -40,7 +39,7 @@ namespace Engine
 // Forward declaration
 class IDriverDependantBitmap;
 class IGfxFilter;
-typedef stdtr1compat::shared_ptr<IGfxFilter> PGfxFilter;
+typedef std::shared_ptr<IGfxFilter> PGfxFilter;
 using Common::PBitmap;
 
 enum TintMethod
@@ -113,6 +112,7 @@ public:
   // null sprite is encountered. You can use this to hook into the rendering
   // process.
   virtual void SetCallbackForNullSprite(GFXDRV_CLIENTCALLBACKXY callback) = 0;
+  // Clears the screen rectangle. The coordinates are expected in the **native game resolution**.
   virtual void ClearRectangle(int x1, int y1, int x2, int y2, RGB *colorToUse) = 0;
   // Gets closest recommended bitmap format (currently - only color depth) for the given original format.
   // Engine needs to have game bitmaps brought to the certain range of formats, easing conversion into the video bitmaps.
@@ -124,7 +124,7 @@ public:
   // Prepares next sprite batch, a list of sprites with defined viewport and optional
   // global model transformation; all subsequent calls to DrawSprite will be adding
   // sprites to this batch's list.
-  virtual void BeginSpriteBatch(const Rect &viewport, const SpriteTransform &transform, PBitmap surface = NULL) = 0;
+  virtual void BeginSpriteBatch(const Rect &viewport, const SpriteTransform &transform, PBitmap surface = nullptr) = 0;
   // Adds sprite to the active batch
   virtual void DrawSprite(int x, int y, IDriverDependantBitmap* bitmap) = 0;
   // Clears all sprite batches, resets batch counter
@@ -141,8 +141,8 @@ public:
   virtual void Render(GlobalFlipType flip) = 0;
   // Copies contents of the game screen into bitmap using simple blit or pixel copy.
   // Bitmap must be of supported size and pixel format. If it's not the method will
-  // fail and optionally write wanted destination size into 'want_size' pointer.
-  virtual bool GetCopyOfScreenIntoBitmap(Common::Bitmap *destination, bool at_native_res, Size *want_size = NULL) = 0;
+  // fail and optionally write wanted destination format into 'want_fmt' pointer.
+  virtual bool GetCopyOfScreenIntoBitmap(Common::Bitmap *destination, bool at_native_res, GraphicResolution *want_fmt = nullptr) = 0;
   virtual void EnableVsyncBeforeRender(bool enabled) = 0;
   virtual void Vsync() = 0;
   // Enables or disables rendering mode that draws sprite list directly into
@@ -161,7 +161,7 @@ public:
   virtual void FadeIn(int speed, PALETTE p, int targetColourRed, int targetColourGreen, int targetColourBlue) = 0;
   // Runs box-out animation in a blocking manner.
   virtual void BoxOutEffect(bool blackingOut, int speed, int delay) = 0;
-  virtual bool PlayVideo(const char *filename, bool useAVISound, VideoSkipType skipType, bool stretchToFullScreen) = 0;
+  virtual bool PlayVideo(const char *filename, bool useAVISound, VideoSkipType skipType, bool stretchToFullScreen) { return false; }
   virtual void UseSmoothScaling(bool enabled) = 0;
   virtual bool SupportsGammaControl() = 0;
   virtual void SetGamma(int newGamma) = 0;
@@ -178,7 +178,7 @@ public:
   virtual bool RequiresFullRedrawEachFrame() = 0;
   virtual bool HasAcceleratedTransform() = 0;
   virtual bool UsesMemoryBackBuffer() = 0;
-  virtual ~IGraphicsDriver() { }
+  virtual ~IGraphicsDriver() = default;
 };
 
 } // namespace Engine

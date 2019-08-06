@@ -5,8 +5,9 @@ but a workalike plugin created by JJS for the AGS engine PSP port.
 
 */
 
-#ifdef WIN32
-#define WINDOWS_VERSION
+#include "core/platform.h"
+
+#if AGS_PLATFORM_OS_WINDOWS
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #pragma warning(disable : 4244)
@@ -75,9 +76,9 @@ int g_FollowCharacterDy = 0;
 int g_FollowCharacterHorz = 0;
 int g_FollowCharacterVert = 0;
 
-AGSCharacter* g_FollowCharacter = NULL;
+AGSCharacter* g_FollowCharacter = nullptr;
 
-BITMAP* g_LightBitmap = NULL;
+BITMAP* g_LightBitmap = nullptr;
 
 
 // This function is from Allegro, split for more performance.
@@ -423,7 +424,7 @@ void CreateLightBitmap()
    {
 	   engine->GetMousePosition(&g_FlashlightX, &g_FlashlightY);
    }
-   else if (g_FollowCharacter != NULL)
+   else if (g_FollowCharacter != nullptr)
    {
      g_FlashlightX = g_FollowCharacter->x + g_FollowCharacterDx;
      g_FlashlightY = g_FollowCharacter->y + g_FollowCharacterDy;
@@ -834,7 +835,7 @@ void AGS_EngineInitGfx(const char *driverID, void *data)
 
 
 
-#if defined(WINDOWS_VERSION) && !defined(BUILTIN_PLUGINS)
+#if AGS_PLATFORM_OS_WINDOWS && !defined(BUILTIN_PLUGINS)
 
 // ********************************************
 // ***********  Editor Interface  *************

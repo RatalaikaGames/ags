@@ -12,9 +12,11 @@
 //
 //=============================================================================
 
-#ifdef _DEBUG
+#include "core/platform.h"
+#if AGS_PLATFORM_DEBUG
 
 #include <string.h>
+#include <vector>
 #include "util/path.h"
 #include "util/string.h"
 #include "debug/assert.h"
@@ -455,6 +457,17 @@ void Test_String()
         assert(strcmp(str11, "MyNewGame") == 0);
         assert(strcmp(str12, "\\MyNewGame") == 0);
     }
+
+    // Test Split
+    {
+        String str1 = "C:\\Games\\AGS\\MyNewGame\\";
+        std::vector<String> result = str1.Split('\\');
+        assert(result.size() == 4);
+        assert(strcmp(result[0], "C:") == 0);
+        assert(strcmp(result[1], "Games") == 0);
+        assert(strcmp(result[2], "AGS") == 0);
+        assert(strcmp(result[3], "MyNewGame") == 0);
+    }
 }
 
-#endif // _DEBUG
+#endif // AGS_PLATFORM_DEBUG

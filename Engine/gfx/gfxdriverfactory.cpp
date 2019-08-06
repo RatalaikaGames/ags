@@ -13,15 +13,21 @@
 //=============================================================================
 
 #include "gfx/gfxdriverfactory.h"
+
+#include "core/platform.h"
+
+#define AGS_HAS_DIRECT3D (AGS_PLATFORM_OS_WINDOWS)
+#define AGS_HAS_OPENGL (AGS_PLATFORM_OS_WINDOWS || AGS_PLATFORM_OS_ANDROID || AGS_PLATFORM_OS_IOS || AGS_PLATFORM_OS_LINUX)
+
 #include "gfx/ali3dsw.h"
 #include "gfx/gfxfilter_allegro.h"
 
-#if defined(WINDOWS_VERSION) || defined(ANDROID_VERSION) || defined(IOS_VERSION)
-#include "gfx/ali3dogl.h" // TODO: support on Linux too
+#if AGS_HAS_OPENGL
+#include "gfx/ali3dogl.h"
 #include "gfx/gfxfilter_ogl.h"
 #endif
 
-#if defined(WINDOWS_VERSION)
+#if AGS_HAS_DIRECT3D
 #include "platform/windows/gfx/ali3dd3d.h"
 #include "gfx/gfxfilter_d3d.h"
 #endif
@@ -40,10 +46,10 @@ namespace Engine
 
 void GetGfxDriverFactoryNames(StringV &ids)
 {
-#ifdef WINDOWS_VERSION
+#if AGS_HAS_DIRECT3D
     ids.push_back("D3D9");
 #endif
-#if defined (ANDROID_VERSION) || defined (IOS_VERSION) || defined (WINDOWS_VERSION)
+#if AGS_HAS_OPENGL
     ids.push_back("OGL");
 #endif
 #if defined(CONSOLE_VERSION)
@@ -56,11 +62,11 @@ void GetGfxDriverFactoryNames(StringV &ids)
 
 IGfxDriverFactory *GetGfxDriverFactory(const String id)
 {
-#ifdef WINDOWS_VERSION
+#if AGS_HAS_DIRECT3D
     if (id.CompareNoCase("D3D9") == 0)
         return D3D::D3DGraphicsFactory::GetFactory();
 #endif
-#if defined (ANDROID_VERSION) || defined (IOS_VERSION)|| defined (WINDOWS_VERSION)
+#if AGS_HAS_OPENGL
     if (id.CompareNoCase("OGL") == 0)
         return OGL::OGLGraphicsFactory::GetFactory();
 #endif
@@ -73,7 +79,7 @@ IGfxDriverFactory *GetGfxDriverFactory(const String id)
     if (id.CompareNoCase("Software") == 0)
         return ALSW::ALSWGraphicsFactory::GetFactory();
     set_allegro_error("No graphics factory with such id: %s", id.GetCStr());
-    return NULL;
+    return nullptr;
 }
 
 } // namespace Engine

@@ -18,7 +18,7 @@
 #include "ac/global_translation.h"
 #include "ac/runtime_defines.h"
 #include "ac/string.h"
-#include "util/string_utils.h" //strlwr()
+#include "util/string_compat.h"
 
 extern int MAXSTRLEN;
 
@@ -63,7 +63,7 @@ return strcmp (get_translation (s1), get_translation(s2));
 }
 
 int _sc_stricmp (char *s1, char *s2) {
-return stricmp (get_translation (s1), get_translation(s2));
+return ags_stricmp (get_translation (s1), get_translation(s2));
 }*/
 
 void _sc_strcpy(char*destt, const char *text) {

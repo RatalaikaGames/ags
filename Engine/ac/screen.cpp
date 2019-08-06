@@ -48,10 +48,15 @@ void my_fade_in(PALETTE p, int speed) {
         }
     }
 
+    // For software renderer we must reconstruct full game view on virtual screen,
+    // because it could have been filled with blackness since the last fade-out.
+    if (gfxDriver->UsesMemoryBackBuffer())
+        construct_virtual_screen(true);
+
     gfxDriver->FadeIn(speed, p, play.fade_to_red, play.fade_to_green, play.fade_to_blue);
 }
 
-Bitmap *saved_viewport_bitmap = NULL;
+Bitmap *saved_viewport_bitmap = nullptr;
 color old_palette[256];
 void current_fade_out_effect () {
     if (pl_run_plugin_hooks(AGSE_TRANSITIONOUT, 0))
@@ -86,7 +91,7 @@ void current_fade_out_effect () {
 
 IDriverDependantBitmap* prepare_screen_for_transition_in()
 {
-    if (saved_viewport_bitmap == NULL)
+    if (saved_viewport_bitmap == nullptr)
         quit("Crossfade: buffer is null attempting transition");
 
     saved_viewport_bitmap = ReplaceBitmapWithSupportedFormat(saved_viewport_bitmap);
@@ -118,12 +123,12 @@ IDriverDependantBitmap* prepare_screen_for_transition_in()
 
 int Screen_GetScreenWidth()
 {
-    return game.size.Width;
+    return game.GetGameRes().Width;
 }
 
 int Screen_GetScreenHeight()
 {
-    return game.size.Height;
+    return game.GetGameRes().Height;
 }
 
 bool Screen_GetAutoSizeViewport()
@@ -138,21 +143,37 @@ void Screen_SetAutoSizeViewport(bool on)
 
 ScriptViewport* Screen_GetViewport()
 {
-    ScriptViewport *viewport = new ScriptViewport();
-    ccRegisterManagedObject(viewport, viewport);
-    return viewport;
+    return play.GetScriptViewport(0);
+}
+
+int Screen_GetViewportCount()
+{
+    return play.GetRoomViewportCount();
+}
+
+ScriptViewport* Screen_GetAnyViewport(int index)
+{
+    return play.GetScriptViewport(index);
 }
 
 ScriptUserObject* Screen_ScreenToRoomPoint(int scrx, int scry)
 {
-    multiply_up_coordinates(&scrx, &scry);
+    data_to_game_coords(&scrx, &scry);
 
     VpPoint vpt = play.ScreenToRoom(scrx, scry);
     if (vpt.second < 0)
-        return NULL;
+        return nullptr;
 
-    divide_down_coordinates(vpt.first.X, vpt.first.Y);
+    game_to_data_coords(vpt.first.X, vpt.first.Y);
     return ScriptStructHelpers::CreatePoint(vpt.first.X, vpt.first.Y);
+}
+
+ScriptUserObject *Screen_RoomToScreenPoint(int roomx, int roomy)
+{
+    data_to_game_coords(&roomx, &roomy);
+    Point pt = play.RoomToScreen(roomx, roomy);
+    game_to_data_coords(pt.X, pt.Y);
+    return ScriptStructHelpers::CreatePoint(pt.X, pt.Y);
 }
 
 RuntimeScriptValue Sc_Screen_GetScreenHeight(const RuntimeScriptValue *params, int32_t param_count)
@@ -180,9 +201,24 @@ RuntimeScriptValue Sc_Screen_GetViewport(const RuntimeScriptValue *params, int32
     API_SCALL_OBJAUTO(ScriptViewport, Screen_GetViewport);
 }
 
+RuntimeScriptValue Sc_Screen_GetViewportCount(const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_SCALL_INT(Screen_GetViewportCount);
+}
+
+RuntimeScriptValue Sc_Screen_GetAnyViewport(const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_SCALL_OBJAUTO_PINT(ScriptViewport, Screen_GetAnyViewport);
+}
+
 RuntimeScriptValue Sc_Screen_ScreenToRoomPoint(const RuntimeScriptValue *params, int32_t param_count)
 {
     API_SCALL_OBJAUTO_PINT2(ScriptUserObject, Screen_ScreenToRoomPoint);
+}
+
+RuntimeScriptValue Sc_Screen_RoomToScreenPoint(const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_SCALL_OBJAUTO_PINT2(ScriptUserObject, Screen_RoomToScreenPoint);
 }
 
 void RegisterScreenAPI()
@@ -192,5 +228,8 @@ void RegisterScreenAPI()
     ccAddExternalStaticFunction("Screen::get_AutoSizeViewportOnRoomLoad", Sc_Screen_GetAutoSizeViewport);
     ccAddExternalStaticFunction("Screen::set_AutoSizeViewportOnRoomLoad", Sc_Screen_SetAutoSizeViewport);
     ccAddExternalStaticFunction("Screen::get_Viewport", Sc_Screen_GetViewport);
+    ccAddExternalStaticFunction("Screen::get_ViewportCount", Sc_Screen_GetViewportCount);
+    ccAddExternalStaticFunction("Screen::geti_Viewports", Sc_Screen_GetAnyViewport);
     ccAddExternalStaticFunction("Screen::ScreenToRoomPoint", Sc_Screen_ScreenToRoomPoint);
+    ccAddExternalStaticFunction("Screen::RoomToScreenPoint", Sc_Screen_RoomToScreenPoint);
 }

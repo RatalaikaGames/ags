@@ -13,20 +13,16 @@
 //=============================================================================
 
 #include "media/audio/ambientsound.h"
-#include "media/audio/audiodefines.h"
+#include "media/audio/audio.h"
 #include "media/audio/soundclip.h"
 #include "util/stream.h"
-#include "media/audio/audio.h"
 
 using AGS::Common::Stream;
 
 bool AmbientSound::IsPlaying () {
-    
     if (channel <= 0)
         return false;
-
-    AudioChannelsLock _lock;
-    return (_lock.GetChannel(channel) != nullptr) ? true : false;
+    return channel_is_playing(channel);
 }
 
 void AmbientSound::ReadFromFile(Stream *in)

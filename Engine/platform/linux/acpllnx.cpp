@@ -12,9 +12,9 @@
 //
 //=============================================================================
 
-#if !defined(LINUX_VERSION)
-#error This file should only be included on the Linux or BSD build
-#endif
+#include "core/platform.h"
+
+#if AGS_PLATFORM_OS_LINUX
 
 // ********* LINUX PLACEHOLDER DRIVER *********
 
@@ -22,6 +22,7 @@
 #include <allegro.h>
 #include <xalleg.h>
 #include "ac/runtime_defines.h"
+#include "gfx/gfxdefines.h"
 #include "platform/base/agsplatformdriver.h"
 #include "plugin/agsplugin.h"
 #include "util/string.h"
@@ -41,25 +42,24 @@ String LinuxOutputDirectory;
 
 struct AGSLinux : AGSPlatformDriver {
 
-  virtual int  CDPlayerCommand(int cmdd, int datt);
-  virtual void Delay(int millis);
-  virtual void DisplayAlert(const char*, ...);
-  virtual const char *GetUserSavedgamesDirectory();
-  virtual const char *GetUserConfigDirectory();
-  virtual const char *GetUserGlobalConfigDirectory();
-  virtual const char *GetAppOutputDirectory();
-  virtual unsigned long GetDiskFreeSpaceMB();
-  virtual const char* GetNoMouseErrorString();
-  virtual bool IsMouseControlSupported(bool windowed);
-  virtual const char* GetAllegroFailUserHint();
-  virtual eScriptSystemOSID GetSystemOSID();
-  virtual int  InitializeCDPlayer();
-  virtual void PlayVideo(const char* name, int skip, int flags);
-  virtual void PostAllegroExit();
-  virtual void SetGameWindowIcon();
-  virtual void ShutdownCDPlayer();
-  virtual bool LockMouseToWindow();
-  virtual void UnlockMouse();
+  int  CDPlayerCommand(int cmdd, int datt) override;
+  void DisplayAlert(const char*, ...) override;
+  const char *GetUserSavedgamesDirectory() override;
+  const char *GetUserConfigDirectory() override;
+  const char *GetUserGlobalConfigDirectory() override;
+  const char *GetAppOutputDirectory() override;
+  unsigned long GetDiskFreeSpaceMB() override;
+  const char* GetNoMouseErrorString() override;
+  bool IsMouseControlSupported(bool windowed) override;
+  const char* GetAllegroFailUserHint() override;
+  eScriptSystemOSID GetSystemOSID() override;
+  int  InitializeCDPlayer() override;
+  void PostAllegroExit() override;
+  void SetGameWindowIcon() override;
+  void ShutdownCDPlayer() override;
+  bool LockMouseToWindow() override;
+  void UnlockMouse() override;
+  void GetSystemDisplayModes(std::vector<Engine::DisplayMode> &dms) override;
 };
 
 
@@ -73,7 +73,7 @@ void AGSLinux::DisplayAlert(const char *text, ...) {
   va_start(ap, text);
   vsprintf(displbuf, text, ap);
   va_end(ap);
-  printf("%s", displbuf);
+  printf("%s\n", displbuf);
 }
 
 size_t BuildXDGPath(char *destPath, size_t destSize)
@@ -138,13 +138,6 @@ const char *AGSLinux::GetAppOutputDirectory()
   return LinuxOutputDirectory;
 }
 
-void AGSLinux::Delay(int millis) {
-  struct timespec ts;
-  ts.tv_sec = 0;
-  ts.tv_nsec = millis * 1000000;
-  nanosleep(&ts, NULL);
-}
-
 unsigned long AGSLinux::GetDiskFreeSpaceMB() {
   // placeholder
   return 100;
@@ -172,10 +165,6 @@ int AGSLinux::InitializeCDPlayer() {
   return cd_player_init();
 }
 
-void AGSLinux::PlayVideo(const char *name, int skip, int flags) {
-  // do nothing
-}
-
 void AGSLinux::PostAllegroExit() {
   // do nothing
 }
@@ -189,7 +178,7 @@ void AGSLinux::ShutdownCDPlayer() {
 }
 
 AGSPlatformDriver* AGSPlatformDriver::GetDriver() {
-  if (instance == NULL)
+  if (instance == nullptr)
     instance = new AGSLinux();
   return instance;
 }
@@ -205,3 +194,17 @@ void AGSLinux::UnlockMouse()
 {
     XUngrabPointer(_xwin.display, CurrentTime);
 }
+
+void AGSLinux::GetSystemDisplayModes(std::vector<Engine::DisplayMode> &dms)
+{
+    dms.clear();
+    GFX_MODE_LIST *gmlist = get_gfx_mode_list(GFX_XWINDOWS_FULLSCREEN);
+    for (int i = 0; i < gmlist->num_modes; ++i)
+    {
+        const GFX_MODE &m = gmlist->mode[i];
+        dms.push_back(Engine::DisplayMode(Engine::GraphicResolution(m.width, m.height, m.bpp)));
+    }
+    destroy_gfx_mode_list(gmlist);
+}
+
+#endif

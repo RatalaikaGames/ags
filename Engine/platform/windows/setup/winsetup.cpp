@@ -12,17 +12,16 @@
 //
 //=============================================================================
 
-#if !defined (WINDOWS_VERSION)
-#error This file should only be included on the Windows build
-#endif
+#include "core/platform.h"
+
+#if AGS_PLATFORM_OS_WINDOWS
 
 #include <windows.h>
 #include <commctrl.h>
 #include <crtdbg.h>
 #include <shlobj.h>
 #include <shlwapi.h>
-#include "util/stdtr1compat.h"
-#include TR1INCLUDE(memory)
+#include <memory>
 #include <algorithm>
 #include <set>
 #include <vector>
@@ -93,8 +92,8 @@ struct WinConfig
     bool   RenderAtScreenRes;
     bool   AntialiasSprites;
 
-    int    DigiWinIdx;
-    int    MidiWinIdx;
+    int    DigiID;
+    int    MidiID;
     bool   UseVoicePack;
 
     bool   MouseAutoLock;
@@ -136,8 +135,8 @@ void WinConfig::SetDefaults()
     MouseAutoLock = false;
     MouseSpeed = 1.f;
 
-    DigiWinIdx = 0;
-    MidiWinIdx = 0;
+    DigiID = -1; // autodetect
+    MidiID = -1;
     UseVoicePack = true;
 
     SpriteCacheSize = 1024 * 128;
@@ -174,8 +173,8 @@ void WinConfig::Load(const ConfigTree &cfg)
 
     AntialiasSprites = INIreadint(cfg, "misc", "antialias", AntialiasSprites ? 1 : 0) != 0;
 
-    DigiWinIdx = INIreadint(cfg, "sound", "digiwinindx", DigiWinIdx);
-    MidiWinIdx = INIreadint(cfg, "sound", "midiwinindx", MidiWinIdx);
+    DigiID = read_driverid(cfg, "sound", "digiid", DigiID);
+    MidiID = read_driverid(cfg, "sound", "midiid", MidiID);
     UseVoicePack = INIreadint(cfg, "sound", "usespeech", UseVoicePack ? 1 : 0) != 0;
 
     MouseAutoLock = INIreadint(cfg, "mouse", "auto_lock", MouseAutoLock ? 1 : 0) != 0;
@@ -208,8 +207,8 @@ void WinConfig::Save(ConfigTree &cfg)
 
     INIwriteint(cfg, "misc", "antialias", AntialiasSprites ? 1 : 0);
 
-    INIwriteint(cfg, "sound", "digiwinindx", DigiWinIdx);
-    INIwriteint(cfg, "sound", "midiwinindx", MidiWinIdx);
+    write_driverid(cfg, "sound", "digiid", DigiID);
+    write_driverid(cfg, "sound", "midiid", MidiID);
     INIwriteint(cfg, "sound", "usespeech", UseVoicePack ? 1 : 0);
 
     INIwriteint(cfg, "mouse", "auto_lock", MouseAutoLock ? 1 : 0);
@@ -482,7 +481,7 @@ private:
     Size _winSize;
     Size _baseSize;
     // Driver descriptions
-    typedef stdtr1compat::shared_ptr<DriverDesc> PDriverDesc;
+    typedef std::shared_ptr<DriverDesc> PDriverDesc;
     typedef std::map<String, PDriverDesc> DriverDescMap;
     DriverDescMap _drvDescMap;
     PDriverDesc _drvDesc;
@@ -491,35 +490,35 @@ private:
     Size _desktopSize;
     Size _maxWindowSize;
     Size _minGameSize;
-    int _maxGameScale;
-    int _minGameScale;
+    int _maxGameScale = 0;
+    int _minGameScale = 0;
 
     // Dialog controls
-    HWND _hVersionText;
-    HWND _hCustomSaveDir;
-    HWND _hCustomSaveDirBtn;
-    HWND _hCustomSaveDirCheck;
-    HWND _hGfxDriverList;
-    HWND _hGfxModeList;
-    HWND _hGfxFilterList;
-    HWND _hFsScalingList;
-    HWND _hWinScalingList;
-    HWND _hDigiDriverList;
-    HWND _hMidiDriverList;
-    HWND _hLanguageList;
-    HWND _hSpriteCacheList;
-    HWND _hWindowed;
-    HWND _hVSync;
-    HWND _hRenderAtScreenRes;
-    HWND _hRefresh85Hz;
-    HWND _hAntialiasSprites;
-    HWND _hUseVoicePack;
-    HWND _hAdvanced;
-    HWND _hGameResolutionText;
-    HWND _hGfxModeText;
-    HWND _hMouseLock;
-    HWND _hMouseSpeed;
-    HWND _hMouseSpeedText;
+    HWND _hVersionText = NULL;
+    HWND _hCustomSaveDir = NULL;
+    HWND _hCustomSaveDirBtn = NULL;
+    HWND _hCustomSaveDirCheck = NULL;
+    HWND _hGfxDriverList = NULL;
+    HWND _hGfxModeList = NULL;
+    HWND _hGfxFilterList = NULL;
+    HWND _hFsScalingList = NULL;
+    HWND _hWinScalingList = NULL;
+    HWND _hDigiDriverList = NULL;
+    HWND _hMidiDriverList = NULL;
+    HWND _hLanguageList = NULL;
+    HWND _hSpriteCacheList = NULL;
+    HWND _hWindowed = NULL;
+    HWND _hVSync = NULL;
+    HWND _hRenderAtScreenRes = NULL;
+    HWND _hRefresh85Hz = NULL;
+    HWND _hAntialiasSprites = NULL;
+    HWND _hUseVoicePack = NULL;
+    HWND _hAdvanced = NULL;
+    HWND _hGameResolutionText = NULL;
+    HWND _hGfxModeText = NULL;
+    HWND _hMouseLock = NULL;
+    HWND _hMouseSpeed = NULL;
+    HWND _hMouseSpeedText = NULL;
 };
 
 WinSetupDialog *WinSetupDialog::_dlg = NULL;
@@ -638,32 +637,16 @@ INT_PTR WinSetupDialog::OnInitDialog(HWND hwnd)
     SetCheck(_hRenderAtScreenRes, _winCfg.RenderAtScreenRes);
 
     AddString(_hDigiDriverList, "No Digital Sound", DIGI_NONE);
+    AddString(_hDigiDriverList, "Default device (auto)", MIDI_AUTODETECT);
     AddString(_hDigiDriverList, "Default DirectSound Device", DIGI_DIRECTAMX(0));
     AddString(_hDigiDriverList, "Default WaveOut Device", DIGI_WAVOUTID(0));
     AddString(_hDigiDriverList, "DirectSound (Hardware mixer)", DIGI_DIRECTX(0));
-    // converting from legacy hard-coded indexes
-    int digiwin_drv;
-    switch (_winCfg.DigiWinIdx)
-    {
-    case 0:  digiwin_drv = DIGI_DIRECTAMX(0); break;
-    case 1:  digiwin_drv = DIGI_WAVOUTID(0); break;
-    case 3:  digiwin_drv = DIGI_DIRECTX(0); break;
-    default: digiwin_drv = DIGI_NONE; break;
-    }
-    SetCurSelToItemData(_hDigiDriverList, digiwin_drv);
+    SetCurSelToItemData(_hDigiDriverList, _winCfg.DigiID);
 
-    AddString(_hMidiDriverList, "Disable MIDI music", MIDI_NONE);
-    AddString(_hMidiDriverList, "Default MCI Music Device", MIDI_AUTODETECT);
+    AddString(_hMidiDriverList, "No MIDI music", MIDI_NONE);
+    AddString(_hMidiDriverList, "Default device (auto)", MIDI_AUTODETECT);
     AddString(_hMidiDriverList, "Win32 MIDI Mapper", MIDI_WIN32MAPPER);
-    // converting from legacy hard-coded indexes
-    int midiwin_drv;
-    switch (_winCfg.MidiWinIdx)
-    {
-    case 1:  midiwin_drv = MIDI_NONE; break;
-    case 2:  midiwin_drv = MIDI_WIN32MAPPER; break;
-    default: midiwin_drv = MIDI_AUTODETECT; break;
-    }
-    SetCurSelToItemData(_hMidiDriverList, midiwin_drv);
+    SetCurSelToItemData(_hMidiDriverList, _winCfg.MidiID);
 
     FillLanguageList();
 
@@ -1018,7 +1001,8 @@ void WinSetupDialog::FillScalingList(HWND hlist, GameFrameSetup &frame_setup, bo
 
     const int min_scale = min(_winCfg.GameResolution.Width / _minGameSize.Width, _winCfg.GameResolution.Height / _minGameSize.Height);
     const Size max_size = windowed ? _maxWindowSize : _winCfg.ScreenSize;
-    const int max_scale = min(max_size.Width / _winCfg.GameResolution.Width, max_size.Height / _winCfg.GameResolution.Height);
+    const int max_scale = _winCfg.GameResolution.IsNull() ? 1 :
+        min(max_size.Width / _winCfg.GameResolution.Width, max_size.Height / _winCfg.GameResolution.Height);
     _maxGameScale = max(1, max_scale);
     _minGameScale = -max(1, min_scale);
 
@@ -1142,24 +1126,8 @@ void WinSetupDialog::SaveSetup()
         _winCfg.UserSaveDir = "";
     }
 
-    int digiwin_drv = GetCurItemData(_hDigiDriverList);
-    // converting to legacy hard-coded indexes
-    switch (digiwin_drv)
-    {
-    case DIGI_DIRECTAMX(0): _winCfg.DigiWinIdx = 0; break;
-    case DIGI_WAVOUTID(0):  _winCfg.DigiWinIdx = 1; break;
-    case DIGI_DIRECTX(0):   _winCfg.DigiWinIdx = 3; break;
-    default:                _winCfg.DigiWinIdx = 2; break;
-    }
-
-    int midiwin_drv = GetCurItemData(_hMidiDriverList);
-    // converting to legacy hard-coded indexes
-    switch (midiwin_drv)
-    {
-    case MIDI_NONE:        _winCfg.MidiWinIdx = 1; break;
-    case MIDI_WIN32MAPPER: _winCfg.MidiWinIdx = 2; break;
-    default:               _winCfg.MidiWinIdx = 0; break;
-    }
+    _winCfg.DigiID = GetCurItemData(_hDigiDriverList);
+    _winCfg.MidiID = GetCurItemData(_hMidiDriverList);
 
     if (GetCurSel(_hLanguageList) == 0)
         _winCfg.Language.Empty();
@@ -1275,3 +1243,5 @@ SetupReturnValue WinSetup(const ConfigTree &cfg_in, ConfigTree &cfg_out,
 
 } // namespace Engine
 } // namespace AGS
+
+#endif // AGS_PLATFORM_OS_WINDOWS

@@ -65,9 +65,9 @@
 #include "ac/parser.h"
 #include "ac/string.h"
 #include "ac/room.h"
-#include "media/audio/audio.h"
 #include "media/video/video.h"
-#include "util/string_utils.h"
+#include "util/string_compat.h"
+#include "media/audio/audio_system.h"
 
 #include "ac/dynobj/scriptstring.h"
 extern ScriptString myScriptStringImpl;
@@ -1220,12 +1220,6 @@ RuntimeScriptValue Sc_PlaySoundEx(const RuntimeScriptValue *params, int32_t para
     API_SCALL_INT_PINT2(PlaySoundEx);
 }
 
-// void (int who, int which)
-RuntimeScriptValue Sc_scr_play_speech(const RuntimeScriptValue *params, int32_t param_count)
-{
-    API_SCALL_VOID_PINT2(__scr_play_speech);
-}
-
 // void (const char* name, int skip, int flags)
 RuntimeScriptValue Sc_scrPlayVideo(const RuntimeScriptValue *params, int32_t param_count)
 {
@@ -2086,8 +2080,8 @@ RuntimeScriptValue Sc_sc_strcat(const RuntimeScriptValue *params, int32_t param_
 
 RuntimeScriptValue Sc_stricmp(const RuntimeScriptValue *params, int32_t param_count)
 {
-    // Calling C stdlib function stricmp
-    API_SCALL_INT_POBJ2(stricmp, const char, const char);
+    // Calling C stdlib function ags_stricmp
+    API_SCALL_INT_POBJ2(ags_stricmp, const char, const char);
 }
 
 RuntimeScriptValue Sc_strcmp(const RuntimeScriptValue *params, int32_t param_count)
@@ -2139,7 +2133,7 @@ RuntimeScriptValue Sc_strlen(const RuntimeScriptValue *params, int32_t param_cou
 // void  (char *strin, int posn, int nchar)
 RuntimeScriptValue Sc_StrSetCharAt(const RuntimeScriptValue *params, int32_t param_count)
 {
-    ASSERT_PARAM_COUNT(StrSetCharAt, 3) \
+    ASSERT_PARAM_COUNT(StrSetCharAt, 3);
     StrSetCharAt((char*)params[0].Ptr, params[1].IValue, params[2].IValue);
     return params[0];
 }
@@ -2480,7 +2474,6 @@ void RegisterGlobalAPI()
 	ccAddExternalStaticFunction("PlaySilentMIDI",           Sc_PlaySilentMIDI);
 	ccAddExternalStaticFunction("PlaySound",                Sc_play_sound);
 	ccAddExternalStaticFunction("PlaySoundEx",              Sc_PlaySoundEx);
-	ccAddExternalStaticFunction("PlaySpeech",               Sc_scr_play_speech);
 	ccAddExternalStaticFunction("PlayVideo",                Sc_scrPlayVideo);
 	ccAddExternalStaticFunction("QuitGame",                 Sc_QuitGame);
 	ccAddExternalStaticFunction("Random",                   Sc_Rand);
@@ -2850,7 +2843,6 @@ void RegisterGlobalAPI()
     ccAddExternalFunctionForPlugin("PlaySilentMIDI",           (void*)PlaySilentMIDI);
     ccAddExternalFunctionForPlugin("PlaySound",                (void*)play_sound);
     ccAddExternalFunctionForPlugin("PlaySoundEx",              (void*)PlaySoundEx);
-    ccAddExternalFunctionForPlugin("PlaySpeech",               (void*)__scr_play_speech);
     ccAddExternalFunctionForPlugin("PlayVideo",                (void*)scrPlayVideo);
     ccAddExternalFunctionForPlugin("ProcessClick",             (void*)RoomProcessClick);
     ccAddExternalFunctionForPlugin("QuitGame",                 (void*)QuitGame);
@@ -3001,7 +2993,7 @@ void RegisterGlobalAPI()
     ccAddExternalFunctionForPlugin("StopMusic",                (void*)scr_StopMusic);
     ccAddExternalFunctionForPlugin("StopObjectMoving",         (void*)StopObjectMoving);
     ccAddExternalFunctionForPlugin("StrCat",                   (void*)_sc_strcat);
-    ccAddExternalFunctionForPlugin("StrCaseComp",              (void*)stricmp);
+    ccAddExternalFunctionForPlugin("StrCaseComp",              (void*)ags_stricmp);
     ccAddExternalFunctionForPlugin("StrComp",                  (void*)strcmp);
     ccAddExternalFunctionForPlugin("StrContains",              (void*)StrContains);
     ccAddExternalFunctionForPlugin("StrCopy",                  (void*)_sc_strcpy);

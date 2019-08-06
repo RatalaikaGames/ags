@@ -24,8 +24,6 @@
 #include "ac/roomstatus.h"
 #include "ac/screen.h"
 #include "script/cc_error.h"
-#include "media/audio/audio.h"
-#include "media/audio/soundclip.h"
 #include "platform/base/agsplatformdriver.h"
 #include "plugin/agsplugin.h"
 #include "plugin/plugin_engine.h"
@@ -33,6 +31,8 @@
 #include "gfx/bitmap.h"
 #include "gfx/ddb.h"
 #include "gfx/graphicsdriver.h"
+#include "media/audio/audio_system.h"
+#include "ac/timer.h"
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -45,8 +45,8 @@ extern GameState play;
 extern color palette[256];
 extern IGraphicsDriver *gfxDriver;
 extern AGSPlatformDriver *platform;
-extern volatile int timerloop;
 extern color old_palette[256];
+extern volatile int timerloop;
 
 int in_enters_screen=0,done_es_error = 0;
 int in_leaves_screen = -1;
@@ -60,7 +60,7 @@ int evblocknum;
 int inside_processevent=0;
 int eventClaimed = EVENT_NONE;
 
-const char*tsnames[4]={NULL, REP_EXEC_NAME, "on_key_press","on_mouse_click"};
+const char*tsnames[4]={nullptr, REP_EXEC_NAME, "on_key_press","on_mouse_click"};
 
 
 int run_claimable_event(const char *tsname, bool includeRoom, int numParams, const RuntimeScriptValue *params, bool *eventWasClaimed) {
@@ -106,7 +106,7 @@ void run_on_event (int evtype, RuntimeScriptValue &wparam)
 void run_room_event(int id) {
     evblockbasename="room";
 
-    if (thisroom.EventHandlers != NULL)
+    if (thisroom.EventHandlers != nullptr)
     {
         run_interaction_script(thisroom.EventHandlers.get(), id);
     }
@@ -118,13 +118,13 @@ void run_room_event(int id) {
 
 void run_event_block_inv(int invNum, int event) {
     evblockbasename="inventory%d";
-    if (game.invScripts != NULL)
+    if (loaded_game_file_version > kGameVersion_272)
     {
-        run_interaction_script(game.invScripts[invNum], event);
+        run_interaction_script(game.invScripts[invNum].get(), event);
     }
     else 
     {
-        run_interaction_event(game.intrInv[invNum], event);
+        run_interaction_event(game.intrInv[invNum].get(), event);
     }
 
 }
@@ -166,14 +166,14 @@ void process_event(EventHappened*evp) {
         NewRoom(evp->data1);
     }
     else if (evp->type==EV_RUNEVBLOCK) {
-        Interaction*evpt=NULL;
-        PInteractionScripts scriptPtr = NULL;
+        Interaction*evpt=nullptr;
+        PInteractionScripts scriptPtr = nullptr;
         const char *oldbasename = evblockbasename;
         int   oldblocknum = evblocknum;
 
         if (evp->data1==EVB_HOTSPOT) {
 
-            if (thisroom.Hotspots[evp->data2].EventHandlers != NULL)
+            if (thisroom.Hotspots[evp->data2].EventHandlers != nullptr)
                 scriptPtr = thisroom.Hotspots[evp->data2].EventHandlers;
             else
                 evpt=&croom->intrHotspot[evp->data2];
@@ -184,7 +184,7 @@ void process_event(EventHappened*evp) {
         }
         else if (evp->data1==EVB_ROOM) {
 
-            if (thisroom.EventHandlers != NULL)
+            if (thisroom.EventHandlers != nullptr)
                 scriptPtr = thisroom.EventHandlers;
             else
                 evpt=&croom->intrRoom;
@@ -198,11 +198,11 @@ void process_event(EventHappened*evp) {
             //Debug::Printf("Running room interaction, event %d", evp->data3);
         }
 
-        if (scriptPtr != NULL)
+        if (scriptPtr != nullptr)
         {
             run_interaction_script(scriptPtr.get(), evp->data3);
         }
-        else if (evpt != NULL)
+        else if (evpt != nullptr)
         {
             run_interaction_event(evpt,evp->data3);
         }
@@ -229,9 +229,6 @@ void process_event(EventHappened*evp) {
             play.next_screen_transition = -1;
         }
 
-        // React to changes to viewports and cameras (possibly from script) just before the render
-        play.UpdateViewports();
-
         if (pl_run_plugin_hooks(AGSE_TRANSITIONIN, 0))
             return;
 
@@ -239,7 +236,7 @@ void process_event(EventHappened*evp) {
             return;
 
         if (((theTransition == FADE_CROSSFADE) || (theTransition == FADE_DISSOLVE)) &&
-            (saved_viewport_bitmap == NULL)) 
+            (saved_viewport_bitmap == nullptr)) 
         {
             // transition type was not crossfade/dissolve when the screen faded out,
             // but it is now when the screen fades in (Eg. a save game was restored
@@ -249,16 +246,13 @@ void process_event(EventHappened*evp) {
         }
 
 		// TODO: use normal coordinates instead of "native_size" and multiply_up_*?
-        const Size &native_size = play.GetNativeSize();
+        const Size &data_res = game.GetDataRes();
         const Rect &viewport = play.GetMainViewport();
 
         if ((theTransition == FADE_INSTANT) || (play.screen_tint >= 0))
             set_palette_range(palette, 0, 255, 0);
         else if (theTransition == FADE_NORMAL)
         {
-            if (gfxDriver->UsesMemoryBackBuffer())
-                gfxDriver->RenderToBackBuffer();
-
             my_fade_in(palette,5);
         }
         else if (theTransition == FADE_BOXOUT) 
@@ -281,11 +275,11 @@ void process_event(EventHappened*evp) {
                 render_to_screen();
 
                 int boxwid = get_fixed_pixel_size(16);
-                int boxhit = multiply_up_coordinate(native_size.Height / 20);
+                int boxhit = data_to_game_coord(data_res.Height / 20);
                 while (boxwid < temp_scr->GetWidth()) {
                     timerloop = 0;
                     boxwid += get_fixed_pixel_size(16);
-                    boxhit += multiply_up_coordinate(native_size.Height / 20);
+                    boxhit += data_to_game_coord(data_res.Height / 20);
                     boxwid = Math::Clamp(boxwid, 0, viewport.GetWidth());
                     boxhit = Math::Clamp(boxhit, 0, viewport.GetHeight());
                     int lxp = viewport.GetWidth() / 2 - boxwid / 2;
@@ -294,8 +288,10 @@ void process_event(EventHappened*evp) {
                     temp_scr->Blit(saved_backbuf, lxp, lyp, lxp, lyp,
                         boxwid, boxhit);
                     render_to_screen(viewport.Left, viewport.Top);
-                    update_mp3();
-                        while (timerloop == 0) ;
+
+                    update_polled_mp3();
+
+                    WaitForNextFrame();
                 }
                 gfxDriver->SetMemoryBackBuffer(saved_backbuf, viewport.Left, viewport.Top);
             }
@@ -324,14 +320,17 @@ void process_event(EventHappened*evp) {
                     gfxDriver->DrawSprite(0, 0, ddb);
                 }
 				render_to_screen();
+
                 update_polled_stuff_if_runtime();
-                while (timerloop == 0) ;
+
+                WaitForNextFrame();
+
                 transparency -= 16;
             }
             saved_viewport_bitmap->Release();
 
             delete saved_viewport_bitmap;
-            saved_viewport_bitmap = NULL;
+            saved_viewport_bitmap = nullptr;
             set_palette_range(palette, 0, 255, 0);
             gfxDriver->DestroyDDB(ddb);
         }
@@ -362,13 +361,15 @@ void process_event(EventHappened*evp) {
                 draw_screen_callback();
                 gfxDriver->DrawSprite(0, 0, ddb);
 				render_to_screen();
+
                 update_polled_stuff_if_runtime();
-                while (timerloop == 0) ;
+
+                WaitForNextFrame();
             }
             saved_viewport_bitmap->Release();
 
             delete saved_viewport_bitmap;
-            saved_viewport_bitmap = NULL;
+            saved_viewport_bitmap = nullptr;
             set_palette_range(palette, 0, 255, 0);
             gfxDriver->DestroyDDB(ddb);
         }

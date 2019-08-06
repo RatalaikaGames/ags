@@ -765,9 +765,19 @@ namespace AGS
 
 				AGSCON::Graphics::BeginRender();
 
-				//NEW
+                static AGSCON::Graphics::RenderTarget* rtPrescale;
+                //NEW
 				if (!_renderSprAtScreenRes)
 					AGSCON::Graphics::BindRenderTarget(0, pNativeSurface);
+                else
+                {
+                //HACKS! NOT EVEN TRYING RIGHT NOW!
+                    if(!rtPrescale)
+                        rtPrescale = AGSCON::Graphics::RenderTarget_Create(800, 720);
+                  AGSCON::Graphics::BindRenderTarget(0, rtPrescale);
+                    AGSCON::Graphics::SetViewport(0,0,800,720);
+                }
+
 
 				//OLD
 				//TODO - proper offscreen stuff
@@ -783,7 +793,18 @@ namespace AGS
 
 				RenderSpriteBatches(flip);
 
-				if (!_renderSprAtScreenRes) {
+				if (_renderSprAtScreenRes)
+                {
+                    AGSCON::Graphics::Rectangle r;
+                    r.left = 0;
+                    r.right = 800;
+                    r.top = 0;
+                    r.bottom = 720;
+                    AGSCON::Graphics::PresentNative(rtPrescale, &r);
+                }
+                else
+                {
+                    AGSCON::Graphics::PresentNative(pNativeSurface, &viewport_rect);
 					
 					//TODO - uhhhh I guess this is the final presentation logic? that's pretty shoddy. need to re-engineer that
 					

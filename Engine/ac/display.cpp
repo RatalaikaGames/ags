@@ -13,6 +13,7 @@
 //=============================================================================
 
 #include <math.h>
+#include <stdio.h>
 
 #include "ac/display.h"
 #include "ac/common.h"

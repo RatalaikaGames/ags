@@ -13,6 +13,7 @@
 //=============================================================================
 
 #include <math.h>
+#include <stdio.h>
 
 #include "core/platform.h"
 #include "util/wgt2allg.h"

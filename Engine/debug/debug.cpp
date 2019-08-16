@@ -16,6 +16,8 @@
 
 #include <memory>
 #include <limits>
+#include <stdio.h>
+
 #include "core/platform.h"
 #include "ac/common.h"
 #include "ac/gamesetupstruct.h"

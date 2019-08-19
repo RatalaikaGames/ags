@@ -314,7 +314,8 @@ HSaveError OpenSavegameBase(const String &filename, SavegameSource *src, Savegam
 
     // Check saved game signature
     bool is_new_save = false;
-    size_t pre_sig_pos = in->GetPosition();
+    size_t pre_sig_pos = in->GetPosition(); // RATA this looks like it's checking the header
+	in->Seek(0, AGS::Common::kSeekBegin);
     String svg_sig = String::FromStreamCount(in.get(), SavegameSource::Signature.GetLength());
     if (svg_sig.Compare(SavegameSource::Signature) == 0)
     {

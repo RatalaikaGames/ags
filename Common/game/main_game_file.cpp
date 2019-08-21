@@ -25,7 +25,6 @@
 #include "game/main_game_file.h"
 #include "gui/guimain.h"
 #include "script/cc_error.h"
-#include "util/posix.h"
 #include "util/alignedstream.h"
 #include "util/path.h"
 #include "util/string_compat.h"

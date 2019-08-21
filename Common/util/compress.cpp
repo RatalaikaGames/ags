@@ -25,7 +25,6 @@
 #include "util/lzw.h"
 #include "util/misc.h"
 #include "util/stream.h"
-#include "util/posix.h"
 
 using namespace AGS::Common;
 
@@ -313,8 +312,7 @@ void save_lzw(Stream *out, const Bitmap *bmpp, const color *pall)
   // Delete temp file
   delete lz_temp_s;
   
-
-  ags_unlink(lztempfnm);
+  File::DeleteFile(lztempfnm);
 
   // Seek back to the end of the output stream
   out->Seek(toret, kSeekBegin);

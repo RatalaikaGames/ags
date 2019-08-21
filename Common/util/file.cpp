@@ -19,7 +19,6 @@
 #include "util/file.h"
 #include "util/filestream.h"
 #include "util/stdio_compat.h"
-#include "util/posix.h"
 
 namespace AGS
 {

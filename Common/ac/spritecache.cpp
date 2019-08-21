@@ -31,7 +31,6 @@
 #include "util/compress.h"
 #include "util/file.h"
 #include "util/stream.h"
-#include "util/posix.h"
 
 using namespace AGS::Common;
 

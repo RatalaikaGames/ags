@@ -14,7 +14,6 @@
 
 #include <algorithm>
 #include <string.h>
-#include "util/posix.h"
 #include "ac/wordsdictionary.h"
 #include "util/stream.h"
 #include "util/string_compat.h"

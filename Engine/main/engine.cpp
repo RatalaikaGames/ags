@@ -70,7 +70,6 @@
 #include "util/error.h"
 #include "util/misc.h"
 #include "util/path.h"
-#include "util/posix.h"
 
 using namespace AGS::Common;
 using namespace AGS::Engine;

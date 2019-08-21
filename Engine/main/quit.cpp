@@ -39,7 +39,6 @@
 #include "gfx/bitmap.h"
 #include "core/assetmanager.h"
 #include "plugin/plugin_engine.h"
-#include "util/posix.h"
 #include "media/audio/audio_system.h"
 
 using namespace AGS::Common;
@@ -222,7 +221,7 @@ void quit_delete_temp_files()
     al_ffblk	dfb;
     int	dun = al_findfirst("~ac*.tmp",&dfb,FA_SEARCH);
     while (!dun) {
-        ags_unlink(dfb.name);
+        platform->PathDelete(dfb.name);
         dun = al_findnext(&dfb);
     }
     al_findclose (&dfb);

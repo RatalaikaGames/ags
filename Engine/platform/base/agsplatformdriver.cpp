@@ -24,7 +24,6 @@
 #include "ac/game.h"
 #include "util/string_utils.h"
 #include "util/stream.h"
-#include "util/posix.h"
 #include "util/file.h"
 #include "game/main_game_file.h"
 #include "game/savegame.h"
@@ -146,14 +145,14 @@ void AGSPlatformDriver::Save_DeleteSlot(int slnum)
 {
     String nametouse;
     nametouse = get_save_game_path(slnum);
-    ags_unlink (nametouse);
+    PathDelete (nametouse);
     if ((slnum >= 1) && (slnum <= MAXSAVEGAMES)) {
         String thisname;
         for (int i = MAXSAVEGAMES; i > slnum; i--) {
             thisname = get_save_game_path(i);
             if (Common::File::TestReadFile(thisname)) {
                 // Rename the highest save game to fill in the gap
-                rename (thisname, nametouse);
+                PathRename (thisname, nametouse);
                 break;
             }
         }
@@ -244,6 +243,27 @@ bool AGSPlatformDriver::DirectoryExists(const Common::String &path)
     #else
         //should be overridden in platform's driver
         return false;
+    #endif
+}
+
+bool AGSPlatformDriver::PathDelete(const Common::String &path)
+{
+    const char* cPath = path.GetCStr();
+    #ifdef AGS_HAS_POSIX
+    return unlink(cPath)==0;
+    #else
+    return false;
+    #endif
+}
+
+bool AGSPlatformDriver::PathRename(const Common::String &oldpath, const Common::String &newpath)
+{
+    const char* cOldPath = oldpath.GetCStr();
+    const char* cNewPath = newpath.GetCStr();
+    #ifdef AGS_HAS_POSIX
+    return rename(cOldPath,cNewPath)==0;
+    #else
+    return false;
     #endif
 }
 

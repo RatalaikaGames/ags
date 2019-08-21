@@ -177,6 +177,12 @@ struct AGSPlatformDriver
     // Indicates whether the directory exists (path exists, and is a directory)
     virtual bool DirectoryExists(const Common::String &path);
 
+    //deletes a file path
+    virtual bool PathDelete(const Common::String &path);
+
+    //renames a path
+    virtual bool PathRename(const Common::String &oldpath, const Common::String &newpath);
+
     // Functions for allegro plumbing so it can run through virtualized file IO (only used by packfile system)
     // Due to this, I've only bothered to set it up for opening files for reading
     // TODO - these have been specialized to be odd packfile semantics; the functions should be renamed accordingly

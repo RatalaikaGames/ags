@@ -18,7 +18,6 @@
 #include "script/cc_script.h"
 #include "script/script_common.h"
 #include "util/stream.h"
-#include "util/posix.h"
 #include "util/string_compat.h"
 
 using AGS::Common::Stream;

@@ -166,12 +166,28 @@ SOUNDCLIP *my_load_static_mp3(const AssetPath &asset_name, int voll, bool loop)
 
 SOUNDCLIP *my_load_mp3(const AssetPath &asset_name, int voll)
 {
-    return NULL;
+    //MBG - hacks just for me
+    AssetPath alternate;
+    alternate.first = "";
+    alternate.second = asset_name.second;
+    auto name = alternate.second.Left(alternate.second.GetLength()-3);
+    name.Append("ogg");
+    alternate.second = "Oggternate/";
+    alternate.second.Append(name);
+    return my_load_ogg(alternate, voll);
 }
 
 SOUNDCLIP *my_load_static_mp3(const AssetPath &asset_name, int voll, bool loop)
 {
-    return NULL;
+    //MBG - hacks just for me
+    AssetPath alternate;
+    alternate.first = "";
+    alternate.second = asset_name.second;
+    auto name = alternate.second.Left(alternate.second.GetLength()-3);
+    name.Append("ogg");
+    alternate.second = "Oggternate/";
+    alternate.second.Append(name);
+    return my_load_static_ogg(alternate, voll, loop);
 }
 
 #endif // NO_MP3_PLAYER

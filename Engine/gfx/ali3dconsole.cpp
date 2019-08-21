@@ -261,14 +261,11 @@ namespace AGS
 			bool ConsoleGraphicsDriver::SupportsGammaControl() 
 			{
 				//support when I find a game that needs it
-				assert(false);
-				return false;
+				return true;
 			}
 
 			void ConsoleGraphicsDriver::SetGamma(int newGamma)
 			{
-				assert(false);
-				
 				//I'm saving this as a reference of how people expect it to work, but I'll implement it differently if I do support it
 				/*for (int i = 0; i < 256; i++) 
 				{
@@ -277,6 +274,9 @@ namespace AGS
 						newValue = 65535;
 					currentgammaramp.red,green,blue[i] = newValue;
 				}*/
+
+				//This will be implementation-defined.. since it kind of was to begin with (insofar as it wasn't likely to actually work for anyone, nor be an actual gamma adjustment)
+				AGSCON::Graphics::SetGamma(newGamma);
 			}
 
 			void ConsoleGraphicsDriver::InitializeDDState()

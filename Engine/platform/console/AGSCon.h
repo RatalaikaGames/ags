@@ -234,6 +234,8 @@ namespace AGSCON
 
 		void DrawVertices(int start, int count, PrimitiveType primitiveType);
 
+		void SetGamma(int newGamma);
+
 		void PresentNative(RenderTarget* tex, const Rectangle* viewport_rect);
 		void RepresentNative();
 

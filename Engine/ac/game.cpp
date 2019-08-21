@@ -84,7 +84,6 @@
 #include "script/script.h"
 #include "script/script_runtime.h"
 #include "util/alignedstream.h"
-#include "util/directory.h"
 #include "util/filestream.h" // TODO: needed only because plugins expect file handle
 #include "util/path.h"
 #include "util/string_utils.h"
@@ -449,7 +448,7 @@ bool SetSaveGameDirectoryPath(const char *newFolder, bool explicit_path)
     if (explicit_path)
     {
         newSaveGameDir = Path::MakeTrailingSlash(newFolder);
-        if (!Directory::CreateDirectory(newSaveGameDir))
+        if (!platform->DirectoryCreate(newSaveGameDir))
             return false;
     }
     else
@@ -457,7 +456,7 @@ bool SetSaveGameDirectoryPath(const char *newFolder, bool explicit_path)
         ResolvedPath rp;
         if (!MakeSaveGameDir(newFolder, rp))
             return false;
-        if (!Directory::CreateAllDirectories(rp.BaseDir, rp.FullPath))
+        if (!platform->DirectoryCreateAll(rp.BaseDir, rp.FullPath))
         {
             debug_script_warn("SetSaveGameDirectory: failed to create all subdirectories: %s", rp.FullPath.GetCStr());
             return false;

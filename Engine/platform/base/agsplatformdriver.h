@@ -156,6 +156,27 @@ struct AGSPlatformDriver
 
     virtual Common::Stream *OpenFile(eFilePurpose purpose, const Common::String &filename, Common::FileOpenMode open_mode, Common::FileWorkMode work_mode);
 
+    //-----------------------
+    //New functions which only had posix implementations but need to be done differently on non-posix systems
+
+    //(these are named with Directory in front to avoid conflicts with win32 macros that are difficult to avoid)
+    // Creates new directory (if it does not exist)
+    // Returns true if the directory now exists (whether or not it previously existed)
+    virtual bool DirectoryCreate(const Common::String &path);
+    
+    // Sets current working directory, returns the resulting path
+    virtual Common::String DirectorySetCurrent(const Common::String &path);
+    
+    // Makes sure all directories in the path are created. Parent path is
+    // not touched, and function must fail if parent path is not accessible.
+    virtual bool DirectoryCreateAll(const Common::String &parent, const Common::String &path);
+
+    // Gets current working directory
+    virtual Common::String DirectoryGetCurrent();
+
+    // Indicates whether the directory exists (path exists, and is a directory)
+    virtual bool DirectoryExists(const Common::String &path);
+
     // Functions for allegro plumbing so it can run through virtualized file IO (only used by packfile system)
     // Due to this, I've only bothered to set it up for opening files for reading
     // TODO - these have been specialized to be odd packfile semantics; the functions should be renamed accordingly

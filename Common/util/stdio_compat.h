@@ -34,7 +34,6 @@ int	 ags_fseek(FILE * stream, file_off_t offset, int whence);
 file_off_t	 ags_ftell(FILE * stream);
 
 int ags_file_exists(const char *path);
-int ags_directory_exists(const char *path);
 int ags_path_exists(const char *path);
 file_off_t ags_file_size(const char *path);
 

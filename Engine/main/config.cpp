@@ -30,7 +30,6 @@
 #include "main/mainheader.h"
 #include "main/config.h"
 #include "platform/base/agsplatformdriver.h"
-#include "util/directory.h"
 #include "util/ini_util.h"
 #include "util/textstreamreader.h"
 #include "util/path.h"
@@ -293,7 +292,7 @@ void graphics_mode_get_defaults(bool windowed, ScreenSizeSetup &scsz_setup, Game
 String find_default_cfg_file(const char *alt_cfg_file)
 {
     // Try current directory for config first; else try exe dir
-    String filename = String::FromFormat("%s/%s", Directory::GetCurrentDirectory().GetCStr(), DefaultConfigFileName.GetCStr());
+    String filename = String::FromFormat("%s/%s", platform->DirectoryGetCurrent().GetCStr(), DefaultConfigFileName.GetCStr());
     if (!Common::File::TestReadFile(filename))
     {
         char conffilebuf[512];

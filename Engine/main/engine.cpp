@@ -67,7 +67,6 @@
 #include "main/main_allegro.h"
 #include "media/audio/audio_system.h"
 #include "platform/util/pe.h"
-#include "util/directory.h"
 #include "util/error.h"
 #include "util/misc.h"
 #include "util/path.h"
@@ -301,7 +300,7 @@ bool search_for_game_data_file(String &filename, String &search_path)
         if (filename.IsEmpty() || !Common::AssetManager::IsDataFile(filename))
         {
             // 3.2 Look in current directory
-            search_path = Directory::GetCurrentDirectory();
+            search_path = platform->DirectoryGetCurrent();
             filename = find_game_data_in_directory(search_path);
             if (filename.IsEmpty())
             {
@@ -1242,7 +1241,7 @@ HError define_gamedata_location_checkall(const String &exe_path)
         if (!Path::IsFileOrDir(cmdGameDataPath))
             return new Error(String::FromFormat("Defined game location is not a valid path.\nPath: '%s'", cmdGameDataPath.GetCStr()));
         // Switch working dir to this path to be able to look for config and other assets there
-        Directory::SetCurrentDirectory(Path::GetDirectoryPath(cmdGameDataPath));
+        platform->DirectorySetCurrent(Path::GetDirectoryPath(cmdGameDataPath));
         // If it's a file, then keep it and proceed
         if (Path::IsFile(cmdGameDataPath))
         {
@@ -1528,11 +1527,6 @@ void initialize_engine_console(const char* agsPath, const char* cfgPath)
 
     //consoles can always do this, i guess 
     psp_audio_multithreaded = 1;
-
-    //use token rather than empty for save game directories so we can catch it in the console backend
-    //(it's left as empty because SetSaveGameDirectoryPath isn't going to do anything)
-    extern String saveGameDirectory;
-    saveGameDirectory = "$SAVEGAMEDIR$/";
 
     engine_init_allegro();
 

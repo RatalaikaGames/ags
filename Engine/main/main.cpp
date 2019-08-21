@@ -39,7 +39,6 @@
 #include "platform/base/agsplatformdriver.h"
 #include "ac/route_finder.h"
 #include "core/assetmanager.h"
-#include "util/directory.h"
 #include "util/path.h"
 #include "util/string_compat.h"
 
@@ -336,7 +335,7 @@ void main_set_gamedir(int argc, char*argv[])
     {
         // When launched by double-clicking a save game file, the curdir will
         // be the save game folder unless we correct it
-        Directory::SetCurrentDirectory(appDirectory);
+        platform->DirectorySetCurrent(appDirectory);
     }
     else
     {
@@ -345,10 +344,10 @@ void main_set_gamedir(int argc, char*argv[])
         // current directory for its own operations, it "fixes" it by
         // substituting non-ASCII symbols with '^'.
         // Here we explicitly set current directory to ASCII path.
-        String cur_dir = Directory::GetCurrentDirectory();
+        String cur_dir = platform->DirectoryGetCurrent();
         String path = Path::GetPathInASCII(cur_dir);
         if (!path.IsEmpty())
-            Directory::SetCurrentDirectory(Path::MakeAbsolutePath(path));
+            platform->DirectorySetCurrent(Path::MakeAbsolutePath(path));
         else
             Debug::Printf(kDbgMsg_Error, "Unable to determine current directory: GetPathInASCII failed.\nArg: %s", cur_dir.GetCStr());
     }

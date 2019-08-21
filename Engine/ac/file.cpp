@@ -34,7 +34,6 @@
 #include "core/asset.h"
 #include "main/engine.h"
 #include "main/game_file.h"
-#include "util/directory.h"
 #include "util/path.h"
 #include "util/string.h"
 #include "util/string_utils.h"
@@ -302,7 +301,7 @@ String MakeSpecialSubDir(const String &sp_dir)
     if (full_path.GetLast() != '/' && full_path.GetLast() != '\\')
         full_path.AppendChar('/');
     full_path.Append(game.saveGameFolderName);
-    Directory::CreateDirectory(full_path);
+    platform->DirectoryCreate(full_path);
     return full_path;
 }
 
@@ -311,7 +310,7 @@ String MakeAppDataPath()
     String app_data_path = usetup.shared_data_dir;
     if (app_data_path.IsEmpty())
         app_data_path = MakeSpecialSubDir(PathOrCurDir(platform->GetAllUsersDataDirectory()));
-    Directory::CreateDirectory(app_data_path);
+    platform->DirectoryCreate(app_data_path);
     app_data_path.AppendChar('/');
     return app_data_path;
 }
@@ -410,7 +409,7 @@ bool ResolveWritePathAndCreateDirs(const String &sc_path, ResolvedPath &rp)
 {
     if (!ResolveScriptPath(sc_path, false, rp))
         return false;
-    if (!Directory::CreateAllDirectories(rp.BaseDir, Path::GetDirectoryPath(rp.FullPath)))
+    if (!platform->DirectoryCreateAll(rp.BaseDir, Path::GetDirectoryPath(rp.FullPath)))
     {
         debug_script_warn("ResolveScriptPath: failed to create all subdirectories: %s", rp.FullPath.GetCStr());
         return false;

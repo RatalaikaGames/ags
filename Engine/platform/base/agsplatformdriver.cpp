@@ -32,6 +32,7 @@
 #include "plugin/agsplugin.h"
 #include "ac/timer.h"
 #include "media/audio/audio_system.h"
+#include "util/path.h"
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -162,6 +163,88 @@ void AGSPlatformDriver::Save_DeleteSlot(int slnum)
 Common::Stream *AGSPlatformDriver::OpenFile(eFilePurpose purpose, const Common::String &filename, Common::FileOpenMode open_mode, Common::FileWorkMode work_mode)
 {
     return File::OpenFile(filename, open_mode, work_mode);
+}
+
+
+bool AGSPlatformDriver::DirectoryCreate(const String &path)
+{
+    #ifdef AGS_HAS_POSIX
+        return mkdir(path
+            #if ! AGS_PLATFORM_OS_WINDOWS
+            , 0755
+            #endif
+        ) == 0 || errno == EEXIST;
+    #else
+        //should be overridden in platform's driver
+        return false;
+    #endif
+}
+
+String AGSPlatformDriver::DirectorySetCurrent(const String &path)
+{
+    #ifdef AGS_HAS_POSIX
+        chdir(path);
+        return GetCurrentDirectory();
+    #else
+        //should be overridden in platform's driver
+        return "";
+    #endif
+}
+
+bool AGSPlatformDriver::DirectoryCreateAll(const String &parent, const String &path)
+{
+    //by using other functions, it should be possible for this to be the same in every platform
+
+    if (!DirectoryExists(parent.GetCStr()))
+        return false;
+    if (path.IsEmpty())
+        return true;
+    if (!Path::IsSameOrSubDir(parent, path))
+        return false;
+
+    String sub_path = Path::MakeRelativePath(parent, path);
+    String make_path = parent;
+    std::vector<String> dirs = sub_path.Split('/');
+    for (auto dir : dirs)
+    {
+        if (dir.IsEmpty() || dir.Compare(".") == 0) continue;
+        make_path.AppendChar('/');
+        make_path.Append(dir);
+        if (!DirectoryCreate(make_path))
+            return false;
+    }
+    return true;
+}
+
+String AGSPlatformDriver::DirectoryGetCurrent()
+{
+    #if AGS_HAS_POSIX
+        char buf[512];
+        getcwd(buf, 512);
+        String str(buf);
+        Path::FixupPath(str);
+        return str;
+    #else
+        //should be overridden in platform's driver
+        return "";
+    #endif
+}
+
+bool AGSPlatformDriver::DirectoryExists(const Common::String &path)
+{
+    const char* cPath = path.GetCStr();
+    #if AGS_PLATFORM_OS_WINDOWS
+        return PathFileExistsA(cPath) && PathIsDirectoryA(cPath);
+    #elif AGS_HAS_POSIX
+        struct stat path_stat;
+        if (stat(cPath, &path_stat) != 0) {
+            return false;
+        }
+        return S_ISDIR(path_stat.st_mode)!=0;
+    #else
+        //should be overridden in platform's driver
+        return false;
+    #endif
 }
 
 Stream* AGSPlatformDriver::Save_CreateSlotStream(int slnum)

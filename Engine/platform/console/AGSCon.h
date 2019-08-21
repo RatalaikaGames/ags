@@ -40,6 +40,10 @@ namespace AGS
 
 namespace AGSCON
 {
+	bool CreateDirectory(const char* path);
+	const char* SetCurrentDirectory(const char* path);
+	const char* GetCurrentDirectory();
+
 	namespace Graphics
 	{
 		class Texture;

@@ -18,6 +18,11 @@
 #ifndef __AGS_CN_CORE__TYPES_H
 #define __AGS_CN_CORE__TYPES_H
 
+//required for stdint.h to give us SIZE_MAX on some platforms
+#ifndef __STDC_LIMIT_MACROS 
+#define __STDC_LIMIT_MACROS
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h> // for size_t

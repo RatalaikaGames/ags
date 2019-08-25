@@ -17,6 +17,8 @@
 //=============================================================================
 
 #include <thread>
+#include <stdio.h>
+
 #include "util/wgt2allg.h"
 #include "platform/base/agsplatformdriver.h"
 #include "ac/common.h"

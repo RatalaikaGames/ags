@@ -25,7 +25,7 @@ ConsoleOutputTarget::ConsoleOutputTarget()
 {
 }
 
-ConsoleOutputTarget::~ConsoleOutputTarget() = default;
+ConsoleOutputTarget::~ConsoleOutputTarget(){};
 
 void ConsoleOutputTarget::PrintMessage(const DebugMessage &msg)
 {

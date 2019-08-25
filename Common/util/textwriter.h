@@ -28,7 +28,7 @@ namespace Common
 class TextWriter
 {
 public:
-    virtual ~TextWriter() = default;
+    virtual ~TextWriter(){};
 
     virtual bool    IsValid() const                         = 0;
 

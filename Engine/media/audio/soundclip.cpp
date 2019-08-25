@@ -77,4 +77,4 @@ SOUNDCLIP::SOUNDCLIP() {
     directionalVolModifier = 0;
 }
 
-SOUNDCLIP::~SOUNDCLIP() = default;
+SOUNDCLIP::~SOUNDCLIP(){};

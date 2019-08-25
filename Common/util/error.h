@@ -95,7 +95,7 @@ template <class T> class ErrorHandle
 public:
     static ErrorHandle<T> None() { return ErrorHandle(); }
 
-    ErrorHandle() = default;
+    ErrorHandle(){};
     ErrorHandle(T *err) : _error(err) {}
     ErrorHandle(std::shared_ptr<T> err) : _error(err) {}
 

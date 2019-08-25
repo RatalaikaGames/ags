@@ -21,7 +21,7 @@
 struct IAGSEditorDebugger
 {
 public:
-    virtual ~IAGSEditorDebugger() = default;
+    virtual ~IAGSEditorDebugger(){};
 
     virtual bool Initialize() = 0;
     virtual void Shutdown() = 0;

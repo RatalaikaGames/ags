@@ -804,8 +804,6 @@ namespace AGS
                 }
                 else
                 {
-                    AGSCON::Graphics::PresentNative(pNativeSurface, &viewport_rect);
-					
 					//TODO - uhhhh I guess this is the final presentation logic? that's pretty shoddy. need to re-engineer that
 					
 

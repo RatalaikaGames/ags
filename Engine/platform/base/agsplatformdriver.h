@@ -151,6 +151,9 @@ struct AGSPlatformDriver
     virtual bool LockMouseToWindow();
     virtual void UnlockMouse();
 
+    //called whenever the game script SetTranslation is called (so fonts can be changed, etc.)
+    virtual void SetTranslation(const char* name);
+
     virtual Common::Stream* Save_CreateSlotStream(int slnum);
     virtual void Save_DeleteSlot(int slnum);
 

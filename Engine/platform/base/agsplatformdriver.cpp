@@ -133,6 +133,8 @@ int AGSPlatformDriver::ConvertKeycodeToScanCode(int keycode)
 bool AGSPlatformDriver::LockMouseToWindow() { return false; }
 void AGSPlatformDriver::UnlockMouse() { }
 
+void AGSPlatformDriver::SetTranslation(const char* name) {}
+
 void AGSPlatformDriver::Save_DeleteSlot(int slnum)
 {
     String nametouse;

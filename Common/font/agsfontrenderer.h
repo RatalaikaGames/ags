@@ -31,8 +31,8 @@ public:
   virtual void AdjustYCoordinateForFont(int *ycoord, int fontNumber) = 0;
   virtual void EnsureTextValidForFont(char *text, int fontNumber) = 0;
 protected:
-  IAGSFontRenderer(){};
-  ~IAGSFontRenderer(){};
+  IAGSFontRenderer() = default;
+  ~IAGSFontRenderer() = default;
 };
 
 // Font render params, mainly for dealing with various compatibility issues and
@@ -52,8 +52,8 @@ public:
   // Load font, applying extended font rendering parameters
   virtual bool LoadFromDiskEx(int fontNumber, int fontSize, const FontRenderParams *params) = 0;
 protected:
-  IAGSFontRenderer2(){};
-  ~IAGSFontRenderer2(){};
+  IAGSFontRenderer2() = default;
+  ~IAGSFontRenderer2() = default;
 };
 
 #endif // __AC_AGSFONTRENDERER_H

@@ -63,7 +63,7 @@ class ScriptSetImpl final : public ScriptSetBase
 public:
     typedef typename TSet::const_iterator ConstIterator;
 
-    ScriptSetImpl(){};
+    ScriptSetImpl() = default;
 
     bool IsCaseSensitive() const override { return is_casesensitive; }
     bool IsSorted() const override { return is_sorted; }

@@ -26,8 +26,8 @@ class BaseThread
 public:
   typedef void(* AGSThreadEntry)();
 
-  BaseThread(){};
-  virtual ~BaseThread(){};
+  BaseThread() = default;
+  virtual ~BaseThread() = default;
   enum Purpose
   {
       Purpose_AudioThread

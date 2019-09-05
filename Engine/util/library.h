@@ -27,9 +27,9 @@ namespace Engine
 class BaseLibrary
 {
 public:
-  BaseLibrary(){};
+  BaseLibrary() = default;
 
-  virtual ~BaseLibrary(){};
+  virtual ~BaseLibrary() = default;
 
   virtual AGS::Common::String GetFilenameForLib(AGS::Common::String libraryName) = 0;
 

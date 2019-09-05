@@ -23,7 +23,7 @@ using namespace AGS::Common;
 
 #ifdef AGS_UTF8
 extern "C" int musl_mbtowc(wchar_t * wc, const char * src, size_t n);
-#define thisfile_mbtowc musl_mbstowcs
+#define thisfile_mbtowc musl_mbtowc
 #else
 inline int thisfile_mbtowc(wchar_t * wc, const char * src, size_t n) { 
     if(n==0) return -1;  //not completely sure about this return value
@@ -97,8 +97,10 @@ void split_lines(const char *todis, int wii, int fonnt) {
 
         //figure out how this character is
         int codesize = thisfile_mbtowc(nullptr, theline+i, len-i);
-        if(codesize == -1) break;
-        if(codesize+i>(int)len) break;
+        if(codesize == -1) 
+            break;
+        if(codesize+i>(int)len)
+            break;
 
         // temporarily terminate the line here and test its width
         nextCharWas = theline[i + codesize];

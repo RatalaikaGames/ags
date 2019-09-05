@@ -913,6 +913,8 @@ int Game_ChangeTranslation(const char *newFilename)
         return 0;
     }
 
+    platform->SetTranslation(newFilename);
+
     return 1;
 }
 

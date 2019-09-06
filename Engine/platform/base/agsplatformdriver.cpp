@@ -145,6 +145,15 @@ void AGSPlatformDriver::UnlockMouse() { }
 
 void AGSPlatformDriver::SetTranslation(const char* name) {}
 
+extern volatile int timerloop;
+void AGSPlatformDriver::WaitForNextFrame()
+{
+    while (timerloop == 0) 
+    { 
+        YieldCPU(); 
+    }
+}
+
 void AGSPlatformDriver::Save_DeleteSlot(int slnum)
 {
     String nametouse;

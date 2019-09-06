@@ -154,6 +154,9 @@ struct AGSPlatformDriver
     //called whenever the game script SetTranslation is called (so fonts can be changed, etc.)
     virtual void SetTranslation(const char* name);
 
+    //Waits for next frame, by monitoring timerloop which is updated by an asynchronous process (or some other platform-specific mechanism)
+    virtual void WaitForNextFrame();
+
     virtual Common::Stream* Save_CreateSlotStream(int slnum);
     virtual void Save_DeleteSlot(int slnum);
 

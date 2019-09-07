@@ -140,7 +140,8 @@ int wgettextheight(const char *text, size_t fontNumber)
 
 int get_font_outline(size_t font_number)
 {
-    font_number = remap(font_number);
+    //don't remap. the outline property should probably be taken from the unmapped font
+    //font_number = remap(font_number);
     if (font_number >= fonts.size())
         return FONT_OUTLINE_NONE;
     return fonts[font_number].Info.Outline;

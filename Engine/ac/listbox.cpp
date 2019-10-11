@@ -15,16 +15,17 @@
 #include <set>
 #include "ac/listbox.h"
 #include "ac/common.h"
+#include "ac/game.h"
 #include "ac/gamesetupstruct.h"
 #include "ac/gamestate.h"
 #include "ac/global_game.h"
 #include "ac/path_helper.h"
 #include "ac/string.h"
 #include "gui/guimain.h"
+#include "debug/debug_log.h"
 
 using namespace AGS::Common;
 
-extern char saveGameDirectory[260];
 extern GameState play;
 extern GameSetupStruct game;
 
@@ -66,14 +67,14 @@ void ListBox_FillDirList(GUIListBox *listbox, const char *filemask) {
   listbox->Clear();
   guis_need_update = 1;
 
-  String path, alt_path;
-  if (!ResolveScriptPath(filemask, true, path, alt_path))
+  ResolvedPath rp;
+  if (!ResolveScriptPath(filemask, true, rp))
     return;
 
   std::set<String> files;
-  FillDirList(files, path);
-  if (!alt_path.IsEmpty() && alt_path.Compare(path) != 0)
-    FillDirList(files, alt_path);
+  FillDirList(files, rp.FullPath);
+  if (!rp.AltPath.IsEmpty() && rp.AltPath.Compare(rp.FullPath) != 0)
+    FillDirList(files, rp.AltPath);
 
   for (std::set<String>::const_iterator it = files.begin(); it != files.end(); ++it)
   {
@@ -97,8 +98,8 @@ int ListBox_FillSaveGameList(GUIListBox *listbox) {
   long filedates[MAXSAVEGAMES];
   char buff[200];
 
-  char searchPath[260];
-  sprintf(searchPath, "%s""agssave.*", saveGameDirectory);
+  String svg_dir = get_save_game_directory();
+  String searchPath = String::FromFormat("%s""agssave.*", svg_dir.GetCStr());
 
   int don = al_findfirst(searchPath, &ffb, FA_SEARCH);
   while (!don) {
@@ -106,7 +107,7 @@ int ListBox_FillSaveGameList(GUIListBox *listbox) {
     if (numsaves >= MAXSAVEGAMES)
       break;
     // only list games .000 to .099 (to allow higher slots for other perposes)
-    if (strstr(ffb.name,".0")==NULL) {
+    if (strstr(ffb.name,".0")==nullptr) {
       don = al_findnext(&ffb);
       continue;
     }
@@ -362,11 +363,11 @@ void ListBox_ScrollUp(GUIListBox *listbox) {
 
 GUIListBox* is_valid_listbox (int guin, int objn) {
   if ((guin<0) | (guin>=game.numgui)) quit("!ListBox: invalid GUI number");
-  if ((objn<0) | (objn>=guis[guin].ControlCount)) quit("!ListBox: invalid object number");
+  if ((objn<0) | (objn>=guis[guin].GetControlCount())) quit("!ListBox: invalid object number");
   if (guis[guin].GetControlType(objn)!=kGUIListBox)
     quit("!ListBox: specified control is not a list box");
   guis_need_update = 1;
-  return (GUIListBox*)guis[guin].Controls[objn];
+  return (GUIListBox*)guis[guin].GetControl(objn);
 }
 
 //=============================================================================

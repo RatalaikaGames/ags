@@ -21,6 +21,7 @@
 #include "ac/global_translation.h"
 #include "ac/objectcache.h"
 #include "ac/properties.h"
+#include "ac/room.h"
 #include "ac/roomstatus.h"
 #include "ac/runtime_defines.h"
 #include "ac/string.h"
@@ -34,6 +35,7 @@
 #include "gfx/gfx_def.h"
 #include "script/runtimescriptvalue.h"
 #include "ac/dynobj/cc_object.h"
+#include "ac/movelist.h"
 
 using namespace AGS::Common;
 
@@ -53,10 +55,18 @@ int Object_IsCollidingWithObject(ScriptObject *objj, ScriptObject *obj2) {
     return AreObjectsColliding(objj->id, obj2->id);
 }
 
-ScriptObject *GetObjectAtLocation(int xx, int yy) {
-    int hsnum = GetObjectAt(xx, yy);
+ScriptObject *GetObjectAtScreen(int xx, int yy) {
+    int hsnum = GetObjectIDAtScreen(xx, yy);
     if (hsnum < 0)
-        return NULL;
+        return nullptr;
+    return &scrObj[hsnum];
+}
+
+ScriptObject *GetObjectAtRoom(int x, int y)
+{
+    int hsnum = GetObjectIDAtRoom(x, y);
+    if (hsnum < 0)
+        return nullptr;
     return &scrObj[hsnum];
 }
 
@@ -96,7 +106,7 @@ int Object_GetBaseline(ScriptObject *objj) {
     return GetObjectBaseline(objj->id);
 }
 
-void Object_Animate(ScriptObject *objj, int loop, int delay, int repeat, int blocking, int direction) {
+void Object_AnimateFrom(ScriptObject *objj, int loop, int delay, int repeat, int blocking, int direction, int sframe) {
     if (direction == FORWARDS)
         direction = 0;
     else if (direction == BACKWARDS)
@@ -111,7 +121,11 @@ void Object_Animate(ScriptObject *objj, int loop, int delay, int repeat, int blo
     else
         quit("!Object.Animate: Invalid BLOCKING parameter");
 
-    AnimateObject(objj->id, loop, delay, repeat, direction, blocking);
+    AnimateObjectImpl(objj->id, loop, delay, repeat, direction, blocking, sframe);
+}
+
+void Object_Animate(ScriptObject *objj, int loop, int delay, int repeat, int blocking, int direction) {
+    Object_AnimateFrom(objj, loop, delay, repeat, blocking, direction, 0);
 }
 
 void Object_StopAnimating(ScriptObject *objj) {
@@ -284,7 +298,7 @@ void Object_Move(ScriptObject *objj, int x, int y, int speed, int blocking, int 
     move_object(objj->id, x, y, speed, direct);
 
     if ((blocking == BLOCKING) || (blocking == 1))
-        GameLoopUntilEvent(UNTIL_SHORTIS0,(long)&objs[objj->id].moving);
+        GameLoopUntilValueIsZero(&objs[objj->id].moving);
     else if ((blocking != IN_BACKGROUND) && (blocking != 0))
         quit("Object.Move: invalid BLOCKING paramter");
 }
@@ -375,8 +389,10 @@ void move_object(int objj,int tox,int toy,int spee,int ignwal) {
 
     debug_script_log("Object %d start move to %d,%d", objj, tox, toy);
 
-    int objX = objs[objj].x;
-    int objY = objs[objj].y;
+    int objX = room_to_mask_coord(objs[objj].x);
+    int objY = room_to_mask_coord(objs[objj].y);
+    tox = room_to_mask_coord(tox);
+    toy = room_to_mask_coord(toy);
 
     set_route_move_speed(spee, spee);
     set_color_depth(8);
@@ -385,6 +401,7 @@ void move_object(int objj,int tox,int toy,int spee,int ignwal) {
     if (mslot>0) {
         objs[objj].moving = mslot;
         mls[mslot].direct = ignwal;
+        convert_move_path_to_room_resolution(&mls[mslot]);
     }
 }
 
@@ -429,8 +446,8 @@ void get_object_blocking_rect(int objid, int *x1, int *y1, int *width, int *y2) 
         cwidth += fromx;
         fromx = 0;
     }
-    if (fromx + cwidth >= walkable_areas_temp->GetWidth())
-        cwidth = walkable_areas_temp->GetWidth() - fromx;
+    if (fromx + cwidth >= mask_to_room_coord(walkable_areas_temp->GetWidth()))
+        cwidth = mask_to_room_coord(walkable_areas_temp->GetWidth()) - fromx;
 
     if (x1)
         *x1 = fromx;
@@ -493,11 +510,10 @@ int is_pos_in_sprite(int xx,int yy,int arx,int ary, Bitmap *sprit, int spww,int 
     return TRUE;
 }
 
-// X and Y co-ordinates must be in 320x200 format (TODO: find out if this comment is still true)
-// X and Y are ROOM coordinates here for some reason, so we have to perform that ugly back-and-forth coordinate conversion
-int check_click_on_object(int xx,int yy,int mood) {
-    Point pt = play.RoomToScreen(xx, yy);
-    int aa = GetObjectAt(pt.X, pt.Y);
+// X and Y co-ordinates must be in native format (TODO: find out if this comment is still true)
+int check_click_on_object(int roomx, int roomy, int mood)
+{
+    int aa = GetObjectIDAtRoom(roomx, roomy);
     if (aa < 0) return 0;
     RunObjectInteraction(aa, mood);
     return 1;
@@ -520,6 +536,11 @@ extern ScriptString myScriptStringImpl;
 RuntimeScriptValue Sc_Object_Animate(void *self, const RuntimeScriptValue *params, int32_t param_count)
 {
     API_OBJCALL_VOID_PINT5(ScriptObject, Object_Animate);
+}
+
+RuntimeScriptValue Sc_Object_AnimateFrom(void *self, const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_OBJCALL_VOID_PINT6(ScriptObject, Object_AnimateFrom);
 }
 
 // int (ScriptObject *objj, ScriptObject *obj2)
@@ -666,10 +687,15 @@ RuntimeScriptValue Sc_Object_Tint(void *self, const RuntimeScriptValue *params, 
     API_OBJCALL_VOID_PINT5(ScriptObject, Object_Tint);
 }
 
-// ScriptObject *(int xx, int yy)
-RuntimeScriptValue Sc_GetObjectAtLocation(const RuntimeScriptValue *params, int32_t param_count)
+RuntimeScriptValue Sc_GetObjectAtRoom(const RuntimeScriptValue *params, int32_t param_count)
 {
-    API_SCALL_OBJ_PINT2(ScriptObject, ccDynamicObject, GetObjectAtLocation);
+    API_SCALL_OBJ_PINT2(ScriptObject, ccDynamicObject, GetObjectAtRoom);
+}
+
+// ScriptObject *(int xx, int yy)
+RuntimeScriptValue Sc_GetObjectAtScreen(const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_SCALL_OBJ_PINT2(ScriptObject, ccDynamicObject, GetObjectAtScreen);
 }
 
 // int (ScriptObject *objj)
@@ -863,6 +889,7 @@ RuntimeScriptValue Sc_Object_SetY(void *self, const RuntimeScriptValue *params, 
 void RegisterObjectAPI()
 {
     ccAddExternalObjectFunction("Object::Animate^5",                Sc_Object_Animate);
+    ccAddExternalObjectFunction("Object::Animate^6",                Sc_Object_AnimateFrom);
     ccAddExternalObjectFunction("Object::IsCollidingWithObject^1",  Sc_Object_IsCollidingWithObject);
     ccAddExternalObjectFunction("Object::GetName^1",                Sc_Object_GetName);
     ccAddExternalObjectFunction("Object::GetProperty^1",            Sc_Object_GetProperty);
@@ -883,7 +910,8 @@ void RegisterObjectAPI()
     ccAddExternalObjectFunction("Object::Tint^5",                   Sc_Object_Tint);
 
     // static
-    ccAddExternalStaticFunction("Object::GetAtScreenXY^2",          Sc_GetObjectAtLocation);
+    ccAddExternalStaticFunction("Object::GetAtRoomXY^2",            Sc_GetObjectAtRoom);
+    ccAddExternalStaticFunction("Object::GetAtScreenXY^2",          Sc_GetObjectAtScreen);
 
     ccAddExternalObjectFunction("Object::get_Animating",            Sc_Object_GetAnimating);
     ccAddExternalObjectFunction("Object::get_Baseline",             Sc_Object_GetBaseline);
@@ -944,7 +972,8 @@ void RegisterObjectAPI()
     ccAddExternalFunctionForPlugin("Object::StopAnimating^0",          (void*)Object_StopAnimating);
     ccAddExternalFunctionForPlugin("Object::StopMoving^0",             (void*)Object_StopMoving);
     ccAddExternalFunctionForPlugin("Object::Tint^5",                   (void*)Object_Tint);
-    ccAddExternalFunctionForPlugin("Object::GetAtScreenXY^2",          (void*)GetObjectAtLocation);
+    ccAddExternalFunctionForPlugin("Object::GetAtRoomXY^2",            (void*)GetObjectAtRoom);
+    ccAddExternalFunctionForPlugin("Object::GetAtScreenXY^2",          (void*)GetObjectAtScreen);
     ccAddExternalFunctionForPlugin("Object::get_Animating",            (void*)Object_GetAnimating);
     ccAddExternalFunctionForPlugin("Object::get_Baseline",             (void*)Object_GetBaseline);
     ccAddExternalFunctionForPlugin("Object::set_Baseline",             (void*)Object_SetBaseline);

@@ -126,11 +126,18 @@ namespace AGS.Editor
             {
                 HandleGameResolutionChange((Size)e.OldValue, Factory.AGSEditor.CurrentGame.Settings.CustomResolution);
             }
-            else if ((e.ChangedItem.Label == AGS.Types.Settings.PROPERTY_SCALE_FONTS) ||
+            else if ((e.ChangedItem.Label == AGS.Types.Settings.PROPERTY_ALLOWRELATIVEASSETS) ||
                      (e.ChangedItem.Label == AGS.Types.Settings.PROPERTY_ANTI_ALIAS_FONTS) ||
                      (e.ChangedItem.Label == AGS.Types.Settings.PROPERTY_RENDERATSCREENRES))
             {
                 Factory.Events.OnGameSettingsChanged();
+            }
+            else if (e.ChangedItem.Label == AGS.Types.Settings.PROPERTY_DIALOG_SCRIPT_SAYFN ||
+                e.ChangedItem.Label == AGS.Types.Settings.PROPERTY_DIALOG_SCRIPT_NARRATEFN)
+            {
+                // Force rebuild all dialog scripts
+                foreach (Dialog d in Factory.AGSEditor.CurrentGame.Dialogs)
+                    d.ScriptChangedSinceLastConverted = true;
             }
         }
 

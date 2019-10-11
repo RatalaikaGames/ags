@@ -14,53 +14,51 @@
 
 #include "ac/dynobj/scriptcamera.h"
 #include "ac/gamestate.h"
+#include "util/bbop.h"
 
-enum ScriptCameraSaveFlags
-{
-    kScCamPosLocked = 0x01
-};
+using namespace AGS::Common;
+
+ScriptCamera::ScriptCamera(int id) : _id(id) {}
 
 const char *ScriptCamera::GetType()
 {
-    return "Camera";
+    return "Camera2";
+}
+
+int ScriptCamera::Dispose(const char *address, bool force)
+{
+    // Note that ScriptCamera is a reference to actual Camera object,
+    // and this deletes the reference, while camera may remain in GameState.
+    delete this;
+    return 1;
 }
 
 int ScriptCamera::Serialize(const char *address, char *buffer, int bufsize)
 {
-    const RoomCamera &cam = play.GetRoomCameraObj();
-
     StartSerialize(buffer);
-    SerializeInt(0); // ID
-    SerializeInt(cam.Locked ? kScCamPosLocked : 0); // flags
-    SerializeInt(cam.Position.Left);
-    SerializeInt(cam.Position.Top);
-    SerializeInt(cam.Position.GetWidth());
-    SerializeInt(cam.Position.GetHeight());
-    SerializeFloat(cam.ScaleX);
-    SerializeFloat(cam.ScaleY);
+    SerializeInt(_id);
     return EndSerialize();
 }
 
 void ScriptCamera::Unserialize(int index, const char *serializedData, int dataSize)
 {
     StartUnserialize(serializedData, dataSize);
-    UnserializeInt(); // ID, reserved for the future
-    int flags = UnserializeInt();
-    int x = UnserializeInt();
-    int y = UnserializeInt();
-    int w = UnserializeInt();
-    int h = UnserializeInt();
-    float scalex = UnserializeFloat();
-    float scaley = UnserializeFloat();
-    if (scalex >= 0.f && scaley >= 0.f)
-        play.SetRoomCameraAutoSize(scalex, scaley);
-    else if (w > 0 && h > 0)
-        play.SetRoomCameraSize(Size(w, h));
-    else
-        play.SetRoomCameraAutoSize(1.f, 1.f);
-    if (flags & kScCamPosLocked)
-        play.LockRoomCameraAt(x, y);
-    else
-        play.SetRoomCameraAt(x, y);
+    _id = UnserializeInt();
     ccRegisterUnserializedObject(index, this, this);
+}
+
+ScriptCamera *Camera_Unserialize(int handle, const char *serializedData, int dataSize)
+{
+    // The way it works now, we must not create a new script object,
+    // but acquire one from the GameState, which keeps the first reference.
+    // This is essential because GameState should be able to invalidate any
+    // script references when Camera gets removed.
+    const int id = BBOp::Int32FromLE(*((int*)serializedData));
+    if (id >= 0)
+    {
+        auto scam = play.RegisterRoomCamera(id, handle);
+        if (scam)
+            return scam;
+    }
+    return new ScriptCamera(-1); // make invalid reference
 }

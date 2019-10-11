@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Windows.Forms;
 using AGS.Editor.Preferences;
 
 namespace AGS.Editor
@@ -107,6 +108,8 @@ namespace AGS.Editor
                 throw new AGSEditorException("This game cannot be loaded because it is in a folder that has a name longer than 40 characters.");
             }
 
+            List<string> errors = new List<string>();
+
             Directory.SetCurrentDirectory(gameDirectory);
             AddFontIfNotAlreadyThere(0);
             AddFontIfNotAlreadyThere(1);
@@ -127,9 +130,9 @@ namespace AGS.Editor
 
             if (game != null)
             {
+                game.DirectoryPath = gameDirectory;
                 SetDefaultValuesForNewFeatures(game);
 
-                game.DirectoryPath = gameDirectory;
                 Utilities.EnsureStandardSubFoldersExist();
 
                 RecentGame recentGame = new RecentGame(game.Settings.GameName, gameDirectory);
@@ -141,11 +144,13 @@ namespace AGS.Editor
 
                 Factory.Events.OnGamePostLoad();
 
-                Factory.AGSEditor.RefreshEditorAfterGameLoad(game);
+                Factory.AGSEditor.RefreshEditorAfterGameLoad(game, errors);
                 if (needToSave)
                 {
                     Factory.AGSEditor.SaveGameFiles();
                 }
+
+                Factory.AGSEditor.ReportGameLoad(errors);
                 return true;
             }
 
@@ -154,6 +159,9 @@ namespace AGS.Editor
 
         private void SetDefaultValuesForNewFeatures(Game game)
         {
+            // TODO: this may be noticably if upgrading lots of items. Display some kind of
+            // progress window to notify user.
+
             int xmlVersionIndex = 0;
             if (game.SavedXmlVersionIndex.HasValue)
             {
@@ -181,6 +189,104 @@ namespace AGS.Editor
             if (xmlVersionIndex < 15)
             {
                 game.DefaultSetup.SetDefaults();
+            }
+
+            if (xmlVersionIndex < 18)
+            {
+                foreach (Font font in game.Fonts)
+                    font.SizeMultiplier = 1;
+                // Apply font scaling to each individual font settings.
+                // Bitmap fonts save multiplier explicitly, while vector fonts have their size doubled.
+                if (game.Settings.HighResolution && !game.Settings.FontsForHiRes)
+                {
+                    foreach (Font font in game.Fonts)
+                    {
+                        if (font.PointSize == 0)
+                        {
+                            font.SizeMultiplier = 2;
+                        }
+                        else
+                        {
+                            font.PointSize *= 2;
+                        }
+                    }
+                }
+            }
+
+            if (xmlVersionIndex < 18)
+            {
+                game.Settings.AllowRelativeAssetResolutions = true;
+                game.Settings.DefaultRoomMaskResolution = 1;
+            }
+
+            if (xmlVersionIndex < 19)
+            {
+                game.Settings.GameFileName = AGSEditor.Instance.BaseGameFileName;
+
+                var buildNames = new Dictionary<string, string>();
+                foreach (IBuildTarget target in BuildTargetsInfo.GetRegisteredBuildTargets())
+                {
+                    buildNames[target.Name] = AGSEditor.Instance.BaseGameFileName;
+                }
+                game.WorkspaceState.SetLastBuildGameFiles(buildNames);
+            }
+
+            if (xmlVersionIndex < 20)
+            {
+                // Set the alpha channel requests for re-import based on the presence of an alpha channel
+                foreach (Sprite sprite in game.RootSpriteFolder.GetAllSpritesFromAllSubFolders())
+                {
+                    sprite.ImportAlphaChannel = sprite.AlphaChannel;
+                }
+            }
+
+            if (xmlVersionIndex < 21)
+            {
+                // Assign audio clip ids to match and solidify their current position in AudioClips array.
+                int clipId = 0;
+                Dictionary<int, int> audioIndexToID = new Dictionary<int, int>();
+                foreach (AudioClip clip in game.RootAudioClipFolder.GetAllAudioClipsFromAllSubFolders())
+                {
+                    clip.ID = clipId++;
+                    audioIndexToID.Add(clip.Index, clip.ID);
+                }
+                game.RootAudioClipFolder.Sort(true);
+
+                // Remap old cache indexes to new IDs
+                if (game.Settings.PlaySoundOnScore == 0)
+                {
+                    game.Settings.PlaySoundOnScore = -1;
+                }
+                else
+                {
+                    int id;
+                    if (audioIndexToID.TryGetValue(game.Settings.PlaySoundOnScore, out id))
+                        game.Settings.PlaySoundOnScore = id;
+                    else
+                        game.Settings.PlaySoundOnScore = -1;
+                }
+
+                foreach (Types.View view in game.RootViewFolder.AllItemsFlat)
+                {
+                    foreach (Types.ViewLoop loop in view.Loops)
+                    {
+                        foreach (Types.ViewFrame frame in loop.Frames)
+                        {
+                            if (frame.Sound == 0)
+                            {
+                                frame.Sound = -1;
+                            }
+                            else
+                            {
+                                int id;
+                                if (audioIndexToID.TryGetValue(frame.Sound, out id))
+                                    frame.Sound = id;
+                                else
+                                    frame.Sound = -1;
+                            }
+                        }
+                    }
+                }
             }
 
             game.SetScriptAPIForOldProject();

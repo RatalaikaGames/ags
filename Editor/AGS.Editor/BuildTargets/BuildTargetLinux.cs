@@ -26,7 +26,6 @@ namespace AGS.Editor
                 "libaldmb.so.1",
                 "liballeg.so.4.4",
                 "libdumb.so.1",
-                "libfreetype.so.6",
                 "libogg.so.0",
                 "libtheora.so.0",
                 "libvorbis.so.0",
@@ -38,7 +37,6 @@ namespace AGS.Editor
                 "ags-copyright",
                 "liballegro4.4-copyright",
                 "libdumb1-copyright",
-                "libfreetype6-copyright",
                 "libogg0-copyright",
                 "libtheora0-copyright",
                 "libvorbis0a-copyright"
@@ -66,6 +64,12 @@ namespace AGS.Editor
                 GetCompiledPath(LINUX_DATA_DIR, LINUX_LIB64_DIR),
                 GetCompiledPath(LINUX_DATA_DIR, LINUX_LICENSES_DIR)
             };
+        }
+
+        public override void DeleteMainGameData(string name)
+        {
+            string filename = Path.Combine(Path.Combine(OutputDirectoryFullPath, LINUX_DATA_DIR), name + ".ags");
+            Utilities.DeleteFileIfExists(filename);
         }
 
         private bool CheckPluginsHaveSharedLibraries()
@@ -172,6 +176,10 @@ for arg; do
         break
     fi
 done
+
+## Old versions of Mesa can hang when using DRI3
+## https://bugs.freedesktop.org/show_bug.cgi?id=106404
+export LIBGL_DRI3_DISABLE=true
 
 if [ ""$(uname -m)"" = ""x86_64"" ]; then" + GetSymLinkScriptForEachPlugin(true) +
 @"

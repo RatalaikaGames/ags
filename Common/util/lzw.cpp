@@ -16,22 +16,15 @@
 //
 //=============================================================================
 
-#define MSS
-
 #include <stdlib.h>
-#include "ac/common.h"
+#include "ac/common.h" // quit
 #include "util/stream.h"
 
-using AGS::Common::Stream;
-using namespace AGS; // FIXME later
+using namespace AGS::Common;
 
 #ifdef _MANAGED
 // ensure this doesn't get compiled to .NET IL
 #pragma unmanaged
-#endif
-
-#if defined (WINDOWS_VERSION)
-#include <io.h>
 #endif
 
 int insert(int, int);
@@ -125,13 +118,13 @@ void _delete(int z)
   }
 }
 
-void lzwcompress(Common::Stream *lzw_in, Common::Stream *out)
+void lzwcompress(Stream *lzw_in, Stream *out)
 {
   int ch, i, run, len, match, size, mask;
   char buf[17];
 
   lzbuffer = (char *)malloc(N + F + (N + 1 + N + N + 256) * sizeof(int));       // 28.5 k !
-  if (lzbuffer == NULL) {
+  if (lzbuffer == nullptr) {
     quit("unable to compress: out of memory");
   }
 
@@ -200,7 +193,7 @@ void lzwcompress(Common::Stream *lzw_in, Common::Stream *out)
 }
 
 int expand_to_mem = 0;
-unsigned char *membfptr = NULL;
+unsigned char *membfptr = nullptr;
 void myputc(int ccc, Stream *out)
 {
   if (maxsize > 0) {
@@ -225,7 +218,7 @@ void lzwexpand(Stream *lzw_in, Stream *out)
   putbytes = 0;
 
   lzbuffer = (char *)malloc(N);
-  if (lzbuffer == NULL) {
+  if (lzbuffer == nullptr) {
     quit("compress.cpp: unable to decompress: insufficient memory");
   }
   i = N - F;
@@ -268,11 +261,11 @@ void lzwexpand(Stream *lzw_in, Stream *out)
   expand_to_mem = 0;
 }
 
-unsigned char *lzwexpand_to_mem(Common::Stream *in)
+unsigned char *lzwexpand_to_mem(Stream *in)
 {
   unsigned char *membuff = (unsigned char *)malloc(maxsize + 10);
   expand_to_mem = 1;
   membfptr = membuff;
-  lzwexpand(in, NULL);
+  lzwexpand(in, nullptr);
   return membuff;
 }

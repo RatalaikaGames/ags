@@ -27,24 +27,33 @@ public:
   virtual int GetTextWidth(const char *text, int fontNumber) = 0;
   // Get actual height of the given line of text
   virtual int GetTextHeight(const char *text, int fontNumber) = 0;
-  // [IKM] An important note: the AGS font renderers do not use 'destination' parameter at all, probably
-  // for simplicity (although that causes confusion): the parameter passed is always a global 'virtual screen'
-  // pointer therefore renderers address 'virtual screen' directly.
-  // Plugins, on other reason, act differently, since they are not aware of 'abuf'.
   virtual void RenderText(const char *text, int fontNumber, BITMAP *destination, int x, int y, int colour) = 0;
   virtual void AdjustYCoordinateForFont(int *ycoord, int fontNumber) = 0;
   virtual void EnsureTextValidForFont(char *text, int fontNumber) = 0;
+protected:
+  IAGSFontRenderer() = default;
+  ~IAGSFontRenderer() = default;
 };
 
-
-struct FontRenderParams;
+// Font render params, mainly for dealing with various compatibility issues and
+// broken fonts. NOTE: currently left empty as a result of rewrite, but may be
+// used again in the future.
+struct FontRenderParams
+{
+    // Font's render multiplier
+    int SizeMultiplier = 1;
+};
 
 // NOTE: this extending interface is not yet exposed to plugins
 class IAGSFontRenderer2
 {
 public:
+  virtual bool IsBitmapFont() = 0;
   // Load font, applying extended font rendering parameters
   virtual bool LoadFromDiskEx(int fontNumber, int fontSize, const FontRenderParams *params) = 0;
+protected:
+  IAGSFontRenderer2() = default;
+  ~IAGSFontRenderer2() = default;
 };
 
 #endif // __AC_AGSFONTRENDERER_H

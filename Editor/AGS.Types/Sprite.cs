@@ -24,6 +24,7 @@ namespace AGS.Types
         private int _offsetY;
         private bool _remapToGamePalette;
         private bool _remapToRoomPalette;
+        private bool _importAlphaChannel;
 
         public Sprite(int number, int width, int height, int colorDepth, bool alphaChannel)
         {
@@ -87,8 +88,9 @@ namespace AGS.Types
             set { _colorDepth = value; }
         }
 
-        [Description("Whether this sprite was imported using its alpha channel")]
-        [Category("Import")]
+        [Description("Whether this sprite has an alpha channel")]
+        [ReadOnly(true)]
+        [Category("Appearance")]
         public bool AlphaChannel
         {
             get { return _alphaChannel; }
@@ -103,6 +105,14 @@ namespace AGS.Types
 			get { return _sourceFile; }
 			set { _sourceFile = value; }
 		}
+
+        [Description("Import the alpha channel (if one is available)")]
+        [Category("Import")]
+        public bool ImportAlphaChannel
+        {
+            get { return _importAlphaChannel; }
+            set { _importAlphaChannel = value; }
+        }
 
 		[Browsable(false)]
 		public int? ColoursLockedToRoom
@@ -202,6 +212,15 @@ namespace AGS.Types
                 {
                     // pass
                 }
+
+                try
+                {
+                    _importAlphaChannel = Convert.ToBoolean(SerializeUtils.GetElementString(sourceNode, "ImportAlphaChannel"));
+                }
+                catch (InvalidDataException)
+                {
+                    _importAlphaChannel = true;
+                }
             }
         }
 
@@ -212,7 +231,7 @@ namespace AGS.Types
             writer.WriteAttributeString("Width", _width.ToString());
             writer.WriteAttributeString("Height", _height.ToString());
             writer.WriteAttributeString("ColorDepth", _colorDepth.ToString());
-            writer.WriteAttributeString("Resolution", "0"); // CLNUP keep saving a value for now
+            writer.WriteAttributeString("Resolution", SpriteImportResolution.Real.ToString()); // CLNUP keep saving a value for now
             writer.WriteAttributeString("AlphaChannel", _alphaChannel.ToString());
 
             if (_coloursLockedToRoom.HasValue)
@@ -228,6 +247,7 @@ namespace AGS.Types
             writer.WriteElementString("RemapToGamePalette", _remapToGamePalette.ToString());
             writer.WriteElementString("RemapToRoomPalette", _remapToRoomPalette.ToString());
             writer.WriteElementString("ImportMethod", _tranparentColour.ToString());
+            writer.WriteElementString("ImportAlphaChannel", _importAlphaChannel.ToString());
             writer.WriteEndElement(); // end source
 
             writer.WriteEndElement();

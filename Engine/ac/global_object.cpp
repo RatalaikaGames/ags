@@ -58,10 +58,18 @@ extern IGraphicsDriver *gfxDriver;
 // Used for deciding whether a char or obj was closer
 int obj_lowest_yp;
 
-int GetObjectAt(int scrx, int scry) {
-    int aa,bestshotyp=-1,bestshotwas=-1;
+int GetObjectIDAtScreen(int scrx, int scry)
+{
     // translate screen co-ordinates to room co-ordinates
-    Point roompt = play.ScreenToRoom(scrx, scry);
+    VpPoint vpt = play.ScreenToRoom(scrx, scry);
+    if (vpt.second < 0)
+        return -1;
+    return GetObjectIDAtRoom(vpt.first.X, vpt.first.Y);
+}
+
+int GetObjectIDAtRoom(int roomx, int roomy)
+{
+    int aa,bestshotyp=-1,bestshotwas=-1;
     // Iterate through all objects in the room
     for (aa=0;aa<croom->numobj;aa++) {
         if (objs[aa].on != 1) continue;
@@ -76,7 +84,7 @@ int GetObjectAt(int scrx, int scry) {
 
         Bitmap *theImage = GetObjectImage(aa, &isflipped);
 
-        if (is_pos_in_sprite(roompt.X, roompt.Y, xxx, yyy - spHeight, theImage,
+        if (is_pos_in_sprite(roomx, roomy, xxx, yyy - spHeight, theImage,
             spWidth, spHeight, isflipped) == FALSE)
             continue;
 
@@ -192,7 +200,7 @@ int GetObjectBaseline(int obn) {
     return objs[obn].baseline;
 }
 
-void AnimateObject(int obn,int loopn,int spdd,int rept, int direction, int blocking) {
+void AnimateObjectImpl(int obn, int loopn, int spdd, int rept, int direction, int blocking, int sframe) {
     if (obn>=MANOBJNUM) {// CHECKME: what is this about ?
         scAnimateCharacter(obn - 100,loopn,spdd,rept);// CLNUP scAnimateCharacter is only used by AnimateObject which is used by Object_Animate
         return;
@@ -201,8 +209,10 @@ void AnimateObject(int obn,int loopn,int spdd,int rept, int direction, int block
         quit("!AnimateObject: invalid object number specified");
     if (objs[obn].view < 0)
         quit("!AnimateObject: object has not been assigned a view");
-    if (loopn >= views[objs[obn].view].numLoops)
+    if (loopn < 0 || loopn >= views[objs[obn].view].numLoops)
         quit("!AnimateObject: invalid loop number specified");
+    if (sframe < 0 || sframe >= views[objs[obn].view].loops[loopn].numFrames)
+        quit("!AnimateObject: invalid starting frame number specified");
     if ((direction < 0) || (direction > 1))
         quit("!AnimateObjectEx: invalid direction");
     if ((rept < 0) || (rept > 2))
@@ -210,15 +220,17 @@ void AnimateObject(int obn,int loopn,int spdd,int rept, int direction, int block
     if (views[objs[obn].view].loops[loopn].numFrames < 1)
         quit("!AnimateObject: no frames in the specified view loop");
 
-    debug_script_log("Obj %d start anim view %d loop %d, speed %d, repeat %d", obn, objs[obn].view+1, loopn, spdd, rept);
+    debug_script_log("Obj %d start anim view %d loop %d, speed %d, repeat %d, frame %d", obn, objs[obn].view+1, loopn, spdd, rept, sframe);
 
     objs[obn].cycling = rept+1 + (direction * 10);
     objs[obn].loop=loopn;
-    if (direction == 0)
-        objs[obn].frame = 0;
-    else {
-        objs[obn].frame = views[objs[obn].view].loops[loopn].numFrames - 1;
+    // reverse animation starts at the *previous frame*
+    if (direction) {
+        sframe--;
+        if (sframe < 0)
+            sframe = views[objs[obn].view].loops[loopn].numFrames - (-sframe);
     }
+    objs[obn].frame = sframe;
 
     objs[obn].overall_speed=spdd;
     objs[obn].wait = spdd+views[objs[obn].view].loops[loopn].frames[objs[obn].frame].speed;
@@ -226,13 +238,16 @@ void AnimateObject(int obn,int loopn,int spdd,int rept, int direction, int block
     CheckViewFrame (objs[obn].view, loopn, objs[obn].frame);
 
     if (blocking)
-        GameLoopUntilEvent(UNTIL_CHARIS0,(long)&objs[obn].cycling);
+        GameLoopUntilValueIsZero(&objs[obn].cycling);
 }
 
+void AnimateObjectEx(int obn, int loopn, int spdd, int rept, int direction, int blocking) {
+    AnimateObjectImpl(obn, loopn, spdd, rept, direction, blocking, 0);
+}
 /*
 // [DEPRECATED]
 void AnimateObject(int obn,int loopn,int spdd,int rept) {
-    AnimateObjectEx (obn, loopn, spdd, rept, 0, 0);
+    AnimateObjectImpl(obn, loopn, spdd, rept, 0, 0, 0);
 }
 */
 
@@ -240,7 +255,7 @@ void MergeObject(int obn) {
     if (!is_valid_object(obn)) quit("!MergeObject: invalid object specified");
     int theHeight;
 
-    construct_object_gfx(obn, NULL, &theHeight, true);
+    construct_object_gfx(obn, nullptr, &theHeight, true);
 
     //Bitmap *oldabuf = graphics->bmp;
     //abuf = thisroom.BgFrames.Graphic[play.bg_frame];
@@ -370,6 +385,8 @@ void SetObjectClickable (int cha, int clik) {
 void SetObjectIgnoreWalkbehinds (int cha, int clik) {
     if (!is_valid_object(cha))
         quit("!SetObjectIgnoreWalkbehinds: Invalid object specified");
+    if (game.options[OPT_BASESCRIPTAPI] >= kScriptAPI_v350)
+        debug_script_warn("IgnoreWalkbehinds is not recommended for use, consider other solutions");
     objs[cha].flags&=~OBJF_NOWALKBEHINDS;
     if (clik)
         objs[cha].flags|=OBJF_NOWALKBEHINDS;
@@ -392,7 +409,7 @@ void RunObjectInteraction (int aa, int mood) {
     play.usedinv=cdata; }
     evblockbasename="object%d"; evblocknum=aa;
 
-    if (thisroom.Objects[aa].EventHandlers != NULL)
+    if (thisroom.Objects[aa].EventHandlers != nullptr)
     {
         if (passon>=0) 
         {
@@ -482,7 +499,7 @@ Bitmap *GetObjectImage(int obj, int *isFlipped)
 {
     if (!gfxDriver->HasAcceleratedTransform())
     {
-        if (actsps[obj] != NULL) {
+        if (actsps[obj] != nullptr) {
             // the actsps image is pre-flipped, so no longer register the image as such
             if (isFlipped)
                 *isFlipped = 0;

@@ -20,12 +20,11 @@
 #include "ac/global_translation.h"
 #include "ac/runtime_defines.h"
 #include "ac/dynobj/scriptstring.h"
+#include "font/fonts.h"
 #include "debug/debug_log.h"
-#include "util/string_utils.h"
 #include "script/runtimescriptvalue.h"
+#include "util/string_compat.h"
 
-extern char lines[MAXLINE][200];
-extern int  numlines;
 extern GameSetupStruct game;
 extern GameState play;
 extern int longestline;
@@ -33,7 +32,7 @@ extern ScriptString myScriptStringImpl;
 
 int String_IsNullOrEmpty(const char *thisString) 
 {
-    if ((thisString == NULL) || (thisString[0] == 0))
+    if ((thisString == nullptr) || (thisString[0] == 0))
         return 1;
 
     return 0;
@@ -99,7 +98,7 @@ int String_CompareTo(const char *thisString, const char *otherString, bool caseS
         return strcmp(thisString, otherString);
     }
     else {
-        return stricmp(thisString, otherString);
+        return ags_stricmp(thisString, otherString);
     }
 }
 
@@ -109,7 +108,7 @@ int String_StartsWith(const char *thisString, const char *checkForString, bool c
         return (strncmp(thisString, checkForString, strlen(checkForString)) == 0) ? 1 : 0;
     }
     else {
-        return (strnicmp(thisString, checkForString, strlen(checkForString)) == 0) ? 1 : 0;
+        return (ags_strnicmp(thisString, checkForString, strlen(checkForString)) == 0) ? 1 : 0;
     }
 }
 
@@ -128,7 +127,7 @@ int String_EndsWith(const char *thisString, const char *checkForString, bool cas
     }
     else 
     {
-        return (stricmp(&thisString[checkAtOffset], checkForString) == 0) ? 1 : 0;
+        return (ags_stricmp(&thisString[checkAtOffset], checkForString) == 0) ? 1 : 0;
     }
 }
 
@@ -146,7 +145,7 @@ const char* String_Replace(const char *thisString, const char *lookForText, cons
         }
         else
         {
-            matchHere = (strnicmp(&thisString[i], lookForText, strlen(lookForText)) == 0);
+            matchHere = (ags_strnicmp(&thisString[i], lookForText, strlen(lookForText)) == 0);
         }
 
         if (matchHere)
@@ -170,14 +169,14 @@ const char* String_Replace(const char *thisString, const char *lookForText, cons
 const char* String_LowerCase(const char *thisString) {
     char *buffer = (char*)malloc(strlen(thisString) + 1);
     strcpy(buffer, thisString);
-    strlwr(buffer);
+    ags_strlwr(buffer);
     return CreateNewScriptString(buffer, false);
 }
 
 const char* String_UpperCase(const char *thisString) {
     char *buffer = (char*)malloc(strlen(thisString) + 1);
     strcpy(buffer, thisString);
-    strupr(buffer);
+    ags_strupr(buffer);
     return CreateNewScriptString(buffer, false);
 }
 
@@ -198,14 +197,14 @@ int StrContains (const char *s1, const char *s2) {
     char *tempbuf2 = (char*)malloc(strlen(s2) + 1);
     strcpy(tempbuf1, s1);
     strcpy(tempbuf2, s2);
-    strlwr(tempbuf1);
-    strlwr(tempbuf2);
+    ags_strlwr(tempbuf1);
+    ags_strlwr(tempbuf2);
 
     char *offs = strstr (tempbuf1, tempbuf2);
     free(tempbuf1);
     free(tempbuf2);
 
-    if (offs == NULL)
+    if (offs == nullptr)
         return -1;
 
     return (offs - tempbuf1);
@@ -214,6 +213,11 @@ int StrContains (const char *s1, const char *s2) {
 //=============================================================================
 
 const char *CreateNewScriptString(const char *fromText, bool reAllocate) {
+    return (const char*)CreateNewScriptStringObj(fromText, reAllocate).second;
+}
+
+DynObjectRef CreateNewScriptStringObj(const char *fromText, bool reAllocate)
+{
     ScriptString *str;
     if (reAllocate) {
         str = new ScriptString(fromText);
@@ -222,27 +226,17 @@ const char *CreateNewScriptString(const char *fromText, bool reAllocate) {
         str = new ScriptString();
         str->text = (char*)fromText;
     }
-
-    ccRegisterManagedObject(str->text, str);
-
-    return str->text;
-}
-
-void reverse_text(char *text) {
-    int length = strlen(text);
-    int index = length / 2;
-    int xedni;
-    char swap;
-    while(index > 0) {
-        xedni = length - index;
-        index--;
-        swap = text[xedni];
-        text[xedni] = text[index];
-        text[index] = swap;
+    void *obj_ptr = str->text;
+    int32_t handle = ccRegisterManagedObject(obj_ptr, str);
+    if (handle == 0)
+    {
+        delete str;
+        return DynObjectRef(0, nullptr);
     }
+    return DynObjectRef(handle, obj_ptr);
 }
 
-void break_up_text_into_lines(int wii,int fonnt, const char*todis) {
+size_t break_up_text_into_lines(const char *todis, SplitLines &lines, int wii, int fonnt, size_t max_lines) {
     if (fonnt == -1)
         fonnt = play.normal_font;
 
@@ -251,33 +245,33 @@ void break_up_text_into_lines(int wii,int fonnt, const char*todis) {
         while ((todis[0]!=' ') & (todis[0]!=0)) todis++;
         if (todis[0]==' ') todis++;
     }
-    numlines=0;
+    lines.Reset();
     longestline=0;
 
     // Don't attempt to display anything if the width is tiny
     if (wii < 3)
-        return;
+        return 0;
 
-    int rr;
     int line_length;
 
-    split_lines(todis, wii, fonnt);
+    split_lines(todis, lines, wii, fonnt, max_lines);
 
     // Right-to-left just means reverse the text then
     // write it as normal
     if (game.options[OPT_RIGHTLEFTWRITE])
-        for (rr = 0; rr < numlines; rr++) {
-            reverse_text(lines[rr]);
+        for (size_t rr = 0; rr < lines.Count(); rr++) {
+            lines[rr].Reverse();
             line_length = wgettextwidth_compensate(lines[rr], fonnt);
             if (line_length > longestline)
                 longestline = line_length;
         }
     else
-        for (rr = 0; rr < numlines; rr++) {
+        for (size_t rr = 0; rr < lines.Count(); rr++) {
             line_length = wgettextwidth_compensate(lines[rr], fonnt);
             if (line_length > longestline)
                 longestline = line_length;
         }
+    return lines.Count();
 }
 
 int MAXSTRLEN = MAX_MAXSTRLEN;
@@ -413,7 +407,7 @@ RuntimeScriptValue Sc_String_UpperCase(void *self, const RuntimeScriptValue *par
 // FLOAT_RETURN_TYPE (const char *theString);
 RuntimeScriptValue Sc_StringToFloat(void *self, const RuntimeScriptValue *params, int32_t param_count)
 {
-    API_OBJCALL_INT(const char, StringToFloat);
+    API_OBJCALL_FLOAT(const char, StringToFloat);
 }
 
 // int (char*stino)
@@ -430,7 +424,7 @@ RuntimeScriptValue Sc_String_GetChars(void *self, const RuntimeScriptValue *para
 
 RuntimeScriptValue Sc_strlen(void *self, const RuntimeScriptValue *params, int32_t param_count)
 {
-    ASSERT_SELF(strlen)
+    ASSERT_SELF(strlen);
     return RuntimeScriptValue().SetInt32(strlen((const char*)self));
 }
 

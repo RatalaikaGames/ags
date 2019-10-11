@@ -42,7 +42,7 @@ enum StreamSeek
 class IAGSStream
 {
 public:
-    virtual ~IAGSStream(){}
+    virtual ~IAGSStream() = default;
 
     virtual void        Close() = 0;
 
@@ -81,7 +81,7 @@ public:
     virtual size_t      WriteArrayOfInt32(const int32_t *buffer, size_t count) = 0;
     virtual size_t      WriteArrayOfInt64(const int64_t *buffer, size_t count) = 0;
 
-    virtual soff_t      Seek(soff_t offset, StreamSeek origin = kSeekCurrent) = 0;
+    virtual bool        Seek(soff_t offset, StreamSeek origin = kSeekCurrent) = 0;
 };
 
 } // namespace Common

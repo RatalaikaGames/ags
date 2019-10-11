@@ -12,7 +12,8 @@
 //
 //=============================================================================
 
-#ifdef _DEBUG
+#include "core/platform.h"
+#ifdef AGS_RUN_TESTS
 
 #include "debug/assert.h"
 #include "util/scaling.h"
@@ -62,4 +63,4 @@ void Test_Math()
     }
 }
 
-#endif // _DEBUG
+#endif // AGS_RUN_TESTS

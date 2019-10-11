@@ -42,6 +42,7 @@ namespace AGS.Editor
         private const string MENU_ITEM_EXPORT_SPRITE = "ExportSprite";
         private const string MENU_ITEM_REPLACE_FROM_FILE = "ReplaceFromFile";
         private const string MENU_ITEM_REPLACE_FROM_CLIPBOARD = "ReplaceFromClipboard";
+        private const string MENU_ITEM_OPEN_FILE_EXPLORER = "OpenFileExplorer";
         private const string MENU_ITEM_DELETE_SPRITE = "DeleteSprite";
         private const string MENU_ITEM_SHOW_USAGE = "ShowUsage";
         private const string MENU_ITEM_CROP_ASYMMETRIC = "CropAsymettric";
@@ -82,6 +83,14 @@ namespace AGS.Editor
             folderList.ImageList = _spManagerIcons;
         }
 
+        /// <summary>
+        /// Gets the sprite ID out of the sprite list item 
+        /// </summary>
+        private int GetSpriteID(ListViewItem item)
+        {
+            return Convert.ToInt32(item.Text);
+        }
+
         public bool ShowUseThisSpriteOption
         {
             get { return _showUseThisSpriteOption; }
@@ -100,7 +109,7 @@ namespace AGS.Editor
             {
                 if (spriteList.SelectedItems.Count == 1)
                 {
-                    return FindSpriteByNumber(Convert.ToInt32(spriteList.SelectedItems[0].Text));
+                    return FindSpriteByNumber(GetSpriteID(spriteList.SelectedItems[0]));
                 }
                 return null;
             }
@@ -261,7 +270,7 @@ namespace AGS.Editor
             spriteList.SelectedItems.Clear();
             foreach (ListViewItem listItem in spriteList.Items)
             {
-                if (Convert.ToInt32(listItem.Text) == spriteNumber)
+                if (GetSpriteID(listItem) == spriteNumber)
                 {
                     listItem.Selected = true;
                     listItem.Focused = true;
@@ -527,7 +536,7 @@ namespace AGS.Editor
                 {
                     if (listItem.Selected)
                     {
-                        int spriteNum = Convert.ToInt32(listItem.Text);
+                        int spriteNum = GetSpriteID(listItem);
                         Sprite sprite = FindSpriteByNumber(spriteNum);
 
                         try
@@ -629,17 +638,31 @@ namespace AGS.Editor
                     Factory.GUIController.ShowMessage("The clipboard does not currently contain a supported image format.", MessageBoxIcon.Warning);
                 }
             }
+            else if (item.Name == MENU_ITEM_OPEN_FILE_EXPLORER)
+            {
+                Sprite sprite = FindSpriteByNumber(_spriteNumberOnMenuActivation);
+                string path = Utilities.ResolveSourcePath(sprite.SourceFile);
+
+                if (File.Exists(path))
+                {
+                    if (Utilities.IsMonoRunning())
+                    {
+                        // FIXME - this probably needs to be more platform specific
+                        Process.Start(path);
+                    }
+                    else
+                    {
+                        Process.Start("explorer.exe", String.Format("/select,\"{0}\"", path));
+                    }
+                }
+            }
             else if (item.Name == MENU_ITEM_DELETE_SPRITE)
             {
                 DeleteSelectedSprites();
             }
             else if (item.Name == MENU_ITEM_EXPORT_FOLDER)
             {
-                string exportFolder = Factory.GUIController.ShowSelectFolderOrNoneDialog("Export sprites to folder...", System.IO.Directory.GetCurrentDirectory());
-                if (exportFolder != null)
-                {
-                    ExportAllSpritesInFolder(exportFolder);
-                }
+                ExportAllSprites();
             }
             else if (item.Name == MENU_ITEM_SORT_BY_NUMBER)
             {
@@ -677,49 +700,19 @@ namespace AGS.Editor
                 if (GetDesktopColourDepth() < 32 &&
                     (bmp.PixelFormat != PixelFormat.Format32bppArgb || bmp.PixelFormat == PixelFormat.Format32bppRgb))
                 {
-                    if (Factory.GUIController.ShowQuestion("Your desktop colour depth is lower than this image. You may lose image detail if you copy this to the clipboard. Do you want to go ahead?") == DialogResult.Yes)
+                    if (Factory.GUIController.ShowQuestion("Your desktop colour depth is lower than this image. You may lose image detail if you copy this to the clipboard. Do you want to go ahead?") != DialogResult.Yes)
                     {
-                        Clipboard.SetImage(bmp);
+                        bmp.Dispose();
+                        return;
                     }
                 }
 
+                Clipboard.SetImage(bmp);
                 bmp.Dispose();
             }
             else if (item.Name == MENU_ITEM_CHANGE_SPRITE_NUMBER)
             {
-                if (Factory.GUIController.ShowQuestion("Changing the sprite slot number is a specialized operation, for advanced users only.\n\nOnly re-number this sprite if you are ABSOLUTELY SURE it is not used AT ALL in your game. Any parts of your game that do use this sprite will cause the editor and engine to crash if you go ahead. Are you sure?") == DialogResult.Yes)
-                {
-                    string usage = SpriteTools.GetSpriteUsageReport(_spriteNumberOnMenuActivation, Factory.AGSEditor.CurrentGame);
-                    if (usage != null)
-                    {
-                        Factory.GUIController.ShowMessage("Cannot change the sprite number because it is in use:" + Environment.NewLine + usage, MessageBoxIcon.Warning);
-                        return;
-                    }
-
-                    Sprite sprite = FindSpriteByNumber(_spriteNumberOnMenuActivation);
-                    int newNumber = NumberEntryDialog.Show("Change Sprite Number", "Enter the new sprite number in the box below:", sprite.Number, 0, NativeConstants.MAX_STATIC_SPRITES - 1);
-                    if (newNumber == -1)
-                    {
-                        // Dialog cancelled
-                    }
-                    else if (Factory.NativeProxy.DoesSpriteExist(newNumber))
-                    {
-                        Factory.GUIController.ShowMessage("The destination sprite number " + newNumber + " already exists.", MessageBoxIcon.Stop);
-                    }
-                    else
-                    {
-                        try
-                        {
-                            Factory.NativeProxy.ChangeSpriteNumber(sprite, newNumber);
-                            RefreshSpriteDisplay();
-                            SelectSprite(sprite);
-                        }
-                        catch (AGSEditorException ex)
-                        {
-                            Factory.GUIController.ShowMessage("Unable to change the sprite number: " + ex.Message, MessageBoxIcon.Warning);
-                        }
-                    }
-                }
+                ChangeSpriteNumber(_spriteNumberOnMenuActivation);
             }
             else if (item.Name == MENU_ITEM_SHOW_USAGE)
             {
@@ -741,7 +734,7 @@ namespace AGS.Editor
                     List<int> spriteNumbers = new List<int>();
                     foreach (ListViewItem selectedItem in spriteList.SelectedItems)
                     {
-                        spriteNumbers.Add(Convert.ToInt32(selectedItem.Name.ToString()));
+                        spriteNumbers.Add(GetSpriteID(selectedItem));
                     }
                     AssignSpritesToView(spriteNumbers, dialog);
                 }
@@ -774,7 +767,7 @@ namespace AGS.Editor
 
             foreach (ListViewItem listItem in spriteList.SelectedItems) //Check sources still exist
             {
-                Sprite spr = FindSpriteByNumber(Convert.ToInt32(listItem.Text));
+                Sprite spr = FindSpriteByNumber(GetSpriteID(listItem));
                 if (String.IsNullOrEmpty(spr.SourceFile))
                 {
                     Factory.GUIController.ShowMessage(String.Format("Sprite {0} does not have a source file.", spr.Number), MessageBoxIcon.Error);
@@ -810,11 +803,20 @@ namespace AGS.Editor
                         spritesheet = null;
                     }
 
-                    SpriteTools.ReplaceSprite(spr, spr.SourceFile, spr.Frame, spr.AlphaChannel, spr.RemapToGamePalette, spr.RemapToRoomPalette, spr.TransparentColour, spritesheet);
+                    // take the alpha channel preference from the specified import option
+                    // (instead of using whether the old sprite has an alpha channel)
+                    SpriteTools.ReplaceSprite(spr, spr.SourceFile, spr.Frame, spr.ImportAlphaChannel, spr.RemapToGamePalette, spr.RemapToRoomPalette, spr.TransparentColour, spritesheet);
                 }
-                catch (InvalidOperationException ex)
+                catch (Exception ex)
                 {
-                    errors.Add(ex.Message);
+                    if (ex is InvalidOperationException || ex is Types.InvalidDataException)
+                    {
+                        errors.Add(ex.Message);
+                    }
+                    else
+                    {
+                        throw;
+                    }
                 }
             }
 
@@ -1034,7 +1036,7 @@ namespace AGS.Editor
             {
                 if (listItem.Selected)
                 {
-                    Sprite sprite = FindSpriteByNumber(Convert.ToInt32(listItem.Text));
+                    Sprite sprite = FindSpriteByNumber(GetSpriteID(listItem));
                     if (sprites.Count > 0)
                     {
                         if (sprite.Width != width || sprite.Height != height)
@@ -1069,31 +1071,33 @@ namespace AGS.Editor
             bmp.Dispose();
         }
 
-        private void ExportAllSpritesInFolder(string exportToFolder)
+        private void ExportAllSprites()
         {
-            try
+            SpriteExportDialog dialog = new SpriteExportDialog(_currentFolder);
+
+            if (dialog.ShowDialog() == DialogResult.OK)
             {
-                foreach (Sprite sprite in _currentFolder.Sprites)
+                try
                 {
-                    Bitmap bmp = Factory.NativeProxy.GetBitmapForSprite(sprite.Number, sprite.Width, sprite.Height);
-                    if ((sprite.ColorDepth < 32) && (!sprite.AlphaChannel))
+                    if (dialog.UseRootFolder)
                     {
-                        bmp.Save(string.Format("{0}{1}spr{2:00000}.bmp", exportToFolder, Path.DirectorySeparatorChar, sprite.Number), ImageFormat.Bmp);
+                        SpriteTools.ExportSprites(dialog.ExportPath, dialog.Recurse,
+                            dialog.SkipValidSpriteSource, dialog.UpdateSpriteSource);
                     }
                     else
                     {
-                        // export 32-bit images as PNG so no alpha channel is lost
-                        bmp.Save(string.Format("{0}{1}spr{2:00000}.png", exportToFolder, Path.DirectorySeparatorChar, sprite.Number), ImageFormat.Png);
+                        SpriteTools.ExportSprites(_currentFolder, dialog.ExportPath, dialog.Recurse,
+                            dialog.SkipValidSpriteSource, dialog.UpdateSpriteSource);
                     }
-                    bmp.Dispose();
                 }
+                catch (Exception ex)
+                {
+                    String message = String.Format("There was an error during the export. The error message was: '{0}'", ex.Message);
+                    Factory.GUIController.ShowMessage(message, MessageBoxIcon.Warning);
+                }
+            }
 
-                Factory.GUIController.ShowMessage("Sprites exported successfully.", MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                Factory.GUIController.ShowMessage("There was an error exporting the files. The error message was: '" + ex.Message + "'. Please try again", MessageBoxIcon.Warning);
-            }
+            dialog.Dispose();
         }
 
         private void SortAllSpritesInCurrentFolderByNumber()
@@ -1139,7 +1143,7 @@ namespace AGS.Editor
 
             if (itemAtLocation != null)
             {
-                _spriteNumberOnMenuActivation = Convert.ToInt32(itemAtLocation.Text);
+                _spriteNumberOnMenuActivation = GetSpriteID(itemAtLocation);
                 ToolStripMenuItem newItem;
                 if (_showUseThisSpriteOption)
                 {
@@ -1153,6 +1157,8 @@ namespace AGS.Editor
                 newItem.Font = new System.Drawing.Font(newItem.Font.Name, newItem.Font.Size, FontStyle.Bold);
                 menu.Items.Add(newItem);
                 menu.Items.Add(new ToolStripSeparator());
+                menu.Items.Add(new ToolStripMenuItem("Open File Explorer at sprite source", null, onClick, MENU_ITEM_OPEN_FILE_EXPLORER));
+                menu.Items[menu.Items.Count - 1].Enabled = File.Exists(Utilities.ResolveSourcePath(FindSpriteByNumber(_spriteNumberOnMenuActivation).SourceFile));
                 menu.Items.Add(new ToolStripMenuItem("Copy sprite to clipboard", null, onClick, MENU_ITEM_COPY_TO_CLIPBOARD));
                 menu.Items.Add(new ToolStripMenuItem("Export sprite to file...", null, onClick, MENU_ITEM_EXPORT_SPRITE));
                 menu.Items.Add(new ToolStripSeparator());
@@ -1213,7 +1219,7 @@ namespace AGS.Editor
             }
 
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add(new ToolStripMenuItem("Export all sprites in folder...", null, onClick, MENU_ITEM_EXPORT_FOLDER));
+            menu.Items.Add(new ToolStripMenuItem("Export all sprites...", null, onClick, MENU_ITEM_EXPORT_FOLDER));
             menu.Items.Add(new ToolStripMenuItem("Sort sprites by number", null, onClick, MENU_ITEM_SORT_BY_NUMBER));
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(new ToolStripMenuItem("Find sprite by number...", null, onClick, MENU_ITEM_FIND_BY_NUMBER));
@@ -1226,6 +1232,41 @@ namespace AGS.Editor
             return _currentFolder.FindSpriteByID(spriteNum, false);
         }
 
+        private void ChangeSpriteNumber(int spriteNum)
+        {
+            string usage = SpriteTools.GetSpriteUsageReport(spriteNum, Factory.AGSEditor.CurrentGame);
+            if (usage != null)
+            {
+                Factory.GUIController.ShowMessage("Cannot change the sprite number because it is in use:" + Environment.NewLine + usage, MessageBoxIcon.Warning);
+                return;
+            }
+
+            Sprite sprite = FindSpriteByNumber(spriteNum);
+            int newNumber = NumberEntryWithInfoDialog.Show("Change Sprite Number",
+                String.Format("Enter the new sprite number in the box below ({0}-{1}):", 0, NativeConstants.MAX_STATIC_SPRITES - 1),
+                "WARNING: Changing the sprite slot number is a specialized operation, for advanced users only.\n\nOnly re - number this sprite if you are ABSOLUTELY SURE it is not used AT ALL in your game. Any parts of your game that do use this sprite will cause the editor and engine to crash if you go ahead.",
+                sprite.Number, 0, NativeConstants.MAX_STATIC_SPRITES - 1);
+            if (newNumber < 0)
+                return;
+            if (Factory.NativeProxy.DoesSpriteExist(newNumber))
+            {
+                Factory.GUIController.ShowMessage("The destination sprite number " + newNumber + " already exists.", MessageBoxIcon.Stop);
+            }
+            else
+            {
+                try
+                {
+                    Factory.NativeProxy.ChangeSpriteNumber(sprite, newNumber);
+                    RefreshSpriteDisplay();
+                    SelectSprite(sprite);
+                }
+                catch (AGSEditorException ex)
+                {
+                    Factory.GUIController.ShowMessage("Unable to change the sprite number: " + ex.Message, MessageBoxIcon.Warning);
+                }
+            }
+        }
+
         private void spriteList_ItemSelectionChanged(object sender, ListViewItemSelectionChangedEventArgs e)
         {
             // for multi-select, skip events generated by intermediate items by checking focus
@@ -1234,7 +1275,7 @@ namespace AGS.Editor
                 Sprite[] selectedSprites = new Sprite[spriteList.SelectedItems.Count];
                 for (int i = 0; i < selectedSprites.Length; i++)
                 {
-                    selectedSprites[i] = FindSpriteByNumber(Convert.ToInt32(spriteList.SelectedItems[i].Text));
+                    selectedSprites[i] = FindSpriteByNumber(GetSpriteID(spriteList.SelectedItems[i]));
                     if (selectedSprites[i] == null)
                     {
                         throw new AGSEditorException("Internal error: selected sprite not in folder");
@@ -1266,7 +1307,7 @@ namespace AGS.Editor
 
             foreach (ListViewItem selectedItem in spriteList.SelectedItems)
             {
-                dragDropData.Sprites.Add(FindSpriteByNumber(Convert.ToInt32(selectedItem.Text)));
+                dragDropData.Sprites.Add(FindSpriteByNumber(GetSpriteID(selectedItem)));
             }
 
             this.DoDragDrop(dragDropData, DragDropEffects.Move);
@@ -1291,7 +1332,7 @@ namespace AGS.Editor
             }
             if (nearestItem != null)
             {
-                int nearestSprite = Convert.ToInt32(nearestItem.Text);
+                int nearestSprite = GetSpriteID(nearestItem);
                 _currentFolder.Sprites = MoveSpritesIntoNewPositionInFolder(nearestSprite, putSpritesBeforeSelection, dragged);
                 RefreshSpriteDisplay();
             }

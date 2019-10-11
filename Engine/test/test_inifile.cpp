@@ -12,7 +12,8 @@
 //
 //=============================================================================
 
-#ifdef _DEBUG
+#include "core/platform.h"
+#ifdef AGS_RUN_TESTS
 
 #include <string.h>
 #include <algorithm>
@@ -24,7 +25,7 @@
 
 using namespace AGS::Common;
 
-#if defined (WINDOWS_VERSION)
+#if AGS_PLATFORM_OS_WINDOWS
 #define ENDL "\r\n"
 #else
 #define ENDL "\n"
@@ -184,7 +185,7 @@ void Test_IniFile()
 
         fs = File::OpenFileRead("test.ini");
         String ini_content;
-        ini_content.ReadCount(fs, fs->GetLength());
+        ini_content.ReadCount(fs, static_cast<size_t>(fs->GetLength()));
         
         assert(ini_content == IniFileText2);
     }
@@ -294,4 +295,4 @@ void Test_IniFile()
     File::DeleteFile("test.ini");
 }
 
-#endif // _DEBUG
+#endif // AGS_RUN_TESTS

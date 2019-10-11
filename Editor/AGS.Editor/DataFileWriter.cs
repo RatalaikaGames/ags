@@ -507,7 +507,7 @@ namespace AGS.Editor
             options[NativeConstants.GameOptions.OPT_DUPLICATEINV] = (game.Settings.DisplayMultipleInventory ? 1 : 0);
             options[NativeConstants.GameOptions.OPT_STRICTSTRINGS] = (game.Settings.EnforceNewStrings ? 1 : 0);
             options[NativeConstants.GameOptions.OPT_STRICTSCRIPTING] = (game.Settings.EnforceObjectBasedScript ? 1 : 0);
-            options[NativeConstants.GameOptions.OPT_NOSCALEFNT] = (game.Settings.FontsForHiRes ? 1 : 0);
+            options[NativeConstants.GameOptions.OPT_HIRES_FONTS] = 0; // always ignore this setting
             options[NativeConstants.GameOptions.OPT_HANDLEINVCLICKS] = (game.Settings.HandleInvClicksInScript ? 1 : 0);
             options[NativeConstants.GameOptions.OPT_FIXEDINVCURSOR] = (game.Settings.InventoryCursors ? 0 : 1);
             options[NativeConstants.GameOptions.OPT_GLOBALTALKANIMSPD] = (game.Settings.UseGlobalSpeechAnimationDelay ?
@@ -534,6 +534,7 @@ namespace AGS.Editor
             options[NativeConstants.GameOptions.OPT_BASESCRIPTAPI] = (int)game.Settings.ScriptAPIVersionReal;
             options[NativeConstants.GameOptions.OPT_SCRIPTCOMPATLEV] = (int)game.Settings.ScriptCompatLevelReal;
             options[NativeConstants.GameOptions.OPT_RENDERATSCREENRES] = (int)game.Settings.RenderAtScreenResolution;
+            options[NativeConstants.GameOptions.OPT_RELATIVEASSETRES] = (game.Settings.AllowRelativeAssetResolutions ? 1 : 0);
             options[NativeConstants.GameOptions.OPT_LIPSYNCTEXT] = (game.LipSync.Type == LipSyncType.Text ? 1 : 0);
             for (int i = 0; i < options.Length; ++i) // writing only ints, alignment preserved
             {
@@ -858,7 +859,7 @@ namespace AGS.Editor
                             writer.Write((short)frame.Delay);
                             writer.Write((short)0); // struct alignment padding
                             writer.Write(frame.Flipped ? NativeConstants.VFLG_FLIPSPRITE : 0);
-                            writer.Write(frame.Sound > 0 ? game.GetAudioArrayIndexFromAudioClipIndex(frame.Sound) : -1);
+                            writer.Write(frame.Sound);
                             writer.Write(0); // unused reservedForFuture[0]
                             writer.Write(0); // unused reservedForFuture[1]
                         }
@@ -1386,25 +1387,24 @@ namespace AGS.Editor
             WriteString(game.Settings.SaveGameFolderName, NativeConstants.MAX_SG_FOLDER_LEN, writer);
             for (int i = 0; i < game.Fonts.Count; ++i)
             {
-                writer.Write((byte)(game.Fonts[i].PointSize & NativeConstants.FFLG_SIZEMASK));
-            }
-            for (int i = 0; i < game.Fonts.Count; ++i)
-            {
-                if (game.Fonts[i].OutlineStyle == FontOutlineStyle.None)
+                int flags = 0;
+                if (game.Fonts[i].PointSize == 0)
                 {
-                    writer.Write((sbyte)-1);
+                    flags = NativeConstants.FFLG_SIZEMULTIPLIER;
                 }
-                else if (game.Fonts[i].OutlineStyle == FontOutlineStyle.Automatic)
-                {
-                    writer.Write(NativeConstants.FONT_OUTLINE_AUTO);
-                }
+                writer.Write(flags);
+                if ((flags & NativeConstants.FFLG_SIZEMULTIPLIER) == 0)
+                    writer.Write(game.Fonts[i].PointSize * game.Fonts[i].SizeMultiplier);
                 else
-                {
-                    writer.Write((byte)game.Fonts[i].OutlineFont);
-                }
-            }
-            for (int i = 0; i < game.Fonts.Count; ++i)
-            {
+                    writer.Write(game.Fonts[i].SizeMultiplier);
+
+                int outline = -1;
+                if (game.Fonts[i].OutlineStyle == FontOutlineStyle.Automatic)
+                    outline = NativeConstants.FONT_OUTLINE_AUTO;
+                else if (game.Fonts[i].OutlineStyle != FontOutlineStyle.None)
+                    outline = game.Fonts[i].OutlineFont;
+                writer.Write(outline);
+
                 writer.Write(game.Fonts[i].VerticalOffset);
                 writer.Write(game.Fonts[i].LineSpacing);
             }
@@ -1605,6 +1605,11 @@ namespace AGS.Editor
                     DialogOption option = curDialog.Options[i];
                     int flags = 0;
                     if (!option.Say) flags |= NativeConstants.DFLG_NOREPEAT;
+                    /* --- disabled until Dialog.DisplayOptions(eSayAlways/eSayNever) question is resolved ---
+                    // NOTE: we always force "no-say" flag, because "say" checkbox is processed when
+                    // the dialog script is converted into regular script now.
+                    flags |= NativeConstants.DFLG_NOREPEAT;
+                    */
                     if (option.Show) flags |= NativeConstants.DFLG_ON;
                     writer.Write(flags); // optionflags
                 }
@@ -1676,12 +1681,12 @@ namespace AGS.Editor
                 writer.Write((int)game.AudioClipTypes[i - 1].CrossfadeClips); // crossfadeSpeed
                 writer.Write(0);
             }
-            IList<AudioClip> allClips = game.CachedAudioClipListForCompile;
+            IList<AudioClip> allClips = game.AudioClips;
             writer.Write(allClips.Count);
             for (int i = 0; i < allClips.Count; ++i)
             {
                 AudioClip clip = allClips[i];
-                writer.Write(0); // id
+                writer.Write(clip.ID); // id
                 WriteString(SafeTruncate(clip.ScriptName, 29), 30, writer); // scriptName
                 WriteString(SafeTruncate(clip.CacheFileNameWithoutPath, 14), 15, writer); // fileName
                 writer.Write((byte)clip.BundlingType); // bundlingType
@@ -1694,7 +1699,7 @@ namespace AGS.Editor
                 writer.Write(new byte[2]); // struct alignment padding
                 writer.Write(0); // reserved
             }
-            writer.Write(game.GetAudioArrayIndexFromAudioClipIndex(game.Settings.PlaySoundOnScore));
+            writer.Write(game.Settings.PlaySoundOnScore);
             if (game.Settings.DebugMode)
             {
                 writer.Write(game.Rooms.Count);

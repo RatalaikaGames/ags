@@ -23,8 +23,10 @@
 #include "ac/mouse.h"
 #include "ac/string.h"
 #include "debug/debug_log.h"
+#include "font/fonts.h"
 #include "gui/guimain.h"
 #include "script/runtimescriptvalue.h"
+#include "util/string_compat.h"
 
 using namespace AGS::Common;
 
@@ -45,7 +47,7 @@ int FindGUIID (const char* GUIName) {
             continue;
         if (strcmp(guis[ii].Name, GUIName) == 0)
             return ii;
-        if ((guis[ii].Name[0u] == 'g') && (stricmp(guis[ii].Name.GetCStr() + 1, GUIName) == 0))
+        if ((guis[ii].Name[0u] == 'g') && (ags_stricmp(guis[ii].Name.GetCStr() + 1, GUIName) == 0))
             return ii;
     }
     quit("FindGUIID: No matching GUI found: GUI may have been deleted");
@@ -82,7 +84,7 @@ void InterfaceOff(int ifn) {
   guis[ifn].SetVisible(false);
   if (guis[ifn].MouseOverCtrl>=0) {
     // Make sure that the overpic is turned off when the GUI goes off
-    guis[ifn].Controls[guis[ifn].MouseOverCtrl]->OnMouseLeave();
+    guis[ifn].GetControl(guis[ifn].MouseOverCtrl)->OnMouseLeave();
     guis[ifn].MouseOverCtrl = -1;
   }
   guis[ifn].OnControlPositionChanged();
@@ -94,19 +96,19 @@ void InterfaceOff(int ifn) {
 void SetGUIObjectEnabled(int guin, int objn, int enabled) {
   if ((guin<0) || (guin>=game.numgui))
     quit("!SetGUIObjectEnabled: invalid GUI number");
-  if ((objn<0) || (objn>=guis[guin].ControlCount))
+  if ((objn<0) || (objn>=guis[guin].GetControlCount()))
     quit("!SetGUIObjectEnabled: invalid object number");
 
-  GUIControl_SetEnabled(guis[guin].Controls[objn], enabled);
+  GUIControl_SetEnabled(guis[guin].GetControl(objn), enabled);
 }
 
 void SetGUIObjectPosition(int guin, int objn, int xx, int yy) {
   if ((guin<0) || (guin>=game.numgui))
     quit("!SetGUIObjectPosition: invalid GUI number");
-  if ((objn<0) || (objn>=guis[guin].ControlCount))
+  if ((objn<0) || (objn>=guis[guin].GetControlCount()))
     quit("!SetGUIObjectPosition: invalid object number");
 
-  GUIControl_SetPosition(guis[guin].Controls[objn], xx, yy);
+  GUIControl_SetPosition(guis[guin].GetControl(objn), xx, yy);
 }
 
 void SetGUIPosition(int ifn,int xx,int yy) {
@@ -120,10 +122,10 @@ void SetGUIObjectSize(int ifn, int objn, int newwid, int newhit) {
   if ((ifn<0) || (ifn>=game.numgui))
     quit("!SetGUIObjectSize: invalid GUI number");
 
-  if ((objn<0) || (objn >= guis[ifn].ControlCount))
+  if ((objn<0) || (objn >= guis[ifn].GetControlCount()))
     quit("!SetGUIObjectSize: invalid object number");
 
-  GUIControl_SetSize(guis[ifn].Controls[objn], newwid, newhit);
+  GUIControl_SetSize(guis[ifn].GetControl(objn), newwid, newhit);
 }
 
 void SetGUISize (int ifn, int widd, int hitt) {
@@ -175,9 +177,9 @@ int GetTextHeight(const char *text, int fontnum, int width) {
   if ((fontnum < 0) || (fontnum >= game.numfonts))
     quit("!GetTextHeight: invalid font number.");
 
-  break_up_text_into_lines(width, fontnum, text);
-
-  return getheightoflines(fontnum, numlines);
+  if (break_up_text_into_lines(text, Lines, width, fontnum) == 0)
+    return 0;
+  return getheightoflines(fontnum, Lines.Count());
 }
 
 int GetFontHeight(int fontnum)
@@ -222,7 +224,7 @@ int IsInterfaceEnabled() {
 
 int GetGUIObjectAt (int xx, int yy) {
     GUIObject *toret = GetGUIControlAtLocation(xx, yy);
-    if (toret == NULL)
+    if (toret == nullptr)
         return -1;
 
     return toret->Id;

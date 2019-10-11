@@ -12,48 +12,12 @@
 //
 //=============================================================================
 
-#define USE_CLIB
-#include "util/wgt2allg.h"
-#include "util/stream.h"
 #include "core/assetmanager.h"
 #include "gfx/bitmap.h"
+#include "util/stream.h"
+#include "util/wgt2allg.h"
 
 using namespace AGS::Common;
-
-  Common::Bitmap *gl_VirtualScreenBitmap;
-  Common::Bitmap *SetVirtualScreen(Bitmap *bitmap)
-  {
-    if (bitmap == NULL)
-    {
-      gl_VirtualScreenBitmap = BitmapHelper::GetScreenBitmap();
-    }
-    else
-    {
-      gl_VirtualScreenBitmap = bitmap;
-    }
-    return gl_VirtualScreenBitmap;
-  }
-
-  // [IKM] A very, very dangerous stuff!
-  Bitmap gl_VirtualScreenWrapper;
-  Common::Bitmap *SetVirtualScreenRaw(BITMAP *allegro_bitmap)
-  {
-    gl_VirtualScreenWrapper.WrapAllegroBitmap(allegro_bitmap, true);
-    if (allegro_bitmap == NULL)
-    {
-      gl_VirtualScreenBitmap = BitmapHelper::GetScreenBitmap();
-	}
-	else
-    {
-      gl_VirtualScreenBitmap = &gl_VirtualScreenWrapper;
-	}
-    return gl_VirtualScreenBitmap;
-  }
-
-  Common::Bitmap *GetVirtualScreen()
-  {
-      return gl_VirtualScreenBitmap;
-  }
 
 #ifdef __cplusplus
 extern "C"
@@ -103,8 +67,8 @@ extern "C"
 
     tempbitm = BitmapHelper::CreateBitmap(twid, thit);
 
-    if (tempbitm == NULL)
-      return NULL;
+    if (tempbitm == nullptr)
+      return nullptr;
 
     tempbitm->Blit(src, x1, y1, 0, 0, tempbitm->GetWidth(), tempbitm->GetHeight());
     return tempbitm;
@@ -117,7 +81,7 @@ extern "C"
     int numspri = 0, vv, hh, wdd, htt;
 
     Stream *in = Common::AssetManager::OpenAsset(filnam);
-    if (in == NULL)
+    if (in == nullptr)
       return -1;
 
     vers = in->ReadInt16();
@@ -137,13 +101,13 @@ extern "C"
     }
 
     for (vv = strt; vv <= eend; vv++)
-      sarray[vv] = NULL;
+      sarray[vv] = nullptr;
 
     for (vv = 0; vv <= numspri; vv++) {
       int coldep = in->ReadInt16();
 
       if (coldep == 0) {
-        sarray[vv] = NULL;
+        sarray[vv] = nullptr;
         if (in->EOS())
           break;
 
@@ -164,7 +128,7 @@ extern "C"
       }
       sarray[vv] = BitmapHelper::CreateBitmap(wdd, htt, coldep * 8);
 
-      if (sarray[vv] == NULL) {
+      if (sarray[vv] == nullptr) {
         delete in;
         return -1;
       }
@@ -201,13 +165,6 @@ extern "C"
     0x303030, 0x404040, 0x505050, 0x606060, 0x707070, 0x808080, 0x909090,       // 25
     0xA0A0A0, 0xB0B0B0, 0xC0C0C0, 0xD0D0D0, 0xE0E0E0, 0xF0F0F0
   };
-
-  /*
-  void wsetcolor(int nval)
-  {
-    __my_setcolor(&currentcolor, nval);
-  }
-  */
 
   int __wremap_keep_transparent = 1;
 

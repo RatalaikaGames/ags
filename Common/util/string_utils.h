@@ -18,61 +18,16 @@
 #ifndef __AGS_CN_UTIL__STRINGUTILS_H
 #define __AGS_CN_UTIL__STRINGUTILS_H
 
-#include <stdarg.h>
-#include <string.h>
+#include "util/string.h"
 
 namespace AGS { namespace Common { class Stream; } }
 using namespace AGS; // FIXME later
 
-#if !defined (WINDOWS_VERSION)
-
-#if !defined (strlwr)
-extern "C" char *strlwr(char *s);
-#endif
-
-#if !defined (strupr)
-extern "C" char *strupr(char *s);
-#endif
-
-#if !defined (stricmp)
-#define stricmp strcasecmp
-#endif
-
-#if !defined (strnicmp)
-#define strnicmp strncasecmp
-#endif
-
-#else
-
-#include "util/c99_snprintf.h"
-
-#if !defined(va_copy) && defined(_MSC_VER)
-#define va_copy(a, b) ((a) = (b))
-#endif
-
-#endif // !WINDOWS_VERSION
-
-void unescape(char *buffer);
-// Break up the text into lines
-void split_lines(const char *todis, int wii, int fonnt);
-
 //=============================================================================
 
-// TODO: remove later when arrays of chars are replaced by string class
-// fputstring writes c-string with null terminator
-void fputstring(const char *sss, Common::Stream *out);
-// fgetstring_limit limits number of bytes stored in the buffer, but it does NOT limit
-// number of bytes being read; the string is continued to be read until null terminator
-// is reached
-void fgetstring_limit(char *sss, Common::Stream *in, int bufsize);
-// fgestring is similar to fgetstring_limit, but it assumes very large arbitrary buffer limit
-// TODO: replace this function, because it should not exist >:[
-void fgetstring(char *sss, Common::Stream *in);
-
-#include "util/string.h"
-
-// Converts char* to string and frees original malloc-ed array
-Common::String free_char_to_string(char *char_buf);
+// Converts char* to string and frees original malloc-ed array;
+// This is used when we get a malloc'd char array from some utility function.
+Common::String cbuf_to_string_and_free(char *char_buf);
 
 namespace AGS
 {
@@ -98,16 +53,20 @@ namespace StrUtil
     // def_val on failure
     ConversionError StringToInt(const String &s, int &val, int def_val);
 
-    // Serializes and unserializes unterminated string prefixed with 32-bit length;
+    // Serialize and unserialize unterminated string prefixed with 32-bit length;
     // length is presented as 32-bit integer integer
     String          ReadString(Stream *in);
-    void            ReadString(char *cstr, Stream *in, size_t buf_limit = 0);
+    void            ReadString(char *cstr, Stream *in, size_t buf_limit);
     void            ReadString(char **cstr, Stream *in);
+    void            ReadString(String &s, Stream *in);
     void            SkipString(Stream *in);
     void            WriteString(const String &s, Stream *out);
     void            WriteString(const char *cstr, Stream *out);
 
-    // Serializes string as c-string (null-terminated sequence)
+    // Serialize and unserialize string as c-string (null-terminated sequence)
+    void            ReadCStr(char *buf, Stream *in, size_t buf_limit);
+    void            SkipCStr(Stream *in);
+    void            WriteCStr(const char *cstr, Stream *out);
     void            WriteCStr(const String &s, Stream *out);
 }
 } // namespace Common

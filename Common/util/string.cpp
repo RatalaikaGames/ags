@@ -11,55 +11,52 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
-
-#include <stdio.h> // sprintf
-#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
-#include "debug/assert.h"
+#include <ctype.h>
+#include "util/math.h"
 #include "util/stream.h"
 #include "util/string.h"
-#include "util/string_utils.h"
-#include "util/math.h"
+#include "util/string_compat.h"
 
 namespace AGS
 {
 namespace Common
 {
 
-/* static */ char String::_internalBuffer[3001];
-
 String::Header::Header()
     : RefCount(0)
     , Capacity(0)
     , Length(0)
+    , CStr(nullptr)
 {
 }
 
 String::String()
-    : _data(NULL)
+    : _data(nullptr)
 {
 }
 
 String::String(const String &str)
-    : _data(NULL)
+    : _data(nullptr)
 {
     *this = str;
 }
 
 String::String(const char *cstr)
-    :_data(NULL)
+    :_data(nullptr)
 {
     *this = cstr;
 }
 
 String::String(const char *cstr, size_t length)
-    : _data(NULL)
+    : _data(nullptr)
 {
     SetString(cstr, length);
 }
 
 String::String(char c, size_t count)
-    : _data(NULL)
+    : _data(nullptr)
 {
     FillString(c, count);
 }
@@ -81,7 +78,8 @@ void String::Read(Stream *in, size_t max_chars, bool stop_at_limit)
         return;
     }
 
-    char *read_ptr = _internalBuffer;
+    char buffer[1024];
+    char *read_ptr = buffer;
     size_t read_size = 0;
     int ichar;
     do
@@ -93,11 +91,11 @@ void String::Read(Stream *in, size_t max_chars, bool stop_at_limit)
             continue;
         }
         *read_ptr = (char)(ichar >= 0 ? ichar : 0);
-        if (!*read_ptr || read_ptr - _internalBuffer == _internalBufferLength - 1)
+        if (!*read_ptr || ((read_ptr - buffer) == (sizeof(buffer) - 1 - 1)))
         {
-            _internalBuffer[_internalBufferLength] = 0;
-            Append(_internalBuffer);
-            read_ptr = _internalBuffer;
+            buffer[sizeof(buffer) - 1] = 0;
+            Append(buffer);
+            read_ptr = buffer;
         }
         else
         {
@@ -156,7 +154,7 @@ int String::Compare(const char *cstr) const
 
 int String::CompareNoCase(const char *cstr) const
 {
-    return stricmp(GetCStr(), cstr ? cstr : "");
+    return ags_stricmp(GetCStr(), cstr ? cstr : "");
 }
 
 int String::CompareLeft(const char *cstr, size_t count) const
@@ -168,7 +166,7 @@ int String::CompareLeft(const char *cstr, size_t count) const
 int String::CompareLeftNoCase(const char *cstr, size_t count) const
 {
     cstr = cstr ? cstr : "";
-    return strnicmp(GetCStr(), cstr, count != -1 ? count : strlen(cstr));
+    return ags_strnicmp(GetCStr(), cstr, count != -1 ? count : strlen(cstr));
 }
 
 int String::CompareMid(const char *cstr, size_t from, size_t count) const
@@ -182,7 +180,7 @@ int String::CompareMidNoCase(const char *cstr, size_t from, size_t count) const
 {
     cstr = cstr ? cstr : "";
     from = Math::Min(from, GetLength());
-    return strnicmp(GetCStr() + from, cstr, count != -1 ? count : strlen(cstr));
+    return ags_strnicmp(GetCStr() + from, cstr, count != -1 ? count : strlen(cstr));
 }
 
 int String::CompareRight(const char *cstr, size_t count) const
@@ -198,7 +196,7 @@ int String::CompareRightNoCase(const char *cstr, size_t count) const
     cstr = cstr ? cstr : "";
     count = count != -1 ? count : strlen(cstr);
     size_t off = Math::Min(GetLength(), count);
-    return strnicmp(GetCStr() + GetLength() - off, cstr, count);
+    return ags_strnicmp(GetCStr() + GetLength() - off, cstr, count);
 }
 
 size_t String::FindChar(char c, size_t from) const
@@ -409,6 +407,23 @@ String String::Section(char separator, size_t first, size_t last,
     return String();
 }
 
+std::vector<String> String::Split(char separator) const
+{
+    std::vector<String> result;
+    if (!_meta || !separator)
+        return result;
+    const char *ptr = _meta->CStr;
+    while (*ptr)
+    {
+        const char *found_cstr = strchr(ptr, separator);
+        if (!found_cstr) break;
+        result.push_back(String(ptr, found_cstr - ptr));
+        ptr = found_cstr + 1;
+    }
+    result.push_back(String(ptr));
+    return result;
+}
+
 void String::Reserve(size_t max_length)
 {
     if (_meta)
@@ -594,7 +609,7 @@ void String::FormatV(const char *fcstr, va_list argptr)
     fcstr = fcstr ? fcstr : "";
     va_list argptr_cpy;
     va_copy(argptr_cpy, argptr);
-    size_t length = vsnprintf(NULL, 0u, fcstr, argptr);
+    size_t length = vsnprintf(nullptr, 0u, fcstr, argptr);
     ReserveAndShift(false, Math::Surplus(length, GetLength()));
     vsprintf(_meta->CStr, fcstr, argptr_cpy);
     va_end(argptr_cpy);
@@ -613,7 +628,7 @@ void String::Free()
             delete [] _data;
         }
     }
-    _data = NULL;
+    _data = nullptr;
 }
 
 void String::MakeLower()
@@ -621,7 +636,7 @@ void String::MakeLower()
     if (_meta)
     {
         BecomeUnique();
-        strlwr(_meta->CStr);
+        ags_strlwr(_meta->CStr);
     }
 }
 
@@ -630,7 +645,7 @@ void String::MakeUpper()
     if (_meta)
     {
         BecomeUnique();
-        strupr(_meta->CStr);
+        ags_strupr(_meta->CStr);
     }
 }
 
@@ -689,6 +704,17 @@ void String::ReplaceMid(size_t from, size_t count, const char *cstr)
     _meta->Length += length - count;
 }
 
+void String::Reverse()
+{
+    if (!_meta || GetLength() <= 1)
+        return;
+    for (char *fw = _meta->CStr, *bw = _meta->CStr + _meta->Length - 1;
+        *fw; ++fw, --bw)
+    {
+        std::swap(*fw, *bw);
+    }
+}
+
 void String::SetAt(size_t index, char c)
 {
     if (_meta && index < GetLength() && c)
@@ -735,10 +761,12 @@ void String::TrimLeft(char c)
     }
 
     const char *trim_ptr = _meta->CStr;
-    while (*trim_ptr &&
-        (c && *trim_ptr == c ||
-        !c && (*trim_ptr == ' ' || *trim_ptr == '\t' || *trim_ptr == '\r' || *trim_ptr == '\n')))
+    for (;;)
     {
+        auto t = *trim_ptr;
+        if (t == 0) { break; }
+        if (c && t != c) { break; }
+        if (!c && !isspace(t)) { break; }
         trim_ptr++;
     }
     size_t trimmed = trim_ptr - _meta->CStr;
@@ -758,10 +786,12 @@ void String::TrimRight(char c)
     }
 
     const char *trim_ptr = _meta->CStr + _meta->Length - 1;
-    while (trim_ptr >= _meta->CStr &&
-        (c && *trim_ptr == c ||
-        !c && (*trim_ptr == ' ' || *trim_ptr == '\t' || *trim_ptr == '\r' || *trim_ptr == '\n')))
+    for (;;) 
     {
+        if (trim_ptr < _meta->CStr) { break; }
+        auto t = *trim_ptr;
+        if (c && t != c) { break; }
+        if (!c && !isspace(t)) { break; }
         trim_ptr--;
     }
     size_t trimmed = (_meta->CStr + _meta->Length - 1) - trim_ptr;

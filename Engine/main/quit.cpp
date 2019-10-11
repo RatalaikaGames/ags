@@ -16,9 +16,9 @@
 // Quit game procedure
 //
 
+#include "core/platform.h"
 #include "ac/gamesetup.h"
 #include "ac/gamesetupstruct.h"
-#include "ac/record.h"
 #include "ac/roomstatus.h"
 #include "ac/translation.h"
 #include "debug/agseditordebugger.h"
@@ -36,6 +36,7 @@
 #include "gfx/bitmap.h"
 #include "core/assetmanager.h"
 #include "plugin/plugin_engine.h"
+#include "media/audio/audio_system.h"
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -105,7 +106,7 @@ void quit_shutdown_audio()
     game.options[OPT_CROSSFADEMUSIC] = 0;
     stopmusic();
 #ifndef PSP_NO_MOD_PLAYBACK
-    if (opts.mod_player)
+    if (usetup.mod_player)
         remove_mod_player();
 #endif
 
@@ -158,7 +159,7 @@ QuitReason quit_check_for_error_state(const char *&qmsg, String &alertis)
         qmsg++;
         alertis.Format("A warning has been generated. This is not normally fatal, but you have selected "
             "to treat warnings as errors.\n"
-            "(ACI version %s)\n\n%s\n", EngineVersion.LongString.GetCStr(), get_cur_script(5));
+            "(ACI version %s)\n\n%s\n", EngineVersion.LongString.GetCStr(), get_cur_script(5).GetCStr());
         return kQuit_GameWarning;
     }
     else
@@ -180,7 +181,7 @@ void quit_message_on_exit(const char *qmsg, String &alertis, QuitReason qreason)
         // Display the message (at this point the window still exists)
         sprintf(pexbuf,"%s\n",qmsg);
         alertis.Append(pexbuf);
-        platform->DisplayAlert(alertis);
+        platform->DisplayAlert("%s", alertis.GetCStr());
     }
 }
 
@@ -188,6 +189,7 @@ void quit_release_data()
 {
     resetRoomStatuses();
     thisroom.Free();
+    play.Free();
 
     /*  _CrtMemState memstart;
     _CrtMemCheckpoint(&memstart);
@@ -201,21 +203,10 @@ void quit_delete_temp_files()
     al_ffblk	dfb;
     int	dun = al_findfirst("~ac*.tmp",&dfb,FA_SEARCH);
     while (!dun) {
-        unlink(dfb.name);
+        ::remove(dfb.name);
         dun = al_findnext(&dfb);
     }
     al_findclose (&dfb);
-}
-
-void free_globals()
-{
-#if defined (WINDOWS_VERSION)
-    if (wArgv)
-    {
-        LocalFree(wArgv);
-        wArgv = NULL;
-    }
-#endif
 }
 
 // TODO: move to test unit
@@ -256,7 +247,6 @@ void quit(const char *quitmsg)
 
     our_eip = 9900;
 
-    stop_recording();
 
     our_eip = 9020;
 
@@ -281,6 +271,8 @@ void quit(const char *quitmsg)
 
     our_eip = 9908;
 
+    shutdown_pathfinder();
+
     engine_shutdown_gfxmode();
 
     quit_message_on_exit(qmsg, alertis, qreason);
@@ -303,7 +295,6 @@ void quit(const char *quitmsg)
     Debug::Printf(kDbgMsg_Init, "***** ENGINE HAS SHUTDOWN");
 
     shutdown_debug();
-    free_globals();
 
     our_eip = 9904;
     exit(EXIT_NORMAL);

@@ -29,18 +29,19 @@
 #include "ac/statobj/staticarray.h"
 #include "debug/debug_log.h"
 #include "debug/out.h"
+#include "font/agsfontrenderer.h"
 #include "font/fonts.h"
 #include "game/game_init.h"
 #include "gfx/bitmap.h"
 #include "gfx/ddb.h"
 #include "gui/guilabel.h"
-#include "media/audio/audio.h"
 #include "plugin/plugin_engine.h"
 #include "script/cc_error.h"
 #include "script/exports.h"
 #include "script/script.h"
 #include "script/script_runtime.h"
 #include "util/string_utils.h"
+#include "media/audio/audio_system.h"
 
 using namespace Common;
 using namespace Engine;
@@ -113,6 +114,8 @@ String GetGameInitErrorText(GameInitErrorType err)
         return "No fonts specified to be used in this game.";
     case kGameInitErr_TooManyAudioTypes:
         return "Too many audio types for this engine to handle.";
+    case kGameInitErr_EntityInitFail:
+        return "Failed to initialize game entities.";
     case kGameInitErr_TooManyPlugins:
         return "Too many plugins for this engine to handle.";
     case kGameInitErr_PluginNameInvalid:
@@ -132,8 +135,11 @@ void InitAndRegisterAudioObjects()
         ccRegisterManagedObject(&scrAudioChannel[i], &ccDynamicAudio);
     }
 
-    for (int i = 0; i < game.audioClipCount; ++i)
+    for (size_t i = 0; i < game.audioClips.size(); ++i)
     {
+        // Note that as of 3.5.0 data format the clip IDs are still restricted
+        // to actual item index in array, so we don't make any difference
+        // between game versions, for now.
         game.audioClips[i].id = i;
         ccRegisterManagedObject(&game.audioClips[i], &ccDynamicAudioClip);
         ccAddExternalDynamicObject(game.audioClips[i].scriptName, &game.audioClips[i], &ccDynamicAudioClip);
@@ -194,7 +200,7 @@ void InitAndRegisterDialogOptions()
 }
 
 // Initializes gui and registers them in the script system
-void InitAndRegisterGUI()
+HError InitAndRegisterGUI()
 {
     scrGui = (ScriptGUI*)malloc(sizeof(ScriptGUI) * game.numgui);
     for (int i = 0; i < game.numgui; ++i)
@@ -206,7 +212,9 @@ void InitAndRegisterGUI()
     for (int i = 0; i < game.numgui; ++i)
     {
         // link controls to their parent guis
-        guis[i].RebuildArray();
+        HError err = guis[i].RebuildArray();
+        if (!err)
+            return err;
         // export all the GUI's controls
         export_gui_controls(i);
         // copy the script name to its own memory location
@@ -216,6 +224,7 @@ void InitAndRegisterGUI()
         ccAddExternalDynamicObject(guiScriptObjNames[i], &scrGui[i], &ccDynamicGUI);
         ccRegisterManagedObject(&scrGui[i], &ccDynamicGUI);
     }
+    return HError::None();
 }
 
 // Initializes inventory items and registers them in the script system
@@ -298,51 +307,45 @@ void RegisterStaticArrays()
 }
 
 // Initializes various game entities and registers them in the script system
-void InitAndRegisterGameEntities()
+HError InitAndRegisterGameEntities()
 {
     InitAndRegisterAudioObjects();
     InitAndRegisterCharacters();
     InitAndRegisterDialogs();
     InitAndRegisterDialogOptions();
-    InitAndRegisterGUI();
+    HError err = InitAndRegisterGUI();
+    if (!err)
+        return err;
     InitAndRegisterInvItems();
 
     InitAndRegisterHotspots();
     InitAndRegisterRegions();
     InitAndRegisterRoomObjects();
+    play.CreatePrimaryViewportAndCamera();
 
     RegisterStaticArrays();
 
     setup_player_character(game.playercharacter);
     ccAddExternalStaticObject("player", &_sc_PlayerCharPtr, &GlobalStaticManager);
+    return HError::None();
 }
 
-void LoadFonts()
+void LoadFonts(GameDataVersion data_ver)
 {
     for (int i = 0; i < game.numfonts; ++i) 
     {
-        FontInfo finfo = game.fonts[i];
-
-        // Apply compatibility adjustments
-        if (finfo.SizePt == 0)
-            finfo.SizePt = 8;
-
+        if (!wloadfont_size(i, game.fonts[i]))
         // CLNUP decide what to do about arbitrary font scaling, might become an option
-        // TODO: for some reason these compat fixes are different in the editor, investigate
         /*
-        if ((game.options[OPT_NOSCALEFNT] == 0) && game.IsHiRes())
-            finfo.SizePt *= 2;
         */
-
-        if (!wloadfont_size(i, finfo, NULL))
             quitprintf("Unable to load font %d, no renderer could load a matching file", i);
     }
 }
 
 void AllocScriptModules()
 {
-    moduleInst.resize(numScriptModules, NULL);
-    moduleInstFork.resize(numScriptModules, NULL);
+    moduleInst.resize(numScriptModules, nullptr);
+    moduleInstFork.resize(numScriptModules, nullptr);
     moduleRepExecAddr.resize(numScriptModules);
     repExecAlways.moduleHasFunction.resize(numScriptModules, true);
     lateRepExecAlways.moduleHasFunction.resize(numScriptModules, true);
@@ -364,7 +367,8 @@ HGameInitError InitGameState(const LoadedGameEntities &ents, GameDataVersion dat
     const ScriptAPIVersion compat_api = (ScriptAPIVersion)game.options[OPT_SCRIPTCOMPATLEV];
     if (data_ver >= kGameVersion_341)
     {
-        const char * const scapi_names[] = {"v3.2.1", "v3.3.0", "v3.3.4", "v3.3.5", "v3.4.0", "v3.4.1", "v3.5.0"};
+        // TODO: find a way to either automate this list of strings or make it more visible and safer to use!!
+        const char * const scapi_names[] = {"v3.2.1", "v3.3.0", "v3.3.4", "v3.3.5", "v3.4.0", "v3.4.1", "v3.5.0", "v3.5.0.7"};
         Debug::Printf(kDbgMsg_Init, "Requested script API: %s (%d), compat level: %s (%d)",
                     base_api >= 0 && base_api <= kScriptAPI_Current ? scapi_names[base_api] : "unknown", base_api,
                     compat_api >= 0 && compat_api <= kScriptAPI_Current ? scapi_names[compat_api] : "unknown", compat_api);
@@ -380,28 +384,13 @@ HGameInitError InitGameState(const LoadedGameEntities &ents, GameDataVersion dat
     //
     if (game.numfonts == 0)
         return new GameInitError(kGameInitErr_NoFonts);
-    if (game.audioClipTypeCount > MAX_AUDIO_TYPES)
-        return new GameInitError(kGameInitErr_TooManyAudioTypes, String::FromFormat("Required: %d, max: %d", game.audioClipTypeCount, MAX_AUDIO_TYPES));
+    if (game.audioClipTypes.size() > MAX_AUDIO_TYPES)
+        return new GameInitError(kGameInitErr_TooManyAudioTypes, String::FromFormat("Required: %u, max: %d", game.audioClipTypes.size(), MAX_AUDIO_TYPES));
 
     //
     // 2. Apply overriding config settings
     //
-    // The earlier versions of AGS provided support for "upscaling" low-res
-    // games (320x200 and 320x240) to hi-res (640x400 and 640x480
-    // respectively). The script API has means for detecting if the game is
-    // running upscaled, and game developer could use this opportunity to setup
-    // game accordingly (e.g. assign hi-res fonts, etc).
-    // This feature is officially deprecated since 3.1.0, however the engine
-    // itself still supports it, technically.
-    // This overriding option re-enables "upscaling". It works ONLY for low-res
-    // resolutions, such as 320x200 and 320x240.
-    if (usetup.override_upscale)
-    {
-        if (game.GetDefaultResolution() == kGameResolution_320x200)
-            game.SetDefaultResolution(kGameResolution_640x400);
-        else if (game.GetDefaultResolution() == kGameResolution_320x240)
-            game.SetDefaultResolution(kGameResolution_640x480);
-    }
+    // CLNUP: this stage is removed
 
     //
     // 3. Allocate and init game objects
@@ -416,8 +405,10 @@ HGameInitError InitGameState(const LoadedGameEntities &ents, GameDataVersion dat
     actspswbbmp = (IDriverDependantBitmap**)calloc(actSpsCount, sizeof(IDriverDependantBitmap*));
     actspswbcache = (CachedActSpsData*)calloc(actSpsCount, sizeof(CachedActSpsData));
     play.charProps.resize(game.numcharacters);
-    InitAndRegisterGameEntities();
-    LoadFonts();
+    HError err = InitAndRegisterGameEntities();
+    if (!err)
+        return new GameInitError(kGameInitErr_EntityInitFail, err);
+    LoadFonts(data_ver);
 
     //
     // 4. Initialize certain runtime variables
@@ -425,10 +416,10 @@ HGameInitError InitGameState(const LoadedGameEntities &ents, GameDataVersion dat
     game_paused = 0;  // reset the game paused flag
     ifacepopped = -1;
 
+    String svg_suffix;
     if (game.saveGameFileExtension[0] != 0)
-        saveGameSuffix.Format(".%s", game.saveGameFileExtension);
-    else
-        saveGameSuffix = "";
+        svg_suffix.Format(".%s", game.saveGameFileExtension);
+    set_save_game_suffix(svg_suffix);
 
     play.score_sound = game.scoreClipID;
     play.fade_effect = game.options[OPT_FADETYPE];

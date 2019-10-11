@@ -12,6 +12,7 @@
 //
 //=============================================================================
 
+#include "core/platform.h"
 #include "ac/common.h"
 #include "ac/display.h"
 #include "ac/draw.h"
@@ -19,6 +20,7 @@
 #include "ac/gamesetup.h"
 #include "ac/gamesetupstruct.h"
 #include "ac/gamestate.h"
+#include "ac/mouse.h"
 #include "ac/runtime_defines.h"
 #include "ac/walkbehind.h"
 #include "ac/dynobj/scriptsystem.h"
@@ -41,70 +43,14 @@ extern GameSetupStruct game;
 extern ScriptSystem scsystem;
 extern int _places_r, _places_g, _places_b;
 extern IGraphicsDriver *gfxDriver;
-extern Bitmap *virtual_screen;
 
 // CLNUP most likely remove these
 int convert_16bit_bgr = 0;
 
-int ff; // whatever!
-
-// CLNUP remove this
-int adjust_pixel_size_for_loaded_data(int size, int filever)
-{
-    return size;
-}
-
-// CLNUP there won't be nothing to adjust
-void adjust_pixel_sizes_for_loaded_data(int *x, int *y, int filever)
-{
-    x[0] = adjust_pixel_size_for_loaded_data(x[0], filever);
-    y[0] = adjust_pixel_size_for_loaded_data(y[0], filever);
-}
-
-// CLNUP check if it can be removed
-void adjust_sizes_for_resolution(int filever)
-{
-    int ee;
-    for (ee = 0; ee < game.numcursors; ee++) 
-    {
-        game.mcurs[ee].hotx = adjust_pixel_size_for_loaded_data(game.mcurs[ee].hotx, filever);
-        game.mcurs[ee].hoty = adjust_pixel_size_for_loaded_data(game.mcurs[ee].hoty, filever);
-    }
-
-    for (ee = 0; ee < game.numinvitems; ee++) 
-    {
-        adjust_pixel_sizes_for_loaded_data(&game.invinfo[ee].hotx, &game.invinfo[ee].hoty, filever);
-    }
-
-    for (ee = 0; ee < game.numgui; ee++) 
-    {
-        GUIMain*cgp=&guis[ee];
-        adjust_pixel_sizes_for_loaded_data(&cgp->X, &cgp->Y, filever);
-        if (cgp->Width < 1)
-            cgp->Width = 1;
-        if (cgp->Height < 1)
-            cgp->Height = 1;
-        // Temp fix for older games
-        if (cgp->Width == play.GetNativeSize().Width - 1)
-            cgp->Width = play.GetNativeSize().Width;
-
-        adjust_pixel_sizes_for_loaded_data(&cgp->Width, &cgp->Height, filever);
-
-        cgp->PopupAtMouseY = adjust_pixel_size_for_loaded_data(cgp->PopupAtMouseY, filever);
-
-        for (ff = 0; ff < cgp->ControlCount; ff++) 
-        {
-            adjust_pixel_sizes_for_loaded_data(&cgp->Controls[ff]->X, &cgp->Controls[ff]->Y, filever);
-            adjust_pixel_sizes_for_loaded_data(&cgp->Controls[ff]->Width, &cgp->Controls[ff]->Height, filever);
-            cgp->Controls[ff]->IsActivated = false;
-        }
-    }
-}
-
 void engine_setup_system_gamesize()
 {
-    scsystem.width = game.size.Width;
-    scsystem.height = game.size.Height;
+    scsystem.width = game.GetGameRes().Width;
+    scsystem.height = game.GetGameRes().Height;
     scsystem.viewport_width = play.GetMainViewport().GetWidth();
     scsystem.viewport_height = play.GetMainViewport().GetHeight();
 }
@@ -113,23 +59,14 @@ void engine_setup_system_gamesize()
 void engine_init_resolution_settings(const Size game_size)
 {
     Debug::Printf("Initializing resolution settings");
-
-    // Initialize default viewports and room camera
-    Rect viewport = RectWH(game_size);
-    play.SetMainViewport(viewport);
-    play.SetUIViewport(viewport);
-    play.SetRoomViewport(viewport);
-    play.SetRoomCameraAutoSize();
-
-    wtext_multiply = 1;
-    play.SetNativeSize(game_size);
-
     usetup.textheight = getfontheight_outlined(0) + 1;
 
     Debug::Printf(kDbgMsg_Init, "Game native resolution: %d x %d (%d bit)%s", game_size.Width, game_size.Height, game.color_depth * 8,
         game.IsLegacyLetterbox() ? " letterbox-by-design" : "");
 
-    adjust_sizes_for_resolution(loaded_game_file_version);
+    Rect viewport = RectWH(game_size);
+    play.SetMainViewport(viewport);
+    play.SetUIViewport(viewport);
     engine_setup_system_gamesize();
 }
 
@@ -137,52 +74,37 @@ void engine_init_resolution_settings(const Size game_size)
 void engine_post_gfxmode_driver_setup()
 {
     gfxDriver->SetCallbackForPolling(update_polled_stuff_if_runtime);
-    gfxDriver->SetCallbackToDrawScreen(draw_screen_callback);
+    gfxDriver->SetCallbackToDrawScreen(draw_game_screen_callback, construct_engine_overlay);
     gfxDriver->SetCallbackForNullSprite(GfxDriverNullSpriteCallback);
 }
 
 // Reset gfx driver callbacks
 void engine_pre_gfxmode_driver_cleanup()
 {
-    gfxDriver->SetCallbackForPolling(NULL);
-    gfxDriver->SetCallbackToDrawScreen(NULL);
-    gfxDriver->SetCallbackForNullSprite(NULL);
-    gfxDriver->SetMemoryBackBuffer(NULL);
+    gfxDriver->SetCallbackForPolling(nullptr);
+    gfxDriver->SetCallbackToDrawScreen(nullptr, nullptr);
+    gfxDriver->SetCallbackForNullSprite(nullptr);
+    gfxDriver->SetMemoryBackBuffer(nullptr);
 }
 
 // Setup virtual screen
 void engine_post_gfxmode_screen_setup(const DisplayMode &dm, bool recreate_bitmaps)
 {
-    real_screen = BitmapHelper::GetScreenBitmap();
     if (recreate_bitmaps)
     {
-        delete sub_screen;
-        sub_screen = NULL;
-        // TODO: find out if we need _sub_screen to be recreated right away here
-
-        virtual_screen = recycle_bitmap(virtual_screen, dm.ColorDepth, play.GetMainViewport().GetWidth(), play.GetMainViewport().GetHeight());
+        // TODO: find out if 
+        // - we need to support this case at all;
+        // - if yes then which bitmaps need to be recreated (probably only video bitmaps and textures?)
     }
-    virtual_screen->Clear();
-    // TODO: unify these two calls, the virtual screen must be the same thing in both!
-    SetVirtualScreen(virtual_screen);
-    gfxDriver->SetMemoryBackBuffer(virtual_screen);
 }
 
 void engine_pre_gfxmode_screen_cleanup()
 {
-    SetVirtualScreen(NULL);
-    // allegro_exit assumes screen is correct
-    if (real_screen)
-        BitmapHelper::SetScreenBitmap(real_screen);
 }
 
 // Release virtual screen
 void engine_pre_gfxsystem_screen_destroy()
 {
-    delete sub_screen;
-    sub_screen = NULL;
-    delete virtual_screen;
-    virtual_screen = NULL;
 }
 
 // Setup color conversion parameters
@@ -190,18 +112,6 @@ void engine_pre_gfxsystem_screen_destroy()
 void engine_setup_color_conversions(int coldepth)
 {
     // default shifts for how we store the sprite data1
-#if defined(PSP_VERSION)
-    // PSP: Switch b<>r for 15/16 bit.
-    _rgb_r_shift_32 = 16;
-    _rgb_g_shift_32 = 8;
-    _rgb_b_shift_32 = 0;
-    _rgb_b_shift_16 = 11;
-    _rgb_g_shift_16 = 5;
-    _rgb_r_shift_16 = 0;
-    _rgb_b_shift_15 = 10;
-    _rgb_g_shift_15 = 5;
-    _rgb_r_shift_15 = 0;
-#else
     _rgb_r_shift_32 = 16;
     _rgb_g_shift_32 = 8;
     _rgb_b_shift_32 = 0;
@@ -211,7 +121,7 @@ void engine_setup_color_conversions(int coldepth)
     _rgb_r_shift_15 = 10;
     _rgb_g_shift_15 = 5;
     _rgb_b_shift_15 = 0;
-#endif
+
     // Most cards do 5-6-5 RGB, which is the format the files are saved in
     // Some do 5-6-5 BGR, or  6-5-5 RGB, in which case convert the gfx
     if ((coldepth == 16) && ((_rgb_b_shift_16 != 0) || (_rgb_r_shift_16 != 11)))
@@ -229,7 +139,7 @@ void engine_setup_color_conversions(int coldepth)
         // when we're using 32-bit colour, it converts hi-color images
         // the wrong way round - so fix that
 
-#if defined(IOS_VERSION) || defined(ANDROID_VERSION) || defined(PSP_VERSION) || defined(MAC_VERSION)
+#if AGS_PLATFORM_OS_IOS || AGS_PLATFORM_OS_ANDROID
         _rgb_b_shift_16 = 0;
         _rgb_g_shift_16 = 5;
         _rgb_r_shift_16 = 11;
@@ -251,25 +161,15 @@ void engine_setup_color_conversions(int coldepth)
     {
         // ensure that any 32-bit graphics displayed are converted
         // properly to the current depth
-#if defined(PSP_VERSION)
-        _rgb_r_shift_32 = 0;
-        _rgb_g_shift_32 = 8;
-        _rgb_b_shift_32 = 16;
-
-        _rgb_b_shift_15 = 0;
-        _rgb_g_shift_15 = 5;
-        _rgb_r_shift_15 = 10;
-#else
         _rgb_r_shift_32 = 16;
         _rgb_g_shift_32 = 8;
         _rgb_b_shift_32 = 0;
-#endif
     }
     else if (coldepth < 16)
     {
         // ensure that any 32-bit graphics displayed are converted
         // properly to the current depth
-#if defined (WINDOWS_VERSION)
+#if AGS_PLATFORM_OS_WINDOWS
         _rgb_r_shift_32 = 16;
         _rgb_g_shift_32 = 8;
         _rgb_b_shift_32 = 0;
@@ -306,29 +206,18 @@ void engine_post_gfxmode_mouse_setup(const DisplayMode &dm, const Size &init_des
 {
     // Assign mouse control parameters.
     //
-    // Whether mouse movement should be controlled by the engine - this is
-    // determined based on related config option.
-    const bool should_control_mouse = usetup.mouse_control == kMouseCtrl_Always ||
-        usetup.mouse_control == kMouseCtrl_Fullscreen && !dm.Windowed;
-    // Whether mouse movement control is supported by the engine - this is
-    // determined on per platform basis. Some builds may not have such
-    // capability, e.g. because of how backend library implements mouse utils.
-    const bool can_control_mouse = platform->IsMouseControlSupported(dm.Windowed);
-    // The resulting choice is made based on two aforementioned factors.
-    const bool control_sens = should_control_mouse && can_control_mouse;
-    if (control_sens)
+    // NOTE that we setup speed and other related properties regardless of
+    // whether mouse control was requested because it may be enabled later.
+    Mouse::SetSpeedUnit(1.f);
+    if (usetup.mouse_speed_def == kMouseSpeed_CurrentDisplay)
     {
-        Mouse::EnableControl(!dm.Windowed);
-        Mouse::SetSpeedUnit(1.f);
-        if (usetup.mouse_speed_def == kMouseSpeed_CurrentDisplay)
-        {
-            Size cur_desktop;
-            if (get_desktop_resolution(&cur_desktop.Width, &cur_desktop.Height) == 0)
-                Mouse::SetSpeedUnit(Math::Max((float)cur_desktop.Width / (float)init_desktop.Width,
-                                              (float)cur_desktop.Height / (float)init_desktop.Height));
-        }
-        Mouse::SetSpeed(usetup.mouse_speed);
+        Size cur_desktop;
+        if (get_desktop_resolution(&cur_desktop.Width, &cur_desktop.Height) == 0)
+            Mouse::SetSpeedUnit(Math::Max((float)cur_desktop.Width / (float)init_desktop.Width,
+            (float)cur_desktop.Height / (float)init_desktop.Height));
     }
+
+    Mouse_EnableControl(usetup.mouse_ctrl_enabled);
     Debug::Printf(kDbgMsg_Init, "Mouse control: %s, base: %f, speed: %f", Mouse::IsControlEnabled() ? "on" : "off",
         Mouse::GetSpeedUnit(), Mouse::GetSpeed());
 

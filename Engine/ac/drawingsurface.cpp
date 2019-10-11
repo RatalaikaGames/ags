@@ -69,7 +69,7 @@ void DrawingSurface_Release(ScriptDrawingSurface* sds)
         {
             int tt;
             // force a refresh of any cached object or character images
-            if (croom != NULL) 
+            if (croom != nullptr) 
             {
                 for (tt = 0; tt < croom->numobj; tt++) 
                 {
@@ -98,7 +98,7 @@ void DrawingSurface_Release(ScriptDrawingSurface* sds)
     if (sds->dynamicSurfaceNumber >= 0)
     {
         delete dynamicallyCreatedSurfaces[sds->dynamicSurfaceNumber];
-        dynamicallyCreatedSurfaces[sds->dynamicSurfaceNumber] = NULL;
+        dynamicallyCreatedSurfaces[sds->dynamicSurfaceNumber] = nullptr;
         sds->dynamicSurfaceNumber = -1;
     }
     sds->modified = 0;
@@ -110,7 +110,7 @@ ScriptDrawingSurface* DrawingSurface_CreateCopy(ScriptDrawingSurface *sds)
 
     for (int i = 0; i < MAX_DYNAMIC_SURFACES; i++)
     {
-        if (dynamicallyCreatedSurfaces[i] == NULL)
+        if (dynamicallyCreatedSurfaces[i] == nullptr)
         {
             dynamicallyCreatedSurfaces[i] = BitmapHelper::CreateBitmapCopy(sourceBitmap);
             ScriptDrawingSurface *newSurface = new ScriptDrawingSurface();
@@ -122,7 +122,7 @@ ScriptDrawingSurface* DrawingSurface_CreateCopy(ScriptDrawingSurface *sds)
     }
 
     quit("!DrawingSurface.CreateCopy: too many copied surfaces created");
-    return NULL;
+    return nullptr;
 }
 
 void DrawingSurface_DrawSurface(ScriptDrawingSurface* target, ScriptDrawingSurface* source, int translev) {
@@ -153,7 +153,7 @@ void DrawingSurface_DrawSurface(ScriptDrawingSurface* target, ScriptDrawingSurfa
 
 void DrawingSurface_DrawImage(ScriptDrawingSurface* sds, int xx, int yy, int slot, int trans, int width, int height)
 {
-    if ((slot < 0) || (spriteset[slot] == NULL))
+    if ((slot < 0) || (spriteset[slot] == nullptr))
         quit("!DrawingSurface.DrawImage: invalid sprite slot number specified");
 
     if ((trans < 0) || (trans > 100))
@@ -222,8 +222,6 @@ int DrawingSurface_GetDrawingColor(ScriptDrawingSurface *sds)
 {
     return sds->currentColourScript;
 }
-
-
 
 int DrawingSurface_GetHeight(ScriptDrawingSurface *sds) 
 {
@@ -298,25 +296,26 @@ void DrawingSurface_DrawStringWrapped_Old(ScriptDrawingSurface *sds, int xx, int
 void DrawingSurface_DrawStringWrapped(ScriptDrawingSurface *sds, int xx, int yy, int wid, int font, int alignment, const char *msg) {
     int linespacing = getfontspacing_outlined(font);
 
-    break_up_text_into_lines(wid, font, (char*)msg);
+    if (break_up_text_into_lines(msg, Lines, wid, font) == 0)
+        return;
 
     Bitmap *ds = sds->StartDrawing();
     color_t text_color = sds->currentColour;
 
-    for (int i = 0; i < numlines; i++)
+    for (size_t i = 0; i < Lines.Count(); i++)
     {
         int drawAtX = xx;
 
         if (alignment & kMAlignHCenter)
         {
-            drawAtX = xx + ((wid / 2) - wgettextwidth(lines[i], font) / 2);
+            drawAtX = xx + ((wid / 2) - wgettextwidth(Lines[i], font) / 2);
         }
         else if (alignment & kMAlignRight)
         {
-            drawAtX = (xx + wid) - wgettextwidth(lines[i], font);
+            drawAtX = (xx + wid) - wgettextwidth(Lines[i], font);
         }
 
-        wouttext_outline(ds, drawAtX, yy + linespacing*i, font, text_color, lines[i]);
+        wouttext_outline(ds, drawAtX, yy + linespacing*i, font, text_color, Lines[i]);
     }
 
     sds->FinishedDrawing();
@@ -453,7 +452,7 @@ RuntimeScriptValue Sc_DrawingSurface_DrawString(void *self, const RuntimeScriptV
 {
     API_OBJCALL_SCRIPT_SPRINTF(DrawingSurface_DrawString, 4);
     DrawingSurface_DrawString((ScriptDrawingSurface*)self, params[0].IValue, params[1].IValue, params[2].IValue, scsf_buffer);
-    return RuntimeScriptValue();
+    return RuntimeScriptValue((int32_t)0);
 }
 
 // void (ScriptDrawingSurface *sds, int xx, int yy, int wid, int font, int alignment, const char *msg)

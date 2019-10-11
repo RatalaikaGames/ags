@@ -18,15 +18,19 @@
 #ifndef __AGS_CN_AC__GAMESETUPSTRUCTBASE_H
 #define __AGS_CN_AC__GAMESETUPSTRUCTBASE_H
 
-#include "ac/characterinfo.h"       // OldCharacterInfo, CharacterInfo
-#include "ac/wordsdictionary.h"  // WordsDictionary
+#include "ac/game_version.h"
 #include "ac/gamestructdefines.h"
-#include "script/cc_script.h"           // ccScript
+#include "util/string.h"
 #include "util/wgt2allg.h" // color (allegro RGB)
 
 // Forward declaration
 namespace AGS { namespace Common { class Stream; } }
 using namespace AGS; // FIXME later
+
+struct WordsDictionary;
+struct CharacterInfo;
+struct ccScript;
+
 
 struct GameSetupStructBase {
     static const int  GAME_NAME_LENGTH = 50;
@@ -34,35 +38,33 @@ struct GameSetupStructBase {
     static const int  NUM_INTS_RESERVED = 17;
 
     char              gamename[GAME_NAME_LENGTH];
-    int32             options[MAX_OPTIONS];
+    int               options[MAX_OPTIONS];
     unsigned char     paluses[256];
     color             defpal[256];
-    int32             numviews;
-    int32             numcharacters;
-    int32             playercharacter;
-    int32             totalscore;
+    int               numviews;
+    int               numcharacters;
+    int               playercharacter;
+    int               totalscore;
     short             numinvitems;
-    int32             numdialog, numdlgmessage;
-    int32             numfonts;
-    int32             color_depth;          // in bytes per pixel (ie. 1 or 2)
-    int32             target_win;
-    int32             dialog_bullet;        // 0 for none, otherwise slot num of bullet point
-    unsigned short    hotdot, hotdotouter;  // inv cursor hotspot dot
-    int32             uniqueid;    // random key identifying the game
-    int32             numgui;
-    int32             numcursors;
-    int32             default_lipsync_frame; // used for unknown chars
-    int32             invhotdotsprite;
-    int32             reserved[NUM_INTS_RESERVED];
+    int               numdialog, numdlgmessage;
+    int               numfonts;
+    int               color_depth;          // in bytes per pixel (ie. 1 or 2)
+    int               target_win;
+    int               dialog_bullet;        // 0 for none, otherwise slot num of bullet point
+    unsigned short    hotdot, hotdotouter;  // inv cursor hotspot dot color
+    int               uniqueid;    // random key identifying the game
+    int               numgui;
+    int               numcursors;
+    int               default_lipsync_frame; // used for unknown chars
+    int               invhotdotsprite;
+    int               reserved[NUM_INTS_RESERVED];
     char             *messages[MAXGLOBALMES];
     WordsDictionary  *dict;
     char             *globalscript;
     CharacterInfo    *chars;
     ccScript         *CompiledScript;
-    Size              size;                 // native game size in pixels
-    Size              altsize;              // alternate, lesser, game size for letterbox-by-design games
 
-    int32_t          *load_messages;
+    int             *load_messages;
     bool             load_dictionary;
     bool             load_compiled_script;
     // [IKM] 2013-03-30
@@ -71,24 +73,55 @@ struct GameSetupStructBase {
     // pointer is used for that instead.
 
     GameSetupStructBase();
-    virtual ~GameSetupStructBase();
-    void SetDefaultResolution(GameResolutionType resolution_type);
-    void SetCustomResolution(Size game_res);
+    ~GameSetupStructBase();
+    void Free();
+    void SetGameResolution(GameResolutionType type);
+    void SetGameResolution(Size game_res);
     void ReadFromFile(Common::Stream *in);
     void WriteToFile(Common::Stream *out);
 
-    inline GameResolutionType GetDefaultResolution() const
+    // Game resolution is a size of a native game screen in pixels.
+    // This is the "game resolution" that developer sets up in AGS Editor.
+    // It is in the same units in which sprite and font sizes are defined.
+    //
+    // Graphic renderer may scale and stretch game's frame as requested by
+    // player or system, which will not affect native coordinates in any way.
+    inline GameResolutionType GetResolutionType() const
     {
-        return default_resolution;
+        return _resolutionType;
     }
 
-    inline bool IsLegacyLetterbox() const
+    // Get actual game's resolution
+    const Size &GetGameRes() const { return _gameResolution; }
+    // Get multiplier for various default UI sizes, meant to keep UI looks
+    // more or less readable in any game resolution.
+    // TODO: find a better solution for UI sizes, perhaps make variables.
+    inline int GetRelativeUIMult() const { return _relativeUIMult; }
+    
+    // Tells if game runs in native letterbox mode (legacy option)
+    inline bool IsLegacyLetterbox() const { return options[OPT_LETTERBOX] != 0; }
+    // Get letterboxed frame size
+    const Size &GetLetterboxSize() const { return _letterboxSize; }
+
+    // Returns the expected filename of a digital audio package
+    inline AGS::Common::String GetAudioVOXName() const
     {
-        return options[OPT_LETTERBOX] != 0;
+        return "audio.vox";
     }
 
 private:
-    GameResolutionType default_resolution; // game size identifier
+    void SetNativeResolution(GameResolutionType type, Size game_res);
+    void OnResolutionSet();
+
+    // Game's native resolution ID, used to init following values.
+    GameResolutionType _resolutionType;
+    // Determines game's actual resolution.
+    Size _gameResolution;
+    // Letterboxed frame size. Used when old game is run in native letterbox
+    // mode. In all other situations is equal to game's resolution.
+    Size _letterboxSize;
+    // Multiplier for various UI drawin sizes, meant to keep UI elements readable
+    int _relativeUIMult;
 };
 
 #endif // __AGS_CN_AC__GAMESETUPSTRUCTBASE_H

@@ -13,30 +13,34 @@
 //=============================================================================
 
 #include <cctype> //isalnum()
-#include "util/string_utils.h" //strlwr()
 #include "ac/common.h"
 #include "ac/gamesetupstruct.h"
 #include "ac/gamestate.h"
 #include "ac/parser.h"
 #include "ac/string.h"
+#include "ac/wordsdictionary.h"
 #include "debug/debug_log.h"
+#include "util/string.h"
+#include "util/string_compat.h"
+
+using namespace AGS::Common;
 
 extern GameSetupStruct game;
 extern GameState play;
 
 int Parser_FindWordID(const char *wordToFind)
 {
-    return find_word_in_dictionary((char*)wordToFind);
+    return find_word_in_dictionary(wordToFind);
 }
 
 const char* Parser_SaidUnknownWord() {
     if (play.bad_parsed_word[0] == 0)
-        return NULL;
+        return nullptr;
     return CreateNewScriptString(play.bad_parsed_word);
 }
 
 void ParseText (const char*text) {
-    parse_sentence (text, &play.num_parsed_words, play.parsed_words, NULL, 0);
+    parse_sentence (text, &play.num_parsed_words, play.parsed_words, nullptr, 0);
 }
 
 // Said: call with argument for example "get apple"; we then check
@@ -50,33 +54,32 @@ int Said (const char *checkwords) {
 
 //=============================================================================
 
-int find_word_in_dictionary (char *lookfor) {
+int find_word_in_dictionary (const char *lookfor) {
     int j;
-    if (game.dict == NULL)
+    if (game.dict == nullptr)
         return -1;
 
     for (j = 0; j < game.dict->num_words; j++) {
-        if (stricmp(lookfor, game.dict->word[j]) == 0) {
+        if (ags_stricmp(lookfor, game.dict->word[j]) == 0) {
             return game.dict->wordnum[j];
         }
     }
     if (lookfor[0] != 0) {
         // If the word wasn't found, but it ends in 'S', see if there's
         // a non-plural version
-        char *ptat = &lookfor[strlen(lookfor)-1];
+        const char *ptat = &lookfor[strlen(lookfor)-1];
         char lastletter = *ptat;
         if ((lastletter == 's') || (lastletter == 'S') || (lastletter == '\'')) {
-            *ptat = 0;
-            int reslt = find_word_in_dictionary (lookfor);
-            *ptat = lastletter;
-            return reslt;
+            String singular = lookfor;
+            singular.ClipRight(1);
+            return find_word_in_dictionary(singular);
         } 
     }
     return -1;
 }
 
 int is_valid_word_char(char theChar) {
-    if ((isalnum(theChar)) || (theChar == '\'') || (theChar == '-')) {
+    if ((isalnum((unsigned char)theChar)) || (theChar == '\'') || (theChar == '-')) {
         return 1;
     }
     return 0;
@@ -87,7 +90,7 @@ int FindMatchingMultiWordWord(char *thisword, const char **text) {
     // that match -- if so, use them
     const char *tempptr = *text;
     char tempword[150] = "";
-    if (thisword != NULL)
+    if (thisword != nullptr)
         strcpy(tempword, thisword);
 
     int bestMatchFound = -1, word;
@@ -117,8 +120,8 @@ int FindMatchingMultiWordWord(char *thisword, const char **text) {
 
     if (word >= 0) {
         // yes, a word like "pick up" was found
-        *text = (char*)tempptrAtBestMatch;
-        if (thisword != NULL)
+        *text = tempptrAtBestMatch;
+        if (thisword != nullptr)
             strcpy(thisword, tempword);
     }
 
@@ -127,7 +130,6 @@ int FindMatchingMultiWordWord(char *thisword, const char **text) {
 
 // parse_sentence: pass compareto as NULL to parse the sentence, or
 // compareto as non-null to check if it matches the passed sentence
-char gl_ParserBuffer[1024]; // FIXME: might need to refactor the whole parser
 int parse_sentence (const char *src_text, int *numwords, short*wordarray, short*compareto, int comparetonum) {
     char thisword[150] = "\0";
     int  i = 0, comparing = 0;
@@ -135,18 +137,17 @@ int parse_sentence (const char *src_text, int *numwords, short*wordarray, short*
     int  optional_start = 0;
 
     numwords[0] = 0;
-    if (compareto == NULL)
+    if (compareto == nullptr)
         play.bad_parsed_word[0] = 0;
 
-    snprintf(gl_ParserBuffer, sizeof(gl_ParserBuffer) - 1, "%s", src_text);
-    strlwr(gl_ParserBuffer);
-    const char *text = gl_ParserBuffer;
-
+    String uniform_text = src_text;
+    uniform_text.MakeLower();
+    const char *text = uniform_text.GetCStr();
     while (1) {
-        if ((compareto != NULL) && (compareto[comparing] == RESTOFLINE))
+        if ((compareto != nullptr) && (compareto[comparing] == RESTOFLINE))
             return 1;
 
-        if ((text[0] == ']') && (compareto != NULL)) {
+        if ((text[0] == ']') && (compareto != nullptr)) {
             if (!in_optional)
                 quit("!Said: unexpected ']'");
             do_word_now = 1;
@@ -157,7 +158,7 @@ int parse_sentence (const char *src_text, int *numwords, short*wordarray, short*
             thisword[i] = text[0];
             i++;
         }
-        else if ((text[0] == '[') && (compareto != NULL)) {
+        else if ((text[0] == '[') && (compareto != nullptr)) {
             if (in_optional)
                 quit("!Said: nested optional words");
 
@@ -231,7 +232,7 @@ int parse_sentence (const char *src_text, int *numwords, short*wordarray, short*
 
                         const char *textStart = &text[1];
 
-                        while ((text[0] == ',') || (isalnum(text[0]) != 0))
+                        while ((text[0] == ',') || (isalnum((unsigned char)text[0]) != 0))
                             text++;
 
                         continueSearching = 0;

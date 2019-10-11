@@ -15,13 +15,18 @@
 #ifndef __AC_DEFINES_H
 #define __AC_DEFINES_H
 
-#define EXIT_NORMAL 91
+#include "core/platform.h"
+
+#define EXIT_NORMAL 0
 #define EXIT_CRASH  92
+#define EXIT_ERROR  93
 
 
+#if defined (OBSOLETE)
 #define NUM_MISC      20
 #define NUMOTCON      7                 // number of conditions before standing on
 #define NUM_CONDIT    (120 + NUMOTCON)
+#endif
 
 
 
@@ -84,7 +89,6 @@
 
 #define MAX_ROOMS 300
 
-#define MAXANIMS      10
 #define MAX_FLAGS     15
 #define LEGACY_MAXOBJNAMELEN 30
 
@@ -96,12 +100,15 @@
 #define int32 int
 #endif
 
-#ifdef WINDOWS_VERSION
+#if AGS_PLATFORM_OS_WINDOWS
 #define AGS_INLINE inline
 #else
 // the linux compiler won't allow extern inline
 #define AGS_INLINE
 #endif
+
+// The game to screen coordinate conversion multiplier in hi-res type games
+#define HIRES_COORD_MULTIPLIER 2
 
 // object flags (currently only a char)
 #define OBJF_NOINTERACT        1  // not clickable

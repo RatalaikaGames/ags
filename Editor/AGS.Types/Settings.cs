@@ -18,15 +18,20 @@ namespace AGS.Types
     [DefaultProperty("DebugMode")]
     public class Settings : ICustomTypeDescriptor
     {
-        public const string PROPERTY_GAME_NAME = "Game name";
+        // TODO: reimplement the handling of property value changes in the Editor assembly
+        // so that relying on property labels is no longer necessary!
+        public const string PROPERTY_GAME_NAME = "Game title";
         public const string PROPERTY_COLOUR_DEPTH = "Colour depth";
         public const string PROPERTY_RESOLUTION = "Resolution";
-        public const string PROPERTY_SCALE_FONTS = "Fonts designed for high resolution";
+        public const string PROPERTY_ALLOWRELATIVEASSETS = "Allow relative asset resolutions";
+        public const string PROPERTY_LEGACY_HIRES_FONTS = "Fonts designed for high resolution";
 		public const string PROPERTY_ANTI_ALIAS_FONTS = "Anti-alias TTF fonts";
         public const string PROPERTY_LETTERBOX_MODE = "Enable letterbox mode";
         public const string PROPERTY_BUILD_TARGETS = "Build target platforms";
         public const string PROPERTY_RENDERATSCREENRES = "Render sprites at screen resolution";
-		public const string REGEX_FOUR_PART_VERSION = @"^(\d+)\.(\d+)\.(\d+)\.(\d+)$";
+        public const string PROPERTY_DIALOG_SCRIPT_SAYFN = "Custom Say function in dialog scripts";
+        public const string PROPERTY_DIALOG_SCRIPT_NARRATEFN = "Custom Narrate function in dialog scripts";
+        public const string REGEX_FOUR_PART_VERSION = @"^(\d+)\.(\d+)\.(\d+)\.(\d+)$";
 
 		private const string DEFAULT_GENRE = "Adventure";
         private const string DEFAULT_VERSION = "1.0.0.0";
@@ -36,9 +41,11 @@ namespace AGS.Types
 			GenerateNewGameID();
         }
 
+        private string _gameFileName = "";
         private string _gameName = "New game";
         private Size _resolution = new Size(320, 200);
         private GameColorDepth _colorDepth = GameColorDepth.TrueColor;
+        private bool _allowRelativeAssetResolution = false;
         private bool _debugMode = true;
         private bool _antiGlideMode = true;
         private bool _walkInLookMode = false;
@@ -65,7 +72,7 @@ namespace AGS.Types
         private bool _enforceNewStrings = true;
         private bool _enforceNewAudio = true;
         private bool _oldCustomDlgOptsAPI = false;
-        private int _playSoundOnScore = 0;
+        private int _playSoundOnScore = -1;
         private CrossfadeSpeed _crossfadeMusic = CrossfadeSpeed.No;
         private int _dialogOptionsGUI = 0;
         private int _dialogOptionsGap = 0;
@@ -77,6 +84,8 @@ namespace AGS.Types
         private DialogOptionsNumbering _numberDialogOptions = DialogOptionsNumbering.KeyShortcutsOnly;
         private bool _dialogOptionsBackwards = false;
         private SpeechPortraitSide _speechPortraitSide = SpeechPortraitSide.Left;
+        private string _dialogScriptSayFunction;
+        private string _dialogScriptNarrateFunction;
         private int _textWindowGUI = 0;
         private bool _alwaysDisplayTextAsSpeech = false;
         private bool _fontsAreHiRes = false;
@@ -90,8 +99,9 @@ namespace AGS.Types
         private bool _binaryFilesInSourceControl = false;
         private bool _runGameLoopsWhileDialogOptionsDisplayed = false;
         private InventoryHotspotMarker _inventoryHotspotMarker = new InventoryHotspotMarker();
+        private int _defRoomMaskResolution = 1;
         // Windows game explorer fields
-		private bool _enableGameExplorer = false;
+        private bool _enableGameExplorer = false;
 		private string _description = string.Empty;
 		private DateTime _releaseDate = DateTime.Now;
 		private string _genre = DEFAULT_GENRE;
@@ -142,7 +152,16 @@ namespace AGS.Types
 			_guid = Guid.NewGuid();
 		}
 
-		[DisplayName(PROPERTY_GAME_NAME)]
+        [DisplayName("Game file name")]
+        [Description("The game's binary name (the name of the file AGS will create after compiling the game). Leave empty to use project folder's name.")]
+        [Category("(Basic properties)")]
+        public string GameFileName
+        {
+            get { return _gameFileName; }
+            set { _gameFileName = value; }
+        }
+
+        [DisplayName(PROPERTY_GAME_NAME)]
         [Description("The game's name (for display in the title bar)")]
         [Category("(Basic properties)")]
         public string GameName
@@ -230,19 +249,29 @@ namespace AGS.Types
             }
         }
 
+        [DisplayName("Allow relative asset resolutions")]
+        [Description("Allow sprites and room backgrounds to define whether they are low- or high-resolution assets. If this does not match the game type then images will be scaled up or down in game." +
+            "\nThis option will only be useful when importing games made before AGS 3.1.")]
+        [Category("Backwards Compatibility")]
+        [DefaultValue(false)]
+        public bool AllowRelativeAssetResolutions
+        {
+            get { return _allowRelativeAssetResolution; }
+            set { _allowRelativeAssetResolution = value; }
+        }
+
         /// <summary>
-        /// Tells if the game should be considered low-resolution.
+        /// Tells if the game should be considered high-resolution.
         /// For backwards-compatble logic only.
-        /// The "low resolution" assumes that game does not exceed
-        /// 320x240 pixels.
+        /// The "high resolution" assumes that game exceeds 320x240 pixels.
         /// </summary>
         [Browsable(false)]
         // CLNUP I think this also tells the editor if scaling up GUIs in low res games
-        public bool LowResolution
+        public bool HighResolution
         {
             get
             {
-                return (CustomResolution.Width * CustomResolution.Height) <= (320 * 240);
+                return (CustomResolution.Width * CustomResolution.Height) > (320 * 240);
             }
         }
 
@@ -591,7 +620,7 @@ namespace AGS.Types
 
         [DisplayName("Play sound when the player gets points")]
         [Description("This sound number will be played whenever the player scores points (0 to disable)")]
-        [DefaultValue(0)]
+        [DefaultValue(-1)]
         [Category("Sound")]
         [TypeConverter(typeof(AudioClipTypeConverter))]
         public int PlaySoundOnScore
@@ -728,6 +757,26 @@ namespace AGS.Types
             set { _speechPortraitSide = value; }
         }
 
+        [DisplayName("Custom Say function in dialog scripts")]
+        [Description("Sets which function name to use in place of character.Say when running dialog scripts. Note that it must be an extension function of a Character class. Leave empty to use default (Character.Say).")]
+        [DefaultValue("")]
+        [Category("Dialog")]
+        public string DialogScriptSayFunction
+        {
+            get { return _dialogScriptSayFunction; }
+            set { _dialogScriptSayFunction = value; }
+        }
+
+        [DisplayName("Custom Narrate function in dialog scripts")]
+        [Description("Sets which function name to use in place of narrator's speech when running dialog scripts. Note that it must be either regular function or a static struct function. Leave empty to use default (Display).")]
+        [DefaultValue("")]
+        [Category("Dialog")]
+        public string DialogScriptNarrateFunction
+        {
+            get { return _dialogScriptNarrateFunction; }
+            set { _dialogScriptNarrateFunction = value; }
+        }
+
         [DisplayName("Custom text-window GUI")]
         [Description("Sets which text-window GUI is used for normal text in the game. You must use the GUI number, not name. You can't use GUI 0 for this, because 0 means that AGS will use its built-in text window instead.")]
         [DefaultValue(0)]
@@ -748,7 +797,9 @@ namespace AGS.Types
             set { _alwaysDisplayTextAsSpeech = value; }
         }
 
-        [DisplayName(PROPERTY_SCALE_FONTS)]
+        [AGSNoSerialize]
+        [Browsable(false)]
+        [DisplayName(PROPERTY_LEGACY_HIRES_FONTS)]
         [Description("Tells AGS that your fonts are designed for high resolution (higher than 320x240), and therefore not to scale them up in hi-res game")]
         [DefaultValue(false)]
         [Category("Text output")]
@@ -804,7 +855,18 @@ namespace AGS.Types
             set { _hasMODMusic = value; }
         }
 
-		[DisplayName("Enable Game Explorer integration")]
+        [DisplayName("Default mask resolution")]
+        [Description("What resolution do room region masks have relative to the room size")]
+        [Category("Rooms")]
+        [DefaultValue(1)]
+        [TypeConverter(typeof(RoomMaskResolutionTypeConverter))]
+        public int DefaultRoomMaskResolution
+        {
+            get { return _defRoomMaskResolution; }
+            set { _defRoomMaskResolution = value; }
+        }
+
+        [DisplayName("Enable Game Explorer integration")]
 		[Description("Whether or not this game can be added to the Vista Game Explorer")]
 		[Category("Windows Game Explorer")]
 		public bool GameExplorerEnabled
@@ -957,6 +1019,7 @@ namespace AGS.Types
             set { _binaryFilesInSourceControl = value; }
         }
 
+        // NOTE: this index only purpose remains to connect clips to audio cache
         [Browsable(false)]
         public int AudioIndexer
         {

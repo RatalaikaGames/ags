@@ -15,23 +15,24 @@
 #ifndef __AC_WFNFONTRENDERER_H
 #define __AC_WFNFONTRENDERER_H
 
-#include "font/agsfontrenderer.h"
-#include "font/wfnfont.h"
-
 #include <map>
+#include "font/agsfontrenderer.h"
+
+class WFNFont;
 
 class WFNFontRenderer : public IAGSFontRenderer, public IAGSFontRenderer2 {
 public:
-  virtual bool LoadFromDisk(int fontNumber, int fontSize);
-  virtual void FreeMemory(int fontNumber);
-  virtual bool SupportsExtendedCharacters(int fontNumber);
-  virtual int GetTextWidth(const char *text, int fontNumber);
-  virtual int GetTextHeight(const char *text, int fontNumber);
-  virtual void RenderText(const char *text, int fontNumber, BITMAP *destination, int x, int y, int colour);
-  virtual void AdjustYCoordinateForFont(int *ycoord, int fontNumber);
-  virtual void EnsureTextValidForFont(char *text, int fontNumber);
+  bool LoadFromDisk(int fontNumber, int fontSize) override;
+  void FreeMemory(int fontNumber) override;
+  bool SupportsExtendedCharacters(int fontNumber) override;
+  int GetTextWidth(const char *text, int fontNumber) override;
+  int GetTextHeight(const char *text, int fontNumber) override;
+  void RenderText(const char *text, int fontNumber, BITMAP *destination, int x, int y, int colour) override;
+  void AdjustYCoordinateForFont(int *ycoord, int fontNumber) override;
+  void EnsureTextValidForFont(char *text, int fontNumber) override;
 
-  virtual bool LoadFromDiskEx(int fontNumber, int fontSize, const FontRenderParams *params);
+  bool IsBitmapFont() override;
+  bool LoadFromDiskEx(int fontNumber, int fontSize, const FontRenderParams *params) override;
 
 private:
   struct FontData

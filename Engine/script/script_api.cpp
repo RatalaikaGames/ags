@@ -12,6 +12,7 @@
 //
 //=============================================================================
 
+#include <stdio.h>
 #include <string.h>
 #include "ac/game_version.h"
 #include "script/cc_error.h"
@@ -20,10 +21,6 @@
 #include "util/math.h"
 
 namespace Math = AGS::Common::Math;
-
-#if defined (WINDOWS_VERSION)
-#include "util/c99_snprintf.h"
-#endif
 
 enum FormatParseResult
 {

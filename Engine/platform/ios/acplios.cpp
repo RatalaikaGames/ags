@@ -12,9 +12,9 @@
 //
 //=============================================================================
 
-#if !defined(IOS_VERSION)
-#error This file should only be included on the iOS build
-#endif
+#include "core/platform.h"
+
+#if AGS_PLATFORM_OS_IOS
 
 #include <stdio.h>
 #include <dirent.h>
@@ -23,7 +23,6 @@
 
 #include <allegro.h>
 #include "platform/base/agsplatformdriver.h"
-#include "platform/base/override_defines.h"
 #include "ac/runtime_defines.h"
 #include "main/config.h"
 #include "plugin/agsplugin.h"
@@ -115,16 +114,15 @@ const int CONFIG_MOUSE_LONGCLICK = 20;
 
 struct AGSIOS : AGSPlatformDriver
 {
-  virtual void Delay(int millis) override;
-  virtual void DisplayAlert(const char*, ...) override;
-  virtual const char *GetAppOutputDirectory() override;
-  virtual unsigned long GetDiskFreeSpaceMB() override;
-  virtual const char* GetNoMouseErrorString() override;
-  virtual bool IsBackendResponsibleForMouseScaling() override { return true; }
-  virtual eScriptSystemOSID GetSystemOSID() override;
-  virtual void PlayVideo(const char* name, int skip, int flags) override;
-  virtual void PostAllegroExit() override;
-  virtual void SetGameWindowIcon() override;
+  void Delay(int millis) override;
+  void DisplayAlert(const char*, ...) override;
+  const char *GetAppOutputDirectory() override;
+  unsigned long GetDiskFreeSpaceMB() override;
+  const char* GetNoMouseErrorString() override;
+  bool IsBackendResponsibleForMouseScaling() override { return true; }
+  eScriptSystemOSID GetSystemOSID() override;
+  void PostAllegroExit() override;
+  void SetGameWindowIcon() override;
 };
 
 
@@ -370,7 +368,7 @@ int getAvailableTranslations(char* translations)
       length = strlen(entry->d_name);
       if (length > 4)
       {
-        if (stricmp(&entry->d_name[length - 4], ".tra") == 0)
+        if (ags_stricmp(&entry->d_name[length - 4], ".tra") == 0)
         {
           memset(buffer, 0, 200);
           strncpy(buffer, entry->d_name, length - 4);
@@ -405,9 +403,9 @@ void selectLatestSavegame()
   {
     while ((entry = readdir(dir)) != 0)
     {
-      if (strnicmp(entry->d_name, "agssave", 7) == 0)
+      if (ags_strnicmp(entry->d_name, "agssave", 7) == 0)
       {
-        if (stricmp(entry->d_name, "agssave.999") != 0)
+        if (ags_stricmp(entry->d_name, "agssave.999") != 0)
         {
           strcpy(buffer, saveGameDirectory);
           strcat(buffer, entry->d_name);
@@ -602,10 +600,6 @@ eScriptSystemOSID AGSIOS::GetSystemOSID() {
   return eOS_iOS;
 }
 
-void AGSIOS::PlayVideo(const char *name, int skip, int flags) {
-  // do nothing
-}
-
 void AGSIOS::PostAllegroExit() {
   // do nothing
 }
@@ -624,3 +618,5 @@ AGSPlatformDriver* AGSPlatformDriver::GetDriver() {
     instance = new AGSIOS();
   return instance;
 }
+
+#endif

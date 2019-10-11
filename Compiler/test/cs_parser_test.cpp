@@ -1,21 +1,39 @@
+#include <string>
 #include "gtest/gtest.h"
 #include "script/cs_parser.h"
 #include "script/cc_symboltable.h"
 #include "script/cc_internallist.h"
+#include "util/string.h"
+
+typedef AGS::Common::String AGSString;
 
 extern int cc_tokenize(const char*inpl, ccInternalList*targ, ccCompiledScript*scrip);
+extern int currentline; // in script/script_common
 
-char *last_seen_cc_error = 0;
-
-void cc_error_at_line(char *buffer, const char *error_msg)
+std::string last_cc_error_buf;
+void clear_error()
 {
-    // printf("error: %s\n", error_msg);
-    last_seen_cc_error = _strdup(error_msg);
+    last_cc_error_buf.clear();
 }
 
-void cc_error_without_line(char *buffer, const char *error_msg)
+const char *last_seen_cc_error()
 {
-    last_seen_cc_error = _strdup(error_msg);
+    return last_cc_error_buf.c_str();
+}
+
+// IMPORTANT: the last_seen_cc_error must contain unformatted error message.
+// It is being used in test and compared to hard-coded strings.
+std::pair<AGSString, AGSString> cc_error_at_line(const char *error_msg)
+{
+    // printf("error: %s\n", error_msg);
+    last_cc_error_buf = _strdup(error_msg);
+    return std::make_pair(AGSString::FromFormat("Error (line %d): %s", currentline, error_msg), AGSString());
+}
+
+AGSString cc_error_without_line(const char *error_msg)
+{
+    last_cc_error_buf = _strdup(error_msg);
+    return AGSString::FromFormat("Error (line unknown): %s", error_msg);
 }
 
 ccCompiledScript *newScriptFixture() {
@@ -51,11 +69,11 @@ TEST(Compile, UnknownKeywordAfterReadonly) {
           readonly int2 b; \
         };";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
 
     ASSERT_EQ(-1, compileResult);
-    EXPECT_STREQ("Syntax error at 'MyStruct::int2'; expected variable type", last_seen_cc_error);
+    EXPECT_STREQ("Syntax error at 'MyStruct::int2'; expected variable type", last_seen_cc_error());
 }
 
 TEST(Compile, DynamicArrayReturnValueErrorText) {
@@ -70,11 +88,11 @@ TEST(Compile, DynamicArrayReturnValueErrorText) {
           return r;\
         }";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
 
     ASSERT_EQ(-1, compileResult);
-    EXPECT_STREQ("Type mismatch: cannot convert 'DynamicSprite*[]' to 'int[]'", last_seen_cc_error);
+    EXPECT_STREQ("Type mismatch: cannot convert 'DynamicSprite*[]' to 'int[]'", last_seen_cc_error());
 }
 
 TEST(Compile, DynamicTypeReturnNonPointerManaged) {
@@ -90,11 +108,11 @@ TEST(Compile, DynamicTypeReturnNonPointerManaged) {
         {\
         }";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
 
     ASSERT_EQ(-1, compileResult);
-    EXPECT_STREQ("cannot pass non-pointer struct array", last_seen_cc_error);
+    EXPECT_STREQ("cannot pass non-pointer struct array", last_seen_cc_error());
 }
 
 TEST(Compile, StructMemberQualifierOrder) {
@@ -109,7 +127,7 @@ TEST(Compile, StructMemberQualifierOrder) {
         };\
         ";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
 
     ASSERT_EQ(0, compileResult);
@@ -123,7 +141,7 @@ TEST(Compile, ParsingIntSuccess) {
         int testfunc(int x ) { int y = 42; } \
         ";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
 
     ASSERT_EQ(0, compileResult);
@@ -141,7 +159,7 @@ TEST(Compile, ParsingIntLimits) {
                  }\
                  ";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
 
     ASSERT_EQ(0, compileResult);
@@ -154,10 +172,10 @@ TEST(Compile, ParsingIntDefaultOverflow) {
         import  int  importedfunc(int data1 = 9999999999999999999999, int data2=2, int data3=3);\
         ";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
     ASSERT_EQ(-1, compileResult);
-    EXPECT_STREQ("Could not parse integer symbol '9999999999999999999999' because of overflow.", last_seen_cc_error);
+    EXPECT_STREQ("Could not parse integer symbol '9999999999999999999999' because of overflow.", last_seen_cc_error());
 }
 
 TEST(Compile, ParsingNegIntDefaultOverflow) {
@@ -167,10 +185,10 @@ TEST(Compile, ParsingNegIntDefaultOverflow) {
         import  int  importedfunc(int data1 = -9999999999999999999999, int data2=2, int data3=3);\
         ";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
     ASSERT_EQ(-1, compileResult);
-    EXPECT_STREQ("Could not parse integer symbol '-9999999999999999999999' because of overflow.", last_seen_cc_error);
+    EXPECT_STREQ("Could not parse integer symbol '-9999999999999999999999' because of overflow.", last_seen_cc_error());
 }
 
 TEST(Compile, ParsingIntOverflow) {
@@ -180,10 +198,10 @@ TEST(Compile, ParsingIntOverflow) {
         int testfunc(int x ) { int y = 4200000000000000000000; } \
         ";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
     ASSERT_EQ(-1, compileResult);
-    EXPECT_STREQ("Could not parse integer symbol '4200000000000000000000' because of overflow.", last_seen_cc_error);
+    EXPECT_STREQ("Could not parse integer symbol '4200000000000000000000' because of overflow.", last_seen_cc_error());
 }
 
 TEST(Compile, ParsingNegIntOverflow) {
@@ -193,10 +211,10 @@ TEST(Compile, ParsingNegIntOverflow) {
                  int testfunc(int x ) { int y = -4200000000000000000000; } \
                  ";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
     ASSERT_EQ(-1, compileResult);
-    EXPECT_STREQ("Could not parse integer symbol '-4200000000000000000000' because of overflow.", last_seen_cc_error);
+    EXPECT_STREQ("Could not parse integer symbol '-4200000000000000000000' because of overflow.", last_seen_cc_error());
 }
 
 
@@ -220,7 +238,7 @@ TEST(Compile, EnumNegative) {
         };\
         ";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
     ASSERT_EQ(0, compileResult);
 
@@ -260,7 +278,7 @@ TEST(Compile, DefaultParametersLargeInts) {
             );\
         ";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
     ASSERT_EQ(0, compileResult);
 
@@ -305,7 +323,7 @@ TEST(Compile, ImportFunctionReturningDynamicArray) {
         };\
         ";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
     ASSERT_EQ(0, compileResult);
 
@@ -326,10 +344,10 @@ TEST(Compile, DoubleNegatedConstant) {
             );\
         ";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
     ASSERT_EQ(-1, compileResult);
-    EXPECT_STREQ("Parameter default value must be literal", last_seen_cc_error);
+    EXPECT_STREQ("Parameter default value must be literal", last_seen_cc_error());
 }
 
 TEST(Compile, SubtractionWithoutSpaces) {
@@ -342,7 +360,7 @@ TEST(Compile, SubtractionWithoutSpaces) {
         }\
         ";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
     ASSERT_EQ(0, compileResult);
 }
@@ -371,9 +389,9 @@ TEST(Compile, NegationLHSOfExpression) {
         }\
         ";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
-    printf("Error: %s\n", last_seen_cc_error);
+    printf("Error: %s\n", last_seen_cc_error());
     ASSERT_EQ(0, compileResult);
 }
 
@@ -401,8 +419,123 @@ TEST(Compile, NegationRHSOfExpression) {
         }\
         ";
 
-    last_seen_cc_error = 0;
+    clear_error();
     int compileResult = cc_compile(inpl, scrip);
-    printf("Error: %s\n", last_seen_cc_error);
+    printf("Error: %s\n", last_seen_cc_error());
+    ASSERT_EQ(0, compileResult);
+}
+
+TEST(Compile, CheckPropertyHandlersAreInPlace) {
+    ccCompiledScript *scrip = newScriptFixture();
+
+    char *inpl = "\
+        managed struct A {\
+            readonly import attribute int x;\
+        };\
+        \
+        managed struct B {\
+            import attribute A *a;\
+        };\
+        \
+        managed struct C {\
+            readonly import attribute B *b;\
+        };";
+
+    clear_error();
+    int compileResult = cc_compile(inpl, scrip);
+    printf("Error: %s\n", last_seen_cc_error());
+    ASSERT_EQ(0, compileResult);
+
+    EXPECT_EQ(0, sym.entries[sym.find("A::x")].get_propget());
+    EXPECT_EQ(-1, sym.entries[sym.find("A::x")].get_propset());
+    EXPECT_EQ(1, sym.entries[sym.find("B::a")].get_propget());
+    EXPECT_EQ(2, sym.entries[sym.find("B::a")].get_propset());
+    EXPECT_EQ(3, sym.entries[sym.find("C::b")].get_propget());
+    EXPECT_EQ(-1, sym.entries[sym.find("C::b")].get_propset());
+}
+
+TEST(Compile, AccessMembersInSequence) {
+    ccCompiledScript *scrip = newScriptFixture();
+
+    char *inpl = "\
+        managed struct A {\
+            import attribute int X;\
+        };\
+        \
+        managed struct B {\
+            import attribute A *a;\
+        };\
+        \
+        managed struct C {\
+            import attribute B *b;\
+        };\
+        \
+        int get_X(this A*)\
+        {\
+            return 0;\
+        }\
+        \
+        A* get_a(this B*)\
+        {\
+            return null;\
+        }\
+        \
+        B* get_b(this C*)\
+        {\
+            return null;\
+        }\
+        \
+        void Func() {\
+            C *c;\
+            int a = c.b.a.X;\
+        }";
+
+    clear_error();
+    int compileResult = cc_compile(inpl, scrip);
+    printf("Error: %s\n", last_seen_cc_error());
+    ASSERT_EQ(0, compileResult);
+}
+
+TEST(Compile, AccessNonStaticMemberOfAType) {
+    ccCompiledScript *scrip = newScriptFixture();
+
+    char *inpl = "\
+        managed struct A {\
+            import attribute int x;\
+        };\
+        \
+        builtin struct B {\
+            import readonly attribute A *a;\
+        };\
+        \
+        void Func() {\
+            int a = B.a.x;\
+        }";
+
+    clear_error();
+    int compileResult = cc_compile(inpl, scrip);
+    ASSERT_EQ(-1, compileResult);
+    EXPECT_STREQ("must have an instance of the struct to access a non-static member", last_seen_cc_error());
+}
+
+TEST(Compile, AccessNonStaticMemberOfAStaticMember) {
+    ccCompiledScript *scrip = newScriptFixture();
+
+    char *inpl = "\
+        managed struct A {\
+            import attribute int x;\
+        };\
+        \
+        builtin struct B {\
+            import static readonly attribute A *a;\
+        };\
+        \
+        void Func() {\
+            int a = B.a.x;\
+        }";
+
+    clear_error();
+    int compileResult = cc_compile(inpl, scrip);
+    printf("Error: %s\n", last_seen_cc_error());
     ASSERT_EQ(0, compileResult);
 }

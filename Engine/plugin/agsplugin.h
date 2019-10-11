@@ -41,21 +41,20 @@ typedef char BITMAP;
 #endif
 
 // If not using windows.h, define HWND
-#if !defined(_WINDOWS_) && !defined(HWND)
+#if !defined(_WINDOWS_)
 typedef int HWND;
 #endif
 
 // This file is distributed as part of the Plugin API docs, so
 // ensure that WINDOWS_VERSION is defined (if applicable)
-#if defined(_WINDOWS_) || defined(_WIN32)
-  #ifndef WINDOWS_VERSION
+#if defined(_WIN32)
+  #undef WINDOWS_VERSION
   #define WINDOWS_VERSION
-  #endif
 #endif
 
 // DOS engine doesn't know about stdcall / neither does Linux version
-#if !defined (WINDOWS_VERSION)
-#define __stdcall
+#if !defined (_WIN32)
+  #define __stdcall
 #endif
 
 #ifndef int32
@@ -165,11 +164,17 @@ public:
   // serialize the object into BUFFER (which is BUFSIZE bytes)
   // return number of bytes used
   virtual int Serialize(const char *address, char *buffer, int bufsize) = 0;
+protected:
+  IAGSScriptManagedObject() {};
+  ~IAGSScriptManagedObject() {};
 };
 
 class IAGSManagedObjectReader {
 public:
   virtual void Unserialize(int key, const char *serializedData, int dataSize) = 0;
+protected:
+  IAGSManagedObjectReader() {};
+  ~IAGSManagedObjectReader() {};
 };
 
 class IAGSFontRenderer {
@@ -182,6 +187,9 @@ public:
   virtual void RenderText(const char *text, int fontNumber, BITMAP *destination, int x, int y, int colour) = 0;
   virtual void AdjustYCoordinateForFont(int *ycoord, int fontNumber) = 0;
   virtual void EnsureTextValidForFont(char *text, int fontNumber) = 0;
+protected:
+  IAGSFontRenderer() {};
+  ~IAGSFontRenderer() {};
 };
 
 // The plugin-to-engine interface
@@ -271,9 +279,9 @@ public:
   // *** BELOW ARE INTERFACE VERSION 7 AND ABOVE ONLY
   // get the current player character
   AGSIFUNC(int)  GetPlayerCharacter ();
-  // adjust to viewport co-ordinates
+  // adjust to main viewport co-ordinates
   AGSIFUNC(void) RoomToViewport (int32 *x, int32 *y);
-  // adjust from viewport co-ordinates
+  // adjust from main viewport co-ordinates (ignores viewport bounds)
   AGSIFUNC(void) ViewportToRoom (int32 *x, int32 *y);
   // number of objects in current room
   AGSIFUNC(int)  GetNumObjects ();

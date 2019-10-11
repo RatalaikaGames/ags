@@ -15,24 +15,22 @@
 #ifndef __AGS_EE_GAME__SAVEGAMECOMPONENTS_H
 #define __AGS_EE_GAME__SAVEGAMECOMPONENTS_H
 
-#include "util/stdtr1compat.h"
-#include TR1INCLUDE(memory)
 #include "game/savegame.h"
-#include "game/savegame_internal.h"
-#include "gfx/bitmap.h"
 #include "util/stream.h"
-#include "util/string.h"
 
 namespace AGS
 {
+
+namespace Common { struct Interaction; }
+
 namespace Engine
 {
 
-using Common::Bitmap;
 using Common::Stream;
-using Common::String;
+typedef std::shared_ptr<Stream> PStream;
 
-typedef stdtr1compat::shared_ptr<Stream> PStream;
+struct PreservedParams;
+struct RestoredData;
 
 namespace SavegameComponents
 {
@@ -40,6 +38,9 @@ namespace SavegameComponents
     HSaveError    ReadAll(PStream in, SavegameVersion svg_version, const PreservedParams &pp, RestoredData &r_data);
     // Writes a full list of common components to the stream
     HSaveError    WriteAllCommon(PStream out);
+
+    // Precreates primary camera and viewport and reads legacy camera data
+    void ReadLegacyCameraState(Stream *in, RestoredData &r_data);
 }
 
 } // namespace Engine

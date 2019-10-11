@@ -12,6 +12,8 @@
 //
 //=============================================================================
 
+#include <math.h>
+
 #include "ac/display.h"
 #include "ac/common.h"
 #include "font/agsfontrenderer.h"
@@ -26,7 +28,7 @@
 #include "ac/gui.h"
 #include "ac/mouse.h"
 #include "ac/overlay.h"
-#include "ac/record.h"
+#include "ac/sys_events.h"
 #include "ac/screenoverlay.h"
 #include "ac/speech.h"
 #include "ac/string.h"
@@ -36,27 +38,24 @@
 #include "gui/guibutton.h"
 #include "gui/guimain.h"
 #include "main/game_run.h"
-#include "media/audio/audio.h"
 #include "platform/base/agsplatformdriver.h"
 #include "ac/spritecache.h"
 #include "gfx/gfx_util.h"
 #include "util/string_utils.h"
+#include "ac/mouse.h"
+#include "media/audio/audio_system.h"
+#include "ac/timer.h"
 
-using AGS::Common::Bitmap;
-namespace BitmapHelper = AGS::Common::BitmapHelper;
+using namespace AGS::Common;
 
 extern GameState play;
 extern GameSetupStruct game;
 extern int longestline;
-extern Bitmap *virtual_screen;
 extern ScreenOverlay screenover[MAX_SCREEN_OVERLAYS];
-extern volatile int timerloop;
 extern AGSPlatformDriver *platform;
-extern volatile unsigned long globalTimerCounter;
-extern int time_between_timers;
-extern int frames_per_second;
 extern int loops_per_character;
 extern SpriteCache spriteset;
+extern volatile int timerloop;
 
 int display_message_aschar=0;
 
@@ -91,10 +90,10 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
     int paddingDoubledScaled = padding * 2; // Just in case screen size does is not neatly divisible by 320x200
 
     ensure_text_valid_for_font(todis, usingfont);
-    break_up_text_into_lines(wii-2*padding,usingfont,todis);
+    break_up_text_into_lines(todis, Lines, wii-2*padding, usingfont);
     disp.lineheight = getfontheight_outlined(usingfont);
     disp.linespacing= getfontspacing_outlined(usingfont);
-    disp.fulltxtheight = getheightoflines(usingfont, numlines);
+    disp.fulltxtheight = getheightoflines(usingfont, Lines.Count());
 
     // if it's a normal message box and the game was being skipped,
     // ensure that the screen is up to date before the message box
@@ -159,14 +158,12 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
     }
     else if (xx<0) xx= ui_view.GetWidth()/2-wii/2;
 
-    int ee, extraHeight = paddingDoubledScaled;
-    Bitmap *ds = GetVirtualScreen();
-    color_t text_color = ds->GetCompatibleColor(15);
+    int extraHeight = paddingDoubledScaled;
+    color_t text_color = MakeColor(15);
     if (blocking < 2)
         remove_screen_overlay(OVER_TEXTMSG);
 
     Bitmap *text_window_ds = BitmapHelper::CreateTransparentBitmap((wii > 0) ? wii : 2, disp.fulltxtheight + extraHeight, game.GetColorDepth());
-    SetVirtualScreen(text_window_ds);
 
     // inform draw_text_window to free the old bitmap
     const bool wantFreeScreenop = true;
@@ -198,7 +195,7 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
         else if ((ShouldAntiAliasText()) && (game.GetColorDepth() >= 24))
             alphaChannel = true;
 
-        for (ee=0;ee<numlines;ee++) {
+        for (size_t ee=0;ee<Lines.Count();ee++) {
             //int ttxp=wii/2 - wgettextwidth_compensate(lines[ee], usingfont)/2;
             int ttyp=ttxtop+ee*disp.linespacing;
             // asspch < 0 means that it's inside a text box so don't
@@ -210,12 +207,12 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
                 else
                     text_color = text_window_ds->GetCompatibleColor(-asspch);
 
-                wouttext_aligned(text_window_ds, ttxleft, ttyp, oriwid, usingfont, text_color, lines[ee], play.text_align);
+                wouttext_aligned(text_window_ds, ttxleft, ttyp, oriwid, usingfont, text_color, Lines[ee], play.text_align);
             }
             else {
                 text_color = text_window_ds->GetCompatibleColor(asspch);
                 //wouttext_outline(ttxp,ttyp,usingfont,lines[ee]);
-                wouttext_aligned(text_window_ds, ttxleft, ttyp, wii, usingfont, text_color, lines[ee], play.speech_text_align);
+                wouttext_aligned(text_window_ds, ttxleft, ttyp, wii, usingfont, text_color, Lines[ee], play.speech_text_align);
             }
         }
     }
@@ -231,8 +228,8 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
 
         adjust_y_coordinate_for_text(&yoffs, usingfont);
 
-        for (ee=0;ee<numlines;ee++)
-            wouttext_aligned (text_window_ds, xoffs, yoffs + ee * disp.linespacing, oriwid, usingfont, text_color, lines[ee], play.text_align);
+        for (size_t ee=0;ee<Lines.Count();ee++)
+            wouttext_aligned (text_window_ds, xoffs, yoffs + ee * disp.linespacing, oriwid, usingfont, text_color, Lines[ee], play.text_align);
     }
 
     int ovrtype = OVER_TEXTMSG;
@@ -242,7 +239,6 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
     int nse = add_screen_overlay(xx, yy, ovrtype, text_window_ds, alphaChannel);
     // we should not delete text_window_ds here, because it is now owned by Overlay
 
-    ds = SetVirtualScreen(virtual_screen);
     if (blocking>=2) {
         return screenover[nse].type;
     }
@@ -258,7 +254,7 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
         remove_screen_overlay(OVER_TEXTMSG);*/
 
         if (!play.mouse_cursor_hidden)
-            domouse(1);
+            ags_domouse(DOMOUSE_ENABLE);
         // play.skip_display has same values as SetSkipSpeech:
         // 0 = click mouse or key to skip
         // 1 = key only
@@ -269,15 +265,11 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
         int skip_setting = user_to_internal_skip_speech((SkipSpeechStyle)play.skip_display);
         while (1) {
             timerloop = 0;
-            NEXT_ITERATION();
-            /*      if (!play.mouse_cursor_hidden)
-            domouse(0);
-            write_screen();*/
 
+            update_audio_system_on_game_loop();
             render_graphics();
 
-            update_polled_audio_and_crossfade();
-            if (mgetbutton()>NONE) {
+            if (ags_mgetbutton()>NONE) {
                 // If we're allowed, skip with mouse
                 if (skip_setting & SKIP_MOUSECLICK)
                     break;
@@ -292,12 +284,19 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
                 if (skip_setting & SKIP_KEYPRESS)
                     break;
             }
-            PollUntilNextFrame();
+
+            update_polled_stuff_if_runtime();
+
+            if (play.fast_forward == 0)
+            {
+                WaitForNextFrame();
+            }
+
             countdown--;
 
-            if (channels[SCHAN_SPEECH] != NULL) {
+            if (play.speech_has_voice) {
                 // extend life of text if the voice hasn't finished yet
-                if ((!rec_isSpeechFinished()) && (play.fast_forward == 0)) {
+                if (channel_is_playing(SCHAN_SPEECH) && (play.fast_forward == 0)) {
                     if (countdown <= 1)
                         countdown = 1;
                 }
@@ -307,7 +306,7 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
 
             if ((countdown < 1) && (skip_setting & SKIP_AUTOTIMER))
             {
-                play.ignore_user_input_until_time = globalTimerCounter + (play.ignore_user_input_after_text_timeout_ms / time_between_timers);
+                play.ignore_user_input_until_time = AGS_Clock::now() + std::chrono::milliseconds(play.ignore_user_input_after_text_timeout_ms);
                 break;
             }
             // if skipping cutscene, don't get stuck on No Auto Remove
@@ -316,10 +315,9 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
                 break;
         }
         if (!play.mouse_cursor_hidden)
-            domouse(2);
+            ags_domouse(DOMOUSE_DISABLE);
         remove_screen_overlay(OVER_TEXTMSG);
-
-        construct_virtual_screen(true);
+        invalidate_screen();
     }
     else {
         // if the speech does not time out, but we are skipping a cutscene,
@@ -330,12 +328,12 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
         if (!overlayPositionFixed)
         {
             screenover[nse].positionRelativeToScreen = false;
-            Point roompt = play.ScreenToRoom(screenover[nse].x, screenover[nse].y);
-            screenover[nse].x = roompt.X;
-            screenover[nse].y = roompt.Y;
+            VpPoint vpt = play.ScreenToRoom(screenover[nse].x, screenover[nse].y, 0, false);
+            screenover[nse].x = vpt.first.X;
+            screenover[nse].y = vpt.first.Y;
         }
 
-        GameLoopUntilEvent(UNTIL_NOOVERLAY,0);
+        GameLoopUntilNoOverlay();
     }
 
     play.messagetime=-1;
@@ -345,36 +343,68 @@ int _display_main(int xx,int yy,int wii,const char*text,int blocking,int usingfo
 void _display_at(int xx,int yy,int wii,const char*todis,int blocking,int asspch, int isThought, int allowShrink, bool overlayPositionFixed) {
     int usingfont=FONT_NORMAL;
     if (asspch) usingfont=FONT_SPEECH;
-    int needStopSpeech = 0;
+    // TODO: _display_at may be called from _displayspeech, which can start
+    // and finalize voice speech on its own. Find out if we really need to
+    // keep track of this and not just stop voice regardless.
+    bool need_stop_speech = false;
 
     EndSkippingUntilCharStops();
 
-    if (todis[0]=='&') {
-        // auto-speech
-        int igr=atoi(&todis[1]);
-        while ((todis[0]!=' ') & (todis[0]!=0)) todis++;
-        if (todis[0]==' ') todis++;
-        if (igr <= 0)
-            quit("Display: auto-voice symbol '&' not followed by valid integer");
-        if (play_speech(play.narrator_speech,igr)) {
-            // if Voice Only, then blank out the text
-            if (play.want_speech == 2)
-                todis = "  ";
-        }
-        needStopSpeech = 1;
+    if (try_auto_play_speech(todis, todis, play.narrator_speech, true))
+    {// TODO: is there any need for this flag?
+        need_stop_speech = true;
     }
     _display_main(xx,yy,wii,todis,blocking,usingfont,asspch, isThought, allowShrink, overlayPositionFixed);
 
-    if (needStopSpeech)
-        stop_speech();
+    if (need_stop_speech)
+        stop_voice_speech();
 }
 
-int   source_text_length = -1;
+bool try_auto_play_speech(const char *text, const char *&replace_text, int charid, bool blocking)
+{
+    const char *src = text;
+    if (src[0] != '&')
+        return false;
 
-int GetTextDisplayTime (const char *text, int canberel) {
-    int uselen = strlen(text);
+    int sndid = atoi(&src[1]);
+    while ((src[0] != ' ') & (src[0] != 0)) src++;
+    if (src[0] == ' ') src++;
+    if (sndid <= 0)
+        quit("DisplaySpeech: auto-voice symbol '&' not followed by valid integer");
 
-    int fpstimer = frames_per_second;
+    replace_text = src; // skip voice tag
+    if (play_voice_speech(charid, sndid))
+    {
+        // if Voice Only, then blank out the text
+        if (play.want_speech == 2)
+            replace_text = "  ";
+        return true;
+    }
+    return false;
+}
+
+// TODO: refactor this global variable out; currently it is set at the every get_translation call.
+// Be careful: a number of Say/Display functions expect it to be set beforehand.
+int source_text_length = -1;
+
+int GetTextDisplayLength(const char *text)
+{
+    int len = (int)strlen(text);
+    if ((text[0] == '&') && (play.unfactor_speech_from_textlength != 0))
+    {
+        // if there's an "&12 text" type line, remove "&12 " from the source length
+        size_t j = 0;
+        while ((text[j] != ' ') && (text[j] != 0))
+            j++;
+        j++;
+        len -= j;
+    }
+    return len;
+}
+
+int GetTextDisplayTime(const char *text, int canberel) {
+    int uselen = 0;
+    auto fpstimer = ::lround(get_current_fps());
 
     // if it's background speech, make it stay relative to game speed
     if ((canberel == 1) && (play.bgspeech_game_speed == 1))
@@ -387,16 +417,7 @@ int GetTextDisplayTime (const char *text, int canberel) {
         source_text_length = -1;
     }
     else {
-        if ((text[0] == '&') && (play.unfactor_speech_from_textlength != 0)) {
-            // if there's an "&12 text" type line, remove "&12 " from the source
-            // length
-            int j = 0;
-            while ((text[j] != ' ') && (text[j] != 0))
-                j++;
-            j++;
-            uselen -= j;
-        }
-
+        uselen = GetTextDisplayLength(text);
     }
 
     if (uselen <= 0)
@@ -432,8 +453,8 @@ void wouttext_outline(Common::Bitmap *ds, int xxp, int yyp, int usingfont, color
     else if (get_font_outline(usingfont) == FONT_OUTLINE_AUTO) {
         int outlineDist = 1;
 
-        if ((game.options[OPT_NOSCALEFNT] == 0) && (!font_supports_extended_characters(usingfont))) {
-            // if it's a scaled up SCI font, move the outline out more
+        if (is_bitmap_font(usingfont) && get_font_scaling_mul(usingfont) > 1) {
+            // if it's a scaled up bitmap font, move the outline out more
             outlineDist = 1;
         }
 
@@ -468,8 +489,8 @@ int get_outline_adjustment(int font)
 {
     // automatic outline fonts are 2 pixels taller
     if (get_font_outline(font) == FONT_OUTLINE_AUTO) {
-        // scaled up SCI font, push outline further out
-        if ((game.options[OPT_NOSCALEFNT] == 0) && (!font_supports_extended_characters(font)))
+        // scaled up bitmap font, push outline further out
+        if (is_bitmap_font(font) && get_font_scaling_mul(font) > 1)
             return 2;
         // otherwise, just push outline by 1 pixel
         else
@@ -505,7 +526,7 @@ int wgettextwidth_compensate(const char *tex, int font) {
 
     if (get_font_outline(font) == FONT_OUTLINE_AUTO) {
         // scaled up SCI font, push outline further out
-        if ((game.options[OPT_NOSCALEFNT] == 0) && (!font_supports_extended_characters(font)))
+        if (is_bitmap_font(font) && get_font_scaling_mul(font) > 1)
             wdof += 2;
         // otherwise, just push outline by 1 pixel
         else
@@ -517,7 +538,7 @@ int wgettextwidth_compensate(const char *tex, int font) {
 
 void do_corner(Bitmap *ds, int sprn, int x, int y, int offx, int offy) {
     if (sprn<0) return;
-    if (spriteset[sprn] == NULL)
+    if (spriteset[sprn] == nullptr)
     {
         sprn = 0;
     }
@@ -527,13 +548,15 @@ void do_corner(Bitmap *ds, int sprn, int x, int y, int offx, int offy) {
     draw_gui_sprite(ds, sprn, x, y);
 }
 
-int get_but_pic(GUIMain*guo,int indx) {
-    return guibuts[guo->CtrlRefs[indx] & 0x000ffff].Image;
+int get_but_pic(GUIMain*guo,int indx)
+{
+    int butid = guo->GetControlID(indx);
+    return butid >= 0 ? guibuts[butid].Image : 0;
 }
 
 void draw_button_background(Bitmap *ds, int xx1,int yy1,int xx2,int yy2,GUIMain*iep) {
     color_t draw_color;
-    if (iep==NULL) {  // standard window
+    if (iep==nullptr) {  // standard window
         draw_color = ds->GetCompatibleColor(15);
         ds->FillRect(Rect(xx1,yy1,xx2,yy2), draw_color);
         draw_color = ds->GetCompatibleColor(16);
@@ -641,7 +664,7 @@ void draw_text_window(Bitmap **text_window_ds, bool should_free_ds,
     if (ifnum <= 0) {
         if (ovrheight)
             quit("!Cannot use QFG4 style options without custom text window");
-        draw_button_background(ds, 0,0,ds->GetWidth() - 1,ds->GetHeight() - 1,NULL);
+        draw_button_background(ds, 0,0,ds->GetWidth() - 1,ds->GetHeight() - 1,nullptr);
         if (set_text_color)
             *set_text_color = ds->GetCompatibleColor(16);
         xins[0]=3;
@@ -665,7 +688,7 @@ void draw_text_window(Bitmap **text_window_ds, bool should_free_ds,
             delete *text_window_ds;
         int padding = get_textwindow_padding(ifnum);
         *text_window_ds = BitmapHelper::CreateTransparentBitmap(wii[0],ovrheight+(padding*2)+ game.SpriteInfos[tbnum].Height*2,game.GetColorDepth());
-        ds = SetVirtualScreen(*text_window_ds);
+        ds = *text_window_ds;
         int xoffs=game.SpriteInfos[tbnum].Width,yoffs= game.SpriteInfos[tbnum].Height;
         draw_button_background(ds, xoffs,yoffs,(ds->GetWidth() - xoffs) - 1,(ds->GetHeight() - yoffs) - 1,&guis[ifnum]);
         if (set_text_color)
@@ -673,7 +696,6 @@ void draw_text_window(Bitmap **text_window_ds, bool should_free_ds,
         xins[0]=xoffs+padding;
         yins[0]=yoffs+padding;
     }
-
 }
 
 void draw_text_window_and_bar(Bitmap **text_window_ds, bool should_free_ds,
@@ -689,7 +711,7 @@ void draw_text_window_and_bar(Bitmap **text_window_ds, bool should_free_ds,
         newScreenop->Blit(ds, 0, 0, 0, topBar.height, ds->GetWidth(), ds->GetHeight());
         delete *text_window_ds;
         *text_window_ds = newScreenop;
-        ds = SetVirtualScreen(*text_window_ds);
+        ds = *text_window_ds;
 
         // draw the top bar
         color_t draw_color = ds->GetCompatibleColor(play.top_bar_backcolor);

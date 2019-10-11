@@ -88,6 +88,8 @@ namespace AGS.Editor
         {
             Game game = Factory.AGSEditor.CurrentGame;
 
+            // TODO: this may be noticably slow especially for sprites. Display some kind of
+            // progress window to notify user.
             // Convert absolute paths to relative paths. This is an automatic fixup from when the
             // editor stored absolute paths only
             foreach (Sprite sprite in game.RootSpriteFolder.GetAllSpritesFromAllSubFolders())
@@ -136,7 +138,10 @@ namespace AGS.Editor
             _componentController.AddComponent(new SpeechComponent(_guiController, _agsEditor));
             _componentController.AddComponent(new SourceControlComponent(_guiController, _agsEditor));
             _componentController.AddComponent(new WelcomeComponent(_guiController, _agsEditor));
-            _componentController.AddComponent(new StatisticsSenderComponent(_guiController, _agsEditor));
+            //
+            // Disabled until proper server is found to store these stats
+            // _componentController.AddComponent(new StatisticsSenderComponent(_guiController, _agsEditor));
+            //
         }
 
         public void StartGUI(string[] commandLineArguments)
@@ -175,7 +180,7 @@ namespace AGS.Editor
         {
             try
             {
-                Bitmap screenShot = CaptureScreenshot();
+                Bitmap screenShot = null; // disable CaptureScreenshot();
                 ExceptionDialog dialog = new ExceptionDialog(ex, screenShot);
                 dialog.ShowDialog();
                 dialog.Dispose();

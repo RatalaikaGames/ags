@@ -1,16 +1,21 @@
+//=============================================================================
+//
+// Adventure Game Studio (AGS)
+//
+// Copyright (C) 1999-2011 Chris Jones and 2011-20xx others
+// The full list of copyright holders can be found in the Copyright.txt
+// file, which is part of this source code distribution.
+//
+// The AGS source code is provided under the Artistic License 2.0.
+// A copy of this license can be found in the file License.txt and at
+// http://www.opensource.org/licenses/artistic-license-2.0.php
+//
+//=============================================================================
 
-#include "ac/common.h"
-#include "ac/wordsdictionary.h"
-#include "core/assetmanager.h"
-#include "debug/out.h"
-#include "game/roomstruct.h"
+#include "ac/common.h" // update_polled_stuff_if_runtime
 #include "game/room_file.h"
-#include "game/room_version.h"
+#include "game/roomstruct.h"
 #include "gfx/bitmap.h"
-#include "script/cc_script.h"
-#include "util/compress.h"
-#include "util/stream.h"
-#include "util/string_utils.h"
 
 namespace AGS
 {
@@ -37,6 +42,14 @@ RoomEdges::RoomEdges()
     , Right(0)
     , Top(0)
     , Bottom(0)
+{
+}
+
+RoomEdges::RoomEdges(int l, int r, int t, int b)
+    : Left(l)
+    , Right(r)
+    , Top(t)
+    , Bottom(b)
 {
 }
 
@@ -90,7 +103,7 @@ RoomStruct::~RoomStruct()
 
 void RoomStruct::Free()
 {
-    for (size_t i = 0; i < MAX_ROOM_BGFRAMES; ++i)
+    for (size_t i = 0; i < (size_t)MAX_ROOM_BGFRAMES; ++i)
         BgFrames[i].Graphic.reset();
     HotspotMask.reset();
     RegionMask.reset();
@@ -98,6 +111,18 @@ void RoomStruct::Free()
     WalkBehindMask.reset();
 
     Properties.clear();
+    for (size_t i = 0; i < (size_t)MAX_ROOM_HOTSPOTS; ++i)
+    {
+        Hotspots[i].Properties.clear();
+    }
+    for (size_t i = 0; i < (size_t)MAX_ROOM_OBJECTS; ++i)
+    {
+        Objects[i].Properties.clear();
+    }
+    for (size_t i = 0; i < (size_t)MAX_ROOM_REGIONS; ++i)
+    {
+        Regions[i].Properties.clear();
+    }
 
     FreeMessages();
     FreeScripts();
@@ -106,7 +131,10 @@ void RoomStruct::Free()
 void RoomStruct::FreeMessages()
 {
     for (size_t i = 0; i < MessageCount; ++i)
+    {
         Messages[i].Free();
+        MessageInfos[i] = MessageInfo();
+    }
     MessageCount = 0;
 }
 
@@ -128,11 +156,12 @@ void RoomStruct::InitDefaults()
     DataVersion     = kRoomVersion_Current;
     GameID          = NO_GAME_ID_IN_ROOM_FILE;
 
+    MaskResolution  = 1;
     Width           = 320;
     Height          = 200;
 
     Options         = RoomOptions();
-    Edges           = RoomEdges();
+    Edges           = RoomEdges(0, 317, 40, 199);
 
     BgFrameCount    = 1;
     HotspotCount    = 0;
@@ -142,7 +171,7 @@ void RoomStruct::InitDefaults()
     WalkBehindCount = 0;
     MessageCount    = 0;
 
-    for (size_t i = 0; i < MAX_ROOM_HOTSPOTS; ++i)
+    for (size_t i = 0; i < (size_t)MAX_ROOM_HOTSPOTS; ++i)
     {
         Hotspots[i] = RoomHotspot();
         if (i == 0)
@@ -150,13 +179,13 @@ void RoomStruct::InitDefaults()
         else
             Hotspots[i].Name.Format("Hotspot %u", i);
     }
-    for (size_t i = 0; i < MAX_ROOM_OBJECTS; ++i)
+    for (size_t i = 0; i < (size_t)MAX_ROOM_OBJECTS; ++i)
         Objects[i] = RoomObjectInfo();
-    for (size_t i = 0; i < MAX_ROOM_REGIONS; ++i)
+    for (size_t i = 0; i < (size_t)MAX_ROOM_REGIONS; ++i)
         Regions[i] = RoomRegion();
-    for (size_t i = 0; i <= MAX_WALK_AREAS; ++i)
+    for (size_t i = 0; i <= (size_t)MAX_WALK_AREAS; ++i)
         WalkAreas[i] = WalkArea();
-    for (size_t i = 0; i < MAX_WALK_BEHINDS; ++i)
+    for (size_t i = 0; i < (size_t)MAX_WALK_BEHINDS; ++i)
         WalkBehinds[i] = WalkBehind();
     
     BackgroundBPP = 1;
@@ -193,7 +222,7 @@ int RoomStruct::GetRegionTintLuminance(int id) const
     return 0;
 }
 
-void load_room(const char *files, RoomStruct *room, const std::vector<SpriteInfo> &sprinfos)
+void load_room(const char *filename, RoomStruct *room, const std::vector<SpriteInfo> &sprinfos)
 {
     room->Free();
     room->InitDefaults();
@@ -201,7 +230,7 @@ void load_room(const char *files, RoomStruct *room, const std::vector<SpriteInfo
     update_polled_stuff_if_runtime();
 
     RoomDataSource src;
-    HRoomFileError err = OpenRoomFile(files, src);
+    HRoomFileError err = OpenRoomFile(filename, src);
     if (err)
     {
         update_polled_stuff_if_runtime();  // it can take a while to load the file sometimes
@@ -210,7 +239,50 @@ void load_room(const char *files, RoomStruct *room, const std::vector<SpriteInfo
             err = UpdateRoomData(room, src.DataVersion, sprinfos);
     }
     if (!err)
-        quitprintf("Unable to load the room file '%s'.\n%s.", files, err->FullMessage().GetCStr());
+        quitprintf("Unable to load the room file '%s'.\n%s.", filename, err->FullMessage().GetCStr());
+}
+
+PBitmap FixBitmap(PBitmap bmp, int width, int height)
+{
+    Bitmap *new_bmp = BitmapHelper::AdjustBitmapSize(bmp.get(), width, height);
+    if (new_bmp != bmp.get())
+        return PBitmap(new_bmp);
+    return bmp;
+}
+
+void UpscaleRoomBackground(RoomStruct *room, bool game_is_hires)
+{
+    if (room->DataVersion >= kRoomVersion_303b || !game_is_hires)
+        return;
+    for (size_t i = 0; i < room->BgFrameCount; ++i)
+        room->BgFrames[i].Graphic = FixBitmap(room->BgFrames[i].Graphic, room->Width, room->Height);
+    FixRoomMasks(room);
+}
+
+void FixRoomMasks(RoomStruct *room)
+{
+    if (room->MaskResolution <= 0)
+        return;
+    Bitmap *bkg = room->BgFrames[0].Graphic.get();
+    if (bkg == nullptr)
+        return;
+    // TODO: this issue is somewhat complicated. Original code was relying on
+    // room->Width and Height properties. But in the engine these are saved
+    // already converted to data resolution which may be "low-res". Since this
+    // function is shared between engine and editor we do not know if we need
+    // to upscale them.
+    // For now room width/height is always equal to background bitmap.
+    int base_width = bkg->GetWidth();
+    int base_height = bkg->GetHeight();
+    int low_width = base_width / room->MaskResolution;
+    int low_height = base_height / room->MaskResolution;
+
+    // Walk-behinds are always 1:1 of the primary background.
+    // Other masks are 1:x where X is MaskResolution.
+    room->WalkBehindMask = FixBitmap(room->WalkBehindMask, base_width, base_height);
+    room->HotspotMask = FixBitmap(room->HotspotMask, low_width, low_height);
+    room->RegionMask = FixBitmap(room->RegionMask, low_width, low_height);
+    room->WalkAreaMask = FixBitmap(room->WalkAreaMask, low_width, low_height);
 }
 
 } // namespace Common

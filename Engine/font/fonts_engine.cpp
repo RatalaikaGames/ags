@@ -16,18 +16,9 @@
 //
 //=============================================================================
 
-// Headers, as they are in acfonts.cpp
-#pragma unmanaged
-#ifndef USE_ALFONT
-#define USE_ALFONT
-#endif
+#include <alfont.h>
 #include "ac/gamesetupstruct.h"
 
-#ifdef USE_ALFONT
-#include "alfont.h"
-#endif
-
-// For engine these are defined in ac.cpp
 extern int our_eip;
 extern GameSetupStruct game;
 

@@ -150,6 +150,19 @@ namespace AGS.Editor
             return Uri.UnescapeDataString(currentProjectUri.MakeRelativeUri(currentPathUri).OriginalString);
         }
 
+        public static string ResolveSourcePath(string sourcePath)
+        {
+            Uri baseUri = new Uri(Factory.AGSEditor.CurrentGame.DirectoryPath + Path.DirectorySeparatorChar);
+            Uri absoluteUri;
+
+            if (Uri.TryCreate(baseUri, sourcePath, out absoluteUri))
+            {
+                sourcePath = absoluteUri.LocalPath;
+            }
+
+            return sourcePath;
+        }
+
         /// <summary>
         /// Wraps Directory.GetFiles in a handler to deal with an exception
         /// erroneously being thrown on Linux network shares if no files match.
@@ -305,15 +318,9 @@ namespace AGS.Editor
         public static void GetSizeSpriteWillBeRenderedInGame(int spriteSlot, out int width, out int height)
         {
             // CLNUP maybe remove, the scale factor shouldn't belong to the sprite itself
-            width = Factory.NativeProxy.GetSpriteWidth(spriteSlot);
-            height = Factory.NativeProxy.GetSpriteHeight(spriteSlot);
-            /*
-            if (Factory.AGSEditor.CurrentGame.IsHighResolution)
-            {
-                width *= Factory.NativeProxy.GetSpriteResolutionMultiplier(spriteSlot);
-                height *= Factory.NativeProxy.GetSpriteResolutionMultiplier(spriteSlot);
-            }
-            */
+            SpriteInfo info = Factory.NativeProxy.GetSpriteInfo(spriteSlot);
+            width = info.Width;
+            height = info.Height;
         }
 
         public static void CheckLabelWidthsOnForm(Control parentControl)
@@ -435,15 +442,8 @@ namespace AGS.Editor
         /// <returns></returns>
         public static bool HardlinkOrCopy(string destFileName, string sourceFileName, bool overwrite)
         {
-            if (!Path.IsPathRooted(sourceFileName))
-            {
-                sourceFileName = Path.Combine(Factory.AGSEditor.CurrentGame.DirectoryPath, sourceFileName);
-            }
-
-            if (!Path.IsPathRooted(destFileName))
-            {
-                destFileName = Path.Combine(Factory.AGSEditor.CurrentGame.DirectoryPath, destFileName);
-            }
+            sourceFileName = ResolveSourcePath(sourceFileName);
+            destFileName = ResolveSourcePath(destFileName);
 
             if (File.Exists(destFileName))
             {

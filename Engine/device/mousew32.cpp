@@ -21,7 +21,11 @@
 //
 //=============================================================================
 
-#if defined (WINDOWS_VERSION)
+#include "core/platform.h"
+
+#define AGS_SIMULATE_RIGHT_CLICK (AGS_PLATFORM_OS_MACOS)
+
+#if AGS_PLATFORM_OS_WINDOWS
 #include <dos.h>
 #include <conio.h>
 #include <process.h>
@@ -42,8 +46,8 @@
 #include "main/graphics_mode.h"
 #include "platform/base/agsplatformdriver.h"
 #include "util/math.h"
-#if defined(MAC_VERSION)
-#include "ac/global_game.h" // j for IsKeyPressed
+#if AGS_SIMULATE_RIGHT_CLICK
+#include "ac/sys_events.h" // j for ags_iskeypressed
 #endif
 
 using namespace AGS::Common;
@@ -52,10 +56,9 @@ using namespace AGS::Engine;
 
 extern char lib_file_name[13];
 
-char *mouselibcopyr = "MouseLib32 (c) 1994, 1998 Chris Jones";
+const char *mouselibcopyr = "MouseLib32 (c) 1994, 1998 Chris Jones";
 const int NONE = -1, LEFT = 0, RIGHT = 1, MIDDLE = 2;
-int aa;
-char mouseturnedon = FALSE, currentcursor = 0;
+char currentcursor = 0;
 // virtual mouse cursor coordinates
 int mousex = 0, mousey = 0, numcurso = -1, hotx = 0, hoty = 0;
 // real mouse coordinates and bounds
@@ -64,7 +67,7 @@ int boundx1 = 0, boundx2 = 99999, boundy1 = 0, boundy2 = 99999;
 int disable_mgetgraphpos = 0;
 char ignore_bounds = 0;
 extern char alpha_blend_cursor ;
-Bitmap *savebk = NULL, *mousecurs[MAXCURSORS];
+Bitmap *mousecurs[MAXCURSORS];
 extern color palette[256];
 extern volatile bool switched_away;
 
@@ -190,16 +193,6 @@ void msetcursorlimit(int x1, int y1, int x2, int y2)
   boundy2 = y2;
 }
 
-// TODO: find out how this code is being used and how is it synced with mouseCursor DDB!!
-void drawCursor(Bitmap *ds) {
-  if (alpha_blend_cursor) {
-    set_alpha_blender();
-    ds->TransBlendBlt(mousecurs[currentcursor], mousex, mousey);
-  }
-  else
-    AGS::Engine::GfxUtil::DrawSpriteWithTransparency(ds, mousecurs[currentcursor], mousex, mousey);
-}
-
 int hotxwas = 0, hotywas = 0;
 void domouse(int str)
 {
@@ -222,33 +215,6 @@ void domouse(int str)
   if (mousey + pooh >= viewport.GetHeight())
     pooh = viewport.GetHeight() - mousey;
 
-  Bitmap *ds = GetVirtualScreen();
-
-  ds->SetClip(Rect(0, 0, viewport.GetWidth() - 1, viewport.GetHeight() - 1));
-  if ((str == 0) & (mouseturnedon == TRUE)) {
-    if ((mousex != smx) | (mousey != smy)) {    // the mouse has moved
-      wputblock(ds, smx, smy, savebk, 0);
-      delete savebk;
-      savebk = wnewblock(ds, mousex, mousey, mousex + poow, mousey + pooh);
-      drawCursor(ds);
-    }
-  }
-  else if ((str == 1) & (mouseturnedon == FALSE)) {
-    // the mouse is just being turned on
-    savebk = wnewblock(ds, mousex, mousey, mousex + poow, mousey + pooh);
-    drawCursor(ds);
-    mouseturnedon = TRUE;
-  }
-  else if ((str == 2) & (mouseturnedon == TRUE)) {    // the mouse is being turned off
-    if (savebk != NULL) {
-      wputblock(ds, smx, smy, savebk, 0);
-      delete savebk;
-    }
-
-    savebk = NULL;
-    mouseturnedon = FALSE;
-  }
-
   mousex += hotx;
   mousey += hoty;
   hotxwas = hotx;
@@ -270,12 +236,7 @@ void mfreemem()
   }
 }
 
-void mnewcursor(char cursno)
-{
-  domouse(2);
-  currentcursor = cursno;
-  domouse(1);
-}
+
 
 
 void mloadwcursor(char *namm)
@@ -300,9 +261,9 @@ int mgetbutton()
   if (butis & 1)
   {
     toret = LEFT;
-#if defined(MAC_VERSION)
+#if AGS_SIMULATE_RIGHT_CLICK
     // j Ctrl-left click should be right-click
-    if (IsKeyPressed(405) || IsKeyPressed(406))
+    if (ags_iskeypressed(__allegro_KEY_LCONTROL) || ags_iskeypressed(__allegro_KEY_RCONTROL))
     {
       toret = RIGHT;
     }
@@ -396,9 +357,6 @@ void Mouse::DisableControl()
 {
     ControlEnabled = false;
     ConfineInCtrlRect = false;
-    SpeedVal = 1.f;
-    SpeedUnit = 1.f;
-    Speed = 1.f;
 }
 
 bool Mouse::IsControlEnabled()
@@ -408,8 +366,6 @@ bool Mouse::IsControlEnabled()
 
 void Mouse::SetSpeedUnit(float f)
 {
-    if (!ControlEnabled)
-        return;
     SpeedUnit = f;
     Speed = SpeedVal / SpeedUnit;
 }
@@ -421,8 +377,6 @@ float Mouse::GetSpeedUnit()
 
 void Mouse::SetSpeed(float speed)
 {
-    if (!ControlEnabled)
-        return;
     SpeedVal = Math::Max(0.f, speed);
     Speed = SpeedUnit * SpeedVal;
 }

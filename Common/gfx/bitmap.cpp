@@ -15,23 +15,10 @@
 #include "gfx/bitmap.h"
 #include "util/memory.h"
 
-#ifndef NULL
-#define NULL 0
-#endif
-
-extern "C"
-{
-	extern BITMAP *screen;	// in allegro
-}
-
 namespace AGS
 {
 namespace Common
 {
-
-// TODO! Get rid of this global ptr in the future (need to rewrite drawing logic in the engine)
-// NOTE: Screen bitmap is created either by working graphics driver, or in the engine_prepare_screen()
-Bitmap *gl_ScreenBmp;
 
 // TODO: revise this construction later
 namespace BitmapHelper
@@ -43,7 +30,7 @@ Bitmap *CreateBitmap(int width, int height, int color_depth)
 	if (!bitmap->Create(width, height, color_depth))
 	{
 		delete bitmap;
-		bitmap = NULL;
+		bitmap = nullptr;
 	}
 	return bitmap;
 }
@@ -54,7 +41,7 @@ Bitmap *CreateTransparentBitmap(int width, int height, int color_depth)
 	if (!bitmap->CreateTransparent(width, height, color_depth))
 	{
 		delete bitmap;
-		bitmap = NULL;
+		bitmap = nullptr;
 	}
 	return bitmap;
 }
@@ -65,7 +52,7 @@ Bitmap *CreateSubBitmap(Bitmap *src, const Rect &rc)
 	if (!bitmap->CreateSubBitmap(src, rc))
 	{
 		delete bitmap;
-		bitmap = NULL;
+		bitmap = nullptr;
 	}
 	return bitmap;
 }
@@ -76,7 +63,7 @@ Bitmap *CreateBitmapCopy(Bitmap *src, int color_depth)
 	if (!bitmap->CreateCopy(src, color_depth))
 	{
 		delete bitmap;
-		bitmap = NULL;
+		bitmap = nullptr;
 	}
 	return bitmap;
 }
@@ -87,11 +74,20 @@ Bitmap *LoadFromFile(const char *filename)
 	if (!bitmap->LoadFromFile(filename))
 	{
 		delete bitmap;
-		bitmap = NULL;
+		bitmap = nullptr;
 	}
 	return bitmap;
 }
 
+Bitmap *AdjustBitmapSize(Bitmap *src, int width, int height)
+{
+    int oldw = src->GetWidth(), oldh = src->GetHeight();
+    if ((oldw == width) && (oldh == height))
+        return src;
+    Bitmap *bmp = BitmapHelper::CreateBitmap(width, height, src->GetColorDepth());
+    bmp->StretchBlt(src, RectWH(0, 0, oldw, oldh), RectWH(0, 0, width, height));
+    return bmp;
+}
 
 template <class TPx, size_t BPP_>
 struct PixelTransCpy
@@ -148,7 +144,7 @@ struct PixelTransSkip32
 {
     inline bool operator ()(uint8_t *data, color_t mask_color, bool use_alpha) const
     {
-        return *(uint32_t*)data == mask_color || use_alpha && data[3] == 0;
+        return *(uint32_t*)data == mask_color || (use_alpha && data[3] == 0);
     }
 };
 
@@ -191,31 +187,6 @@ void ReadPixelsFromMemory(Bitmap *dst, const uint8_t *src_buffer, const size_t s
     if (src_px_offset >= src_px_pitch)
         return; // nothing to copy
     Memory::BlockCopy(dst->GetDataForWriting(), dst->GetLineLength(), 0, src_buffer, src_pitch, src_px_offset * bpp, dst->GetHeight());
-}
-
-// TODO: redo this ugly workaround
-// Unfortunately some of the allegro functions remaining in code require "screen"
-// allegro bitmap, therefore we must set that pointer to something every time we
-// assign an Bitmap to screen.
-Bitmap *GetScreenBitmap()
-{
-	return gl_ScreenBmp;
-}
-
-void SetScreenBitmap(Bitmap *bitmap)
-{
-    // We do not delete previous object here since we can't tell
-    // where it came from and whether it still exists.
-    // (Did I mention this is an ugly workaround? So...)
-	gl_ScreenBmp = bitmap;
-
-    // Only set allegro screen pointer if there's actual bitmap;
-    // setting it to NULL does not have any sense and may (will?)
-    // cause crashes.
-    if (gl_ScreenBmp)
-    {
-	    screen = (BITMAP*)gl_ScreenBmp->GetAllegroBitmap();
-    }
 }
 
 } // namespace BitmapHelper

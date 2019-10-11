@@ -15,11 +15,10 @@
 #ifndef __AGS_EE_GAME__SAVEGAMEINTERNAL_H
 #define __AGS_EE_GAME__SAVEGAMEINTERNAL_H
 
-#include "util/stdtr1compat.h"
-#include TR1INCLUDE(memory)
+#include <memory>
 #include <vector>
-
 #include "ac/common_defines.h"
+#include "gfx/bitmap.h"
 #include "media/audio/audiodefines.h"
 
 
@@ -28,7 +27,9 @@ namespace AGS
 namespace Engine
 {
 
-typedef stdtr1compat::shared_ptr<Bitmap> PBitmap;
+using AGS::Common::Bitmap;
+
+typedef std::shared_ptr<Bitmap> PBitmap;
 
 // PreservedParams keeps old values of particular gameplay
 // parameters that are saved before the save restoration
@@ -46,6 +47,21 @@ struct PreservedParams
     PreservedParams();
 };
 
+enum GameViewCamFlags
+{
+    kSvgGameAutoRoomView = 0x01
+};
+
+enum CameraSaveFlags
+{
+    kSvgCamPosLocked = 0x01
+};
+
+enum ViewportSaveFlags
+{
+    kSvgViewportVisible = 0x01
+};
+
 // RestoredData keeps certain temporary data to help with
 // the restoration process
 struct RestoredData
@@ -56,7 +72,7 @@ struct RestoredData
     // Scripts global data
     struct ScriptData
     {
-        stdtr1compat::shared_ptr<char> Data;
+        std::shared_ptr<char> Data;
         size_t              Len;
 
         ScriptData();
@@ -76,19 +92,44 @@ struct RestoredData
     // General audio
     struct ChannelInfo
     {
-        int ClipID;
-        int Pos;
-        int Priority;
-        int Repeat;
-        int Vol;
-        int VolAsPercent;
-        int Pan;
-        int PanAsPercent;
-        int Speed;
+        int ClipID = 0;
+        int Pos = 0;
+        int Priority = 0;
+        int Repeat = 0;
+        int Vol = 0;
+        int VolAsPercent = 0;
+        int Pan = 0;
+        int PanAsPercent = 0;
+        int Speed = 0;
     };
     ChannelInfo             AudioChans[MAX_SOUND_CHANNELS + 1];
     // Ambient sounds
     int                     DoAmbient[MAX_SOUND_CHANNELS];
+    // Viewport and camera data, has to be preserved and applied only after
+    // room gets loaded, because we must clamp these to room parameters.
+    struct ViewportData
+    {
+        int ID = -1;
+        int Flags = 0;
+        int Left = 0;
+        int Top = 0;
+        int Width = 0;
+        int Height = 0;
+        int ZOrder = 0;
+        int CamID = -1;
+    };
+    struct CameraData
+    {
+        int ID = -1;
+        int Flags = 0;
+        int Left = 0;
+        int Top = 0;
+        int Width = 0;
+        int Height = 0;
+    };
+    std::vector<ViewportData> Viewports;
+    std::vector<CameraData> Cameras;
+    int32_t Camera0_Flags = 0; // flags for primary camera, when data is read in legacy order
 
     RestoredData();
 };

@@ -41,17 +41,21 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#if !defined (WINDOWS_VERSION)
-#include <unistd.h>
-#include <dirent.h>
-#include <string.h>
-#include <sys/stat.h>
-#endif
-#include <allegro.h>
-#include "util/misc.h"
-#include "util/stdio_compat.h"
+#include "core/platform.h"
 
-using AGS::Common::Stream;
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#if !AGS_PLATFORM_OS_WINDOWS
+#include <dirent.h>
+#endif
+
+#include "allegro.h"
+#include "util/file.h"
+#include "util/stream.h"
+
+
+using namespace AGS::Common;
 
 #if !defined (AGS_CASE_SENSITIVE_FILESYSTEM)
 #include <string.h>
@@ -80,17 +84,17 @@ char *ci_find_file(const char *dir_name, const char *file_name)
 char *ci_find_file(const char *dir_name, const char *file_name)
 {
   struct stat   statbuf;
-  struct dirent *entry     = NULL;
-  DIR           *rough     = NULL;
-  DIR           *prevdir   = NULL;
-  char          *diamond   = NULL;
-  char          *directory = NULL;
-  char          *filename  = NULL;
+  struct dirent *entry     = nullptr;
+  DIR           *rough     = nullptr;
+  DIR           *prevdir   = nullptr;
+  char          *diamond   = nullptr;
+  char          *directory = nullptr;
+  char          *filename  = nullptr;
 
-  if (dir_name == NULL && file_name == NULL)
-      return NULL;
+  if (dir_name == nullptr && file_name == nullptr)
+      return nullptr;
 
-  if (dir_name != NULL) {
+  if (dir_name != nullptr) {
     directory = (char *)malloc(strlen(dir_name) + 1);
     strcpy(directory, dir_name);
 
@@ -98,7 +102,7 @@ char *ci_find_file(const char *dir_name, const char *file_name)
     fix_filename_slashes(directory);
   }
 
-  if (file_name != NULL) {
+  if (file_name != nullptr) {
     filename = (char *)malloc(strlen(file_name) + 1);
     strcpy(filename, file_name);
 
@@ -106,14 +110,14 @@ char *ci_find_file(const char *dir_name, const char *file_name)
     fix_filename_slashes(filename);
   }
 
-  if (directory == NULL) {
-    char  *match    = NULL;
+  if (directory == nullptr) {
+    char  *match    = nullptr;
     int   match_len = 0;
     int   dir_len   = 0;
 
     match = get_filename(filename);
-    if (match == NULL)
-      return NULL;
+    if (match == nullptr)
+      return nullptr;
 
     match_len = strlen(match);
     dir_len   = (match - filename);
@@ -132,28 +136,28 @@ char *ci_find_file(const char *dir_name, const char *file_name)
     filename[match_len] = '\0';
   }
 
-  if ((prevdir = opendir(".")) == NULL) {
+  if ((prevdir = opendir(".")) == nullptr) {
     fprintf(stderr, "ci_find_file: cannot open current working directory\n");
-    return NULL;
+    return nullptr;
   }
 
   if (chdir(directory) == -1) {
     fprintf(stderr, "ci_find_file: cannot change to directory: %s\n", directory);
-    return NULL;
+    return nullptr;
   }
   
-  if ((rough = opendir(directory)) == NULL) {
+  if ((rough = opendir(directory)) == nullptr) {
     fprintf(stderr, "ci_find_file: cannot open directory: %s\n", directory);
-    return NULL;
+    return nullptr;
   }
 
-  while ((entry = readdir(rough)) != NULL) {
+  while ((entry = readdir(rough)) != nullptr) {
     lstat(entry->d_name, &statbuf);
     if (S_ISREG(statbuf.st_mode) || S_ISLNK(statbuf.st_mode)) {
       if (strcasecmp(filename, entry->d_name) == 0) {
-#ifdef _DEBUG
+#if AGS_PLATFORM_DEBUG
         fprintf(stderr, "ci_find_file: Looked for %s in rough %s, found diamond %s.\n", filename, directory, entry->d_name);
-#endif // _DEBUG
+#endif // AGS_PLATFORM_DEBUG
         diamond = (char *)malloc(strlen(directory) + strlen(entry->d_name) + 2);
         append_filename(diamond, directory, entry->d_name, strlen(directory) + strlen(entry->d_name) + 2);
         break;
@@ -174,20 +178,20 @@ char *ci_find_file(const char *dir_name, const char *file_name)
 
 
 /* Case Insensitive fopen */
-Stream *ci_fopen(const char *file_name, Common::FileOpenMode open_mode, Common::FileWorkMode work_mode)
+Stream *ci_fopen(const char *file_name, FileOpenMode open_mode, FileWorkMode work_mode)
 {
 #if !defined (AGS_CASE_SENSITIVE_FILESYSTEM)
-  return Common::File::OpenFile(file_name, open_mode, work_mode);
+  return File::OpenFile(file_name, open_mode, work_mode);
 #else
-  Stream *fs = NULL;
-  char *fullpath = ci_find_file(NULL, (char*)file_name);
+  Stream *fs = nullptr;
+  char *fullpath = ci_find_file(nullptr, (char*)file_name);
 
   /* If I didn't find a file, this could be writing a new file,
       so use whatever file_name they passed */
-  if (fullpath == NULL) {
-    fs = Common::File::OpenFile(file_name, open_mode, work_mode);
+  if (fullpath == nullptr) {
+    fs = File::OpenFile(file_name, open_mode, work_mode);
   } else {
-    fs = Common::File::OpenFile(fullpath, open_mode, work_mode);
+    fs = File::OpenFile(fullpath, open_mode, work_mode);
     free(fullpath);
   }
 

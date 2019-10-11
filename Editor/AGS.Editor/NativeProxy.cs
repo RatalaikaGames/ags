@@ -57,9 +57,9 @@ namespace AGS.Editor
             _native.Initialize();
         }
 
-        public void NewGameLoaded(Game game)
+        public void NewGameLoaded(Game game, List<string> errors)
         {
-            _native.NewGameLoaded(game);
+            _native.NewGameLoaded(game, errors);
         }
 
         public void GameSettingsChanged(Game game)
@@ -200,9 +200,9 @@ namespace AGS.Editor
             _native.ReloadTTFFont(fontSlot);
         }
 
-        public void OnFontUpdated(Game game, int fontSlot)
+        public void OnFontUpdated(Game game, int fontSlot, bool forceUpdate)
         {
-            _native.OnGameFontUpdated(game, fontSlot);
+            _native.OnGameFontUpdated(game, fontSlot, forceUpdate);
         }
 
         public Dictionary<int, Sprite> LoadSpriteDimensions()
@@ -218,9 +218,12 @@ namespace AGS.Editor
 			}
         }
 
-        public int GetResolutionMultiplier()
+        public SpriteInfo GetSpriteInfo(int spriteSlot)
         {
-            return _native.GetResolutionMultiplier();
+            lock (_spriteSetLock)
+            {
+                return _native.GetSpriteInfo(spriteSlot);
+            }
         }
 
         public int GetSpriteWidth(int spriteSlot)
@@ -267,6 +270,11 @@ namespace AGS.Editor
         public Bitmap GetBitmapForBackground(Room room, int backgroundNumber)
         {
             return _native.GetBitmapForBackground(room, backgroundNumber);
+        }
+
+        public void AdjustRoomMaskResolution(Room room)
+        {
+            _native.AdjustRoomMaskResolution(room);
         }
 
         public void CreateBuffer(int width, int height)

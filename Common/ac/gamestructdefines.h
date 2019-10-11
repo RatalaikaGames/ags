@@ -26,6 +26,7 @@
 #define PAL_LOCKED          1
 #define PAL_BACKGROUND      2
 #define MAXGLOBALMES        500
+#define GLOBALMESLENGTH     500
 #define MAXLANGUAGE         5
 #define LEGACY_MAX_FONTS    30
 #define OPT_DEBUGMODE       0
@@ -44,7 +45,7 @@
 #define OPT_LETTERBOX       13
 #define OPT_FIXEDINVCURSOR  14
 #define OPT_NOLOSEINV       15
-#define OPT_NOSCALEFNT      16
+#define OPT_HIRES_FONTS     16
 #define OPT_SPLITRESOURCES  17
 #define OPT_ROTATECHARS     18
 #define OPT_FADETYPE        19
@@ -66,7 +67,7 @@
 #define OPT_STRICTSTRINGS   35  // don't allow old-style strings
 //#define OPT_NEWGUIALPHA     36
 #define OPT_RUNGAMEDLGOPTS  37
-//#define OPT_NATIVECOORDINATES 38 // [REMOVED]
+//#define OPT_NATIVECOORDINATES 38 // [REMOVED] defines coordinate relation between game logic and game screen
 #define OPT_GLOBALTALKANIMSPD 39
 #define OPT_HIGHESTOPTION_321 39
 //#define OPT_SPRITEALPHA     40
@@ -74,10 +75,11 @@
 #define OPT_SAFEFILEPATHS   41
 #define OPT_HIGHESTOPTION_335 OPT_SAFEFILEPATHS
 #define OPT_DIALOGOPTIONSAPI 42 // version of dialog options API (-1 for pre-3.4.0 API)
-#define OPT_BASESCRIPTAPI   43 // version of the Script API used to compile game script
-#define OPT_SCRIPTCOMPATLEV 44 // level of API compatibility used to compile game script
+#define OPT_BASESCRIPTAPI   43 // version of the Script API (ScriptAPIVersion) used to compile game script
+#define OPT_SCRIPTCOMPATLEV 44 // level of API compatibility (ScriptAPIVersion) used to compile game script
 #define OPT_RENDERATSCREENRES 45 // use the legacy D3D scaling that scales sprites at the (final) screen resolution
-#define OPT_HIGHESTOPTION   OPT_RENDERATSCREENRES
+#define OPT_RELATIVEASSETRES 46 // relative asset resolution mode (where sprites are resized to match game type)
+#define OPT_HIGHESTOPTION   OPT_RELATIVEASSETRES
 #define OPT_NOMODMUSIC      98
 #define OPT_LIPSYNCTEXT     99
 #define PORTRAIT_LEFT       0
@@ -91,11 +93,16 @@
 #define FADE_CROSSFADE      4
 #define FADE_LAST           4   // this should equal the last one
 
-//#define FFLG_NOSCALE        1
-#define FFLG_SIZEMASK 0x003f
+// Legacy font flags
+//#define FFLG_LEGACY_NOSCALE 0x01 // TODO: is this from legacy format, ever used?
+#define FFLG_LEGACY_SIZEMASK 0x3f
+#define MAX_LEGACY_FONT_SIZE 63
+// Contemporary font flags
+#define FFLG_SIZEMULTIPLIER  0x01  // size data means multiplier
+// Font outline types
 #define FONT_OUTLINE_NONE -1
 #define FONT_OUTLINE_AUTO -10
-#define MAX_FONT_SIZE 63
+
 #define DIALOG_OPTIONS_HIGHLIGHT_COLOR_DEFAULT  14 // Yellow
 
 #define MAXVIEWNAMELENGTH 15
@@ -150,7 +157,8 @@ enum ScriptAPIVersion
     kScriptAPI_v340 = 4,
     kScriptAPI_v341 = 5,
     kScriptAPI_v350 = 6,
-    kScriptAPI_Current = kScriptAPI_v350
+    kScriptAPI_v3507= 7,
+    kScriptAPI_Current = kScriptAPI_v3507
 };
 
 // Determines whether the graphics renderer should scale sprites at the final
@@ -162,13 +170,29 @@ enum RenderAtScreenRes
     kRenderAtScreenRes_Disabled     = 2,
 };
 
+// Method to use when blending two sprites with alpha channel
+enum GameSpriteAlphaRenderingStyle
+{
+    kSpriteAlphaRender_Legacy = 0,
+    kSpriteAlphaRender_Proper
+};
 
-// Sprite flags
-#define SPF_640x400         0x01  // sized for high native resolution
+// Method to use when blending two GUI elements with alpha channel
+enum GameGuiAlphaRenderingStyle
+{
+    kGuiAlphaRender_Legacy = 0,
+    kGuiAlphaRender_AdditiveAlpha,
+    kGuiAlphaRender_Proper
+};
+
+
+// Sprite flags (serialized as 8-bit)
+#define SPF_HIRES           0x01  // sized for high native resolution (legacy option)
 #define SPF_HICOLOR         0x02  // is 16-bit
 #define SPF_DYNAMICALLOC    0x04  // created by runtime script
 #define SPF_TRUECOLOR       0x08  // is 32-bit
 #define SPF_ALPHACHANNEL    0x10  // has alpha-channel
+#define SPF_VAR_RESOLUTION  0x20  // variable resolution (refer to SPF_HIRES)
 #define SPF_HADALPHACHANNEL 0x80  // the saved sprite on disk has one
 
 // General information about sprite (properties, size)
@@ -189,9 +213,11 @@ struct SpriteInfo
 struct FontInfo
 {
     // General font's loading and rendering flags
-    unsigned char Flags;
+    uint32_t      Flags;
     // Font size, in points (basically means pixels in AGS)
     int           SizePt;
+    // Factor to multiply base font size by
+    int           SizeMultiplier;
     // Outlining font index, or auto-outline flag
     char          Outline;
     // Custom vertical render offset, used mainly for fixing broken fonts

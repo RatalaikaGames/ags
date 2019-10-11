@@ -16,14 +16,14 @@
 #include "util/wgt2allg.h"
 #include "ac/common.h"
 #include "ac/mouse.h"
-#include "ac/record.h"
 #include "font/fonts.h"
 #include "gui/mypushbutton.h"
 #include "gui/guidialog.h"
 #include "gui/guidialoginternaldefs.h"
 #include "main/game_run.h"
-#include "media/audio/audio.h"
 #include "gfx/bitmap.h"
+#include "platform/base/agsplatformdriver.h"
+#include "ac/timer.h"
 
 using AGS::Common::Bitmap;
 
@@ -73,33 +73,32 @@ void MyPushButton::draw(Bitmap *ds)
 
 //extern const int LEFT;  // in mousew32
 
-int MyPushButton::pressedon()
+int MyPushButton::pressedon(int mousex, int mousey)
 {
     int wasstat;
     while (mbutrelease(LEFT) == 0) {
         timerloop = 0;
         wasstat = state;
-        NextIteration();
-        state = mouseisinarea();
+        state = mouseisinarea(mousex, mousey);
         // stop mp3 skipping if button held down
         update_polled_stuff_if_runtime();
         if (wasstat != state) {
-            //        domouse(2);
-            draw(GetVirtualScreen());
-            //domouse(1);
+            //        ags_domouse(DOMOUSE_DISABLE);
+            draw(get_gui_screen());
+            //ags_domouse(DOMOUSE_ENABLE);
         }
 
-        //      domouse(0);
+        //      ags_domouse(DOMOUSE_UPDATE);
 
         refresh_gui_screen();
 
-        while (timerloop == 0) ;
+        WaitForNextFrame();
     }
     wasstat = state;
     state = 0;
-    //    domouse(2);
-    draw(GetVirtualScreen());
-    //  domouse(1);
+    //    ags_domouse(DOMOUSE_DISABLE);
+    draw(get_gui_screen());
+    //  ags_domouse(DOMOUSE_ENABLE);
     return wasstat;
 }
 

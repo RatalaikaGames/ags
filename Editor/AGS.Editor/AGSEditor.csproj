@@ -27,6 +27,8 @@
     </UpgradeBackupLocation>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFrameworkProfile />
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -72,18 +74,21 @@
     <Reference Include="irrKlang.NET4">
       <HintPath>..\References\irrKlang.NET4.dll</HintPath>
     </Reference>
+    <Reference Include="Magick.NET-Q8-x86, Version=7.10.0.0, Culture=neutral, PublicKeyToken=2004825badfa91ec, processorArchitecture=x86">
+      <HintPath>..\..\Solutions\packages\Magick.NET-Q8-x86.7.10.0\lib\net40\Magick.NET-Q8-x86.dll</HintPath>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=10.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\..\Solutions\packages\Newtonsoft.Json.10.0.3\lib\net40\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Design" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Web" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
     <Reference Include="WeifenLuo.WinFormsUI.Docking, Version=2.6.0.0, Culture=neutral, PublicKeyToken=5cded1a1a0a7b481, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\References\WeifenLuo.WinFormsUI.Docking.dll</HintPath>
+      <HintPath>..\..\Solutions\packages\DockPanelSuite.2.6.0.1\lib\net40\WeifenLuo.WinFormsUI.Docking.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -138,6 +143,12 @@
     <Compile Include="GUI\CustomPropertySchemaItemEditor.Designer.cs">
       <DependentUpon>CustomPropertySchemaItemEditor.cs</DependentUpon>
     </Compile>
+    <Compile Include="GUI\NumberEntryWithInfoDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="GUI\NumberEntryWithInfoDialog.Designer.cs">
+      <DependentUpon>NumberEntryWithInfoDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="GUI\Progress.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -149,6 +160,12 @@
     </Compile>
     <Compile Include="GUI\SplashScreen.Designer.cs">
       <DependentUpon>SplashScreen.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\SpriteExportDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="GUI\SpriteExportDialog.Designer.cs">
+      <DependentUpon>SpriteExportDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="GUI\TextEntryDialog.cs">
       <SubType>Form</SubType>
@@ -318,8 +335,15 @@
       <SubType>Designer</SubType>
       <DependentUpon>frmMain.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="GUI\NumberEntryWithInfoDialog.resx">
+      <DependentUpon>NumberEntryWithInfoDialog.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
     <EmbeddedResource Include="GUI\Progress.resx">
       <DependentUpon>Progress.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="GUI\SpriteExportDialog.resx">
+      <DependentUpon>SpriteExportDialog.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Panes\BigPropertySheet.resx">
       <SubType>Designer</SubType>
@@ -364,6 +388,7 @@
     <EmbeddedResource Include="Resources\AGSFNT1.WFN" />
     <EmbeddedResource Include="Resources\AGSFNT2.WFN" />
     <Compile Include="Resources\ResourceManager.cs" />
+    <Compile Include="TextProcessing\APITypeDef.cs" />
     <Compile Include="Utils\AlternateStreams.cs" />
     <Compile Include="Utils\SourceControlProvider.cs" />
     <Compile Include="GUI\TabbedDocumentManager.cs">
@@ -1117,4 +1142,11 @@
     <PostBuildEvent>
     </PostBuildEvent>
   </PropertyGroup>
+  <Import Project="..\..\Solutions\packages\Magick.NET-Q8-x86.7.10.0\build\net40\Magick.NET-Q8-x86.targets" Condition="Exists('..\..\Solutions\packages\Magick.NET-Q8-x86.7.10.0\build\net40\Magick.NET-Q8-x86.targets')" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\..\Solutions\packages\Magick.NET-Q8-x86.7.10.0\build\net40\Magick.NET-Q8-x86.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\Solutions\packages\Magick.NET-Q8-x86.7.10.0\build\net40\Magick.NET-Q8-x86.targets'))" />
+  </Target>
 </Project>

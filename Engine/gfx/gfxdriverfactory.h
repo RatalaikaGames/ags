@@ -23,8 +23,7 @@
 #ifndef __AGS_EE_GFX__GFXDRIVERFACTORY_H
 #define __AGS_EE_GFX__GFXDRIVERFACTORY_H
 
-#include "util/stdtr1compat.h"
-#include TR1INCLUDE(memory)
+#include <memory>
 #include "util/string.h"
 #include "util/string_types.h"
 
@@ -38,13 +37,13 @@ using Common::StringV;
 class IGraphicsDriver;
 class IGfxFilter;
 struct GfxFilterInfo;
-typedef stdtr1compat::shared_ptr<IGfxFilter> PGfxFilter;
+typedef std::shared_ptr<IGfxFilter> PGfxFilter;
 
 
 class IGfxDriverFactory
 {
 public:
-    virtual ~IGfxDriverFactory(){}
+    virtual ~IGfxDriverFactory() = default;
 
     // Shutdown graphics factory and deallocate any resources it owns;
     // graphics factory will be unusable after calling this function.

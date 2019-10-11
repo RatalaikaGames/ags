@@ -66,6 +66,9 @@ namespace BitmapHelper
     Bitmap *CreateBitmapCopy(Bitmap *src, int color_depth = 0);
 	Bitmap *LoadFromFile(const char *filename);
 
+    // Stretches bitmap to the requested size. The new bitmap will have same
+    // colour depth. Returns original bitmap if no changes are necessary. 
+    Bitmap *AdjustBitmapSize(Bitmap *src, int width, int height);
     // Copy transparency mask and/or alpha channel from one bitmap into another.
     // Destination and mask bitmaps must be of the same pixel format.
     // Transparency is merged, meaning that fully transparent pixels on
@@ -76,14 +79,6 @@ namespace BitmapHelper
     // Pitch is given in bytes and defines the length of the source scan line.
     // Offset is optional and defines horizontal offset, in pixels.
     void    ReadPixelsFromMemory(Bitmap *dst, const uint8_t *src_buffer, const size_t src_pitch, const size_t src_px_offset = 0);
-
-	// TODO: revise this later
-	// Getters and setters for screen bitmap
-	// Unfortunately some of the allegro functions require "screen" allegro bitmap,
-	// therefore we must set that pointer to something every time we assign an Bitmap
-	// to screen.
-	Bitmap	*GetScreenBitmap();
-	void	SetScreenBitmap(Bitmap *bitmap);
 } // namespace BitmapHelper
 
 } // namespace Common

@@ -15,18 +15,17 @@
 #ifndef __AC_FILEBASEDAGSDEBUGGER_H
 #define __AC_FILEBASEDAGSDEBUGGER_H
 
-#include "debug/debugger.h"
-#include "debug/debug_log.h"
+#include "debug/agseditordebugger.h"
 
 struct FileBasedAGSDebugger : IAGSEditorDebugger
 {
 public:
 
-    bool Initialize();
-    void Shutdown();
-    bool SendMessageToEditor(const char *message);
-    bool IsMessageAvailable();
-    char* GetNextMessage();
+    bool Initialize() override;
+    void Shutdown() override;
+    bool SendMessageToEditor(const char *message) override;
+    bool IsMessageAvailable() override;
+    char* GetNextMessage() override;
 
 };
 

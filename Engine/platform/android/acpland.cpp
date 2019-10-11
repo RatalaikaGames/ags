@@ -12,13 +12,12 @@
 //
 //=============================================================================
 
-#if !defined(ANDROID_VERSION)
-#error This file should only be included on the Android build
-#endif
+#include "core/platform.h"
+
+#if AGS_PLATFORM_OS_ANDROID
 
 #include <allegro.h>
 #include "platform/base/agsplatformdriver.h"
-#include "platform/base/override_defines.h"
 #include "ac/runtime_defines.h"
 #include "main/config.h"
 #include "plugin/agsplugin.h"
@@ -27,7 +26,7 @@
 #include <sys/stat.h> 
 #include <ctype.h>
 #include <unistd.h>
-#include "util/string_utils.h"
+#include "util/string_compat.h"
 
 
 
@@ -43,17 +42,17 @@ void ResetConfiguration();
 
 struct AGSAndroid : AGSPlatformDriver
 {
-  virtual void Delay(int millis) override;
-  virtual void DisplayAlert(const char*, ...) override;
-  virtual const char *GetAppOutputDirectory() override;
-  virtual unsigned long GetDiskFreeSpaceMB() override;
-  virtual const char* GetNoMouseErrorString() override;
-  virtual bool IsBackendResponsibleForMouseScaling() override { return true; }
-  virtual eScriptSystemOSID GetSystemOSID() override;
-  virtual void PlayVideo(const char* name, int skip, int flags) override;
-  virtual void PostAllegroExit() override;
-  virtual void SetGameWindowIcon() override;
-  virtual void WriteStdOut(const char *fmt, ...) override;
+  void Delay(int millis) override;
+  void DisplayAlert(const char*, ...) override;
+  const char *GetAppOutputDirectory() override;
+  unsigned long GetDiskFreeSpaceMB() override;
+  const char* GetNoMouseErrorString() override;
+  bool IsBackendResponsibleForMouseScaling() override { return true; }
+  eScriptSystemOSID GetSystemOSID() override;
+  void PostAllegroExit() override;
+  void SetGameWindowIcon() override;
+  void WriteStdOut(const char *fmt, ...) override;
+  void WriteStdErr(const char *fmt, ...) override;
 };
 
 
@@ -403,7 +402,7 @@ Java_com_bigbluecup_android_PreferencesActivity_getAvailableTranslations(JNIEnv*
       length = strlen(entry->d_name);
       if (length > 4)
       {
-        if (stricmp(&entry->d_name[length - 4], ".tra") == 0)
+        if (ags_stricmp(&entry->d_name[length - 4], ".tra") == 0)
         {
           memset(buffer, 0, 200);
           strncpy(buffer, entry->d_name, length - 4);
@@ -527,9 +526,9 @@ void selectLatestSavegame()
   {
     while ((entry = readdir(dir)) != 0)
     {
-      if (strnicmp(entry->d_name, "agssave", 7) == 0)
+      if (ags_strnicmp(entry->d_name, "agssave", 7) == 0)
       {
-        if (stricmp(entry->d_name, "agssave.999") != 0)
+        if (ags_stricmp(entry->d_name, "agssave.999") != 0)
         {
           strcpy(buffer, saveGameDirectory);
           strcat(buffer, entry->d_name);
@@ -692,10 +691,6 @@ eScriptSystemOSID AGSAndroid::GetSystemOSID() {
   return eOS_Android;
 }
 
-void AGSAndroid::PlayVideo(const char *name, int skip, int flags) {
-  // do nothing
-}
-
 void AGSAndroid::PostAllegroExit() {
   java_environment->DeleteGlobalRef(java_class);
 }
@@ -717,6 +712,19 @@ void AGSAndroid::WriteStdOut(const char *fmt, ...)
   }
 }
 
+void AGSAndroid::WriteStdErr(const char *fmt, ...)
+{
+  // TODO: find out if Android needs separate implementation for stderr
+  if (psp_debug_write_to_logcat)
+  {
+    va_list args;
+    va_start(args, fmt);
+    __android_log_vprint(ANDROID_LOG_DEBUG, "AGSNative", fmt, args);
+    // NOTE: __android_log_* functions add trailing '\n'
+    va_end(args);
+  }
+}
+
 const char *AGSAndroid::GetAppOutputDirectory()
 {
   return android_base_directory;
@@ -728,3 +736,5 @@ AGSPlatformDriver* AGSPlatformDriver::GetDriver() {
 
   return instance;
 }
+
+#endif

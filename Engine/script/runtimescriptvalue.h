@@ -55,10 +55,19 @@ public:
     RuntimeScriptValue()
     {
         Type        = kScValUndefined;
-        IValue		= 0;
-        Ptr         = NULL;
-        MgrPtr      = NULL;
+        IValue      = 0;
+        Ptr         = nullptr;
+        MgrPtr      = nullptr;
         Size        = 0;
+    }
+
+    RuntimeScriptValue(int32_t val)
+    {
+        Type        = kScValInteger;
+        IValue      = val;
+        Ptr         = nullptr;
+        MgrPtr      = nullptr;
+        Size        = 4;
     }
 
     ScriptValueType Type;
@@ -67,7 +76,7 @@ public:
     union
     {
         int32_t     IValue; // access Value as int32 type
-        float	    FValue;	// access Value as float type
+        float       FValue;	// access Value as float type
     };
     // Pointer is used for storing... pointers - to objects, arrays,
     // functions and stack entries (other RSV)
@@ -102,7 +111,7 @@ public:
     }
     inline bool IsNull() const
     {
-        return Ptr == 0 && IValue == 0;
+        return Ptr == nullptr && IValue == 0;
     }
     
     inline bool GetAsBool() const
@@ -118,8 +127,8 @@ public:
     {
         Type    = kScValUndefined;
         IValue   = 0;
-        Ptr     = NULL;
-        MgrPtr  = NULL;
+        Ptr     = nullptr;
+        MgrPtr  = nullptr;
         Size    = 0;
         return *this;
     }
@@ -127,8 +136,8 @@ public:
     {
         Type    = kScValInteger;
         IValue  = val;
-        Ptr     = NULL;
-        MgrPtr  = NULL;
+        Ptr     = nullptr;
+        MgrPtr  = nullptr;
         Size    = 1;
         return *this;
     }
@@ -136,8 +145,8 @@ public:
     {
         Type    = kScValInteger;
         IValue  = val;
-        Ptr     = NULL;
-        MgrPtr  = NULL;
+        Ptr     = nullptr;
+        MgrPtr  = nullptr;
         Size    = 2;
         return *this;
     }
@@ -145,8 +154,8 @@ public:
     {
         Type    = kScValInteger;
         IValue  = val;
-        Ptr     = NULL;
-        MgrPtr  = NULL;
+        Ptr     = nullptr;
+        MgrPtr  = nullptr;
         Size    = 4;
         return *this;
     }
@@ -154,8 +163,8 @@ public:
     {
         Type    = kScValFloat;
         FValue  = val;
-        Ptr     = NULL;
-        MgrPtr  = NULL;
+        Ptr     = nullptr;
+        MgrPtr  = nullptr;
         Size    = 4;
         return *this;
     }
@@ -171,8 +180,8 @@ public:
     {
         Type    = kScValPluginArg;
         IValue  = val;
-        Ptr     = NULL;
-        MgrPtr  = NULL;
+        Ptr     = nullptr;
+        MgrPtr  = nullptr;
         Size    = 4;
         return *this;
     }
@@ -181,7 +190,7 @@ public:
         Type    = kScValStackPtr;
         IValue  = 0;
         RValue  = stack_entry;
-        MgrPtr  = NULL;
+        MgrPtr  = nullptr;
         Size    = 4;
         return *this;
     }
@@ -190,7 +199,7 @@ public:
         Type    = kScValData;
         IValue  = 0;
         Ptr     = data;
-        MgrPtr  = NULL;
+        MgrPtr  = nullptr;
         Size    = size;
         return *this;
     }
@@ -199,17 +208,17 @@ public:
         Type    = kScValGlobalVar;
         IValue  = 0;
         RValue  = glvar_value;
-        MgrPtr  = NULL;
+        MgrPtr  = nullptr;
         Size    = 4;
         return *this;
     }
     // TODO: size?
-    inline RuntimeScriptValue &SetStringLiteral(char *str)
+    inline RuntimeScriptValue &SetStringLiteral(const char *str)
     {
         Type    = kScValStringLiteral;
         IValue  = 0;
-        Ptr     = str;
-        MgrPtr  = NULL;
+        Ptr     = const_cast<char *>(str);
+        MgrPtr  = nullptr;
         Size    = 4;
         return *this;
     }
@@ -254,7 +263,7 @@ public:
         Type    = kScValStaticFunction;
         IValue  = 0;
         SPfn    = pfn;
-        MgrPtr  = NULL;
+        MgrPtr  = nullptr;
         Size    = 4;
         return *this;
     }
@@ -263,7 +272,7 @@ public:
         Type    = kScValPluginFunction;
         IValue  = 0;
         Ptr     = (char*)pfn;
-        MgrPtr  = NULL;
+        MgrPtr  = nullptr;
         Size    = 4;
         return *this;
     }
@@ -272,7 +281,7 @@ public:
         Type    = kScValObjectFunction;
         IValue  = 0;
         ObjPfn  = pfn;
-        MgrPtr  = NULL;
+        MgrPtr  = nullptr;
         Size    = 4;
         return *this;
     }
@@ -281,7 +290,7 @@ public:
         Type    = kScValCodePtr;
         IValue  = 0;
         Ptr     = ptr;
-        MgrPtr  = NULL;
+        MgrPtr  = nullptr;
         Size    = 4;
         return *this;
     }
@@ -315,6 +324,9 @@ public:
     // Convert to most simple pointer type by resolving RValue ptrs and applying offsets;
     // non pointer types are left unmodified
     RuntimeScriptValue &DirectPtr();
+    // Similar to above, a slightly speed-optimised version for situations when we can
+    // tell for certain that we are expecting a pointer to the object and not its (first) field.
+    RuntimeScriptValue &DirectPtrObj();
     // Resolve and return direct pointer to the referenced data; non pointer types return IValue
     intptr_t           GetDirectPtr() const;
 };

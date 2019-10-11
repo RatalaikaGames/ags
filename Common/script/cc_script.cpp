@@ -14,12 +14,18 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include "cc_script.h"
-#include "script/script_common.h"      // SCOM_VERSION, scfilesig
-#include "cc_error.h"
+#include "script/cc_error.h"
+#include "script/cc_script.h"
+#include "script/script_common.h"
 #include "util/stream.h"
+#include "util/string_compat.h"
 
 using AGS::Common::Stream;
+
+// currently executed line
+int currentline;
+// script file format signature
+const char scfilesig[5] = "SCOM";
 
 // [IKM] I reckon this function is almost identical to fgetstring in string_utils
 void freadstring(char **strptr, Stream *in)
@@ -31,7 +37,7 @@ void freadstring(char **strptr, Stream *in)
         idxx++;
 
     if (ibuffer[0] == 0) {
-        strptr[0] = NULL;
+        strptr[0] = nullptr;
         return;
     }
 
@@ -39,38 +45,38 @@ void freadstring(char **strptr, Stream *in)
     strcpy(strptr[0], ibuffer);
 }
 
-ccScript *ccScript::CreateFromStream(Common::Stream *in)
+ccScript *ccScript::CreateFromStream(Stream *in)
 {
     ccScript *scri = new ccScript();
     if (!scri->Read(in))
     {
         delete scri;
-        return NULL;
+        return nullptr;
     }
     return scri;
 }
 
 ccScript::ccScript()
 {
-    globaldata          = NULL;
+    globaldata          = nullptr;
     globaldatasize      = 0;
-    code                = NULL;
+    code                = nullptr;
     codesize            = 0;
-    strings             = NULL;
+    strings             = nullptr;
     stringssize         = 0;
-    fixuptypes          = NULL;
-    fixups              = NULL;
+    fixuptypes          = nullptr;
+    fixups              = nullptr;
     numfixups           = 0;
     importsCapacity     = 0;
-    imports             = NULL;
+    imports             = nullptr;
     numimports          = 0;
     exportsCapacity     = 0;
-    exports             = NULL;
-    export_addr         = NULL;
+    exports             = nullptr;
+    export_addr         = nullptr;
     numexports          = 0;
     instances           = 0;
-    sectionNames        = NULL;
-    sectionOffsets      = NULL;
+    sectionNames        = nullptr;
+    sectionOffsets      = nullptr;
     numSections         = 0;
     capacitySections    = 0;
 }
@@ -85,18 +91,18 @@ ccScript::ccScript(const ccScript &src)
     }
     else
     {
-        globaldata = NULL;
+        globaldata = nullptr;
     }
 
     codesize = src.codesize;
     if (codesize > 0)
     {
-        code = (intptr_t*)malloc(codesize * sizeof(intptr_t));
-        memcpy(code, src.code, sizeof(intptr_t) * codesize);
+        code = (int32_t*)malloc(codesize * sizeof(int32_t));
+        memcpy(code, src.code, sizeof(int32_t) * codesize);
     }
     else
     {
-        code = NULL;
+        code = nullptr;
     }
 
     stringssize = src.stringssize;
@@ -107,7 +113,7 @@ ccScript::ccScript(const ccScript &src)
     }
     else
     {
-        strings = NULL;
+        strings = nullptr;
     }
 
     numfixups = src.numfixups;
@@ -120,8 +126,8 @@ ccScript::ccScript(const ccScript &src)
     }
     else
     {
-        fixups = NULL;
-        fixuptypes = NULL;
+        fixups = nullptr;
+        fixuptypes = nullptr;
     }
 
     importsCapacity = src.numimports;
@@ -130,11 +136,11 @@ ccScript::ccScript(const ccScript &src)
     {
         imports = (char**)malloc(sizeof(char*) * numimports);
         for (int i = 0; i < numimports; ++i)
-            imports[i] = strdup(src.imports[i]);
+            imports[i] = ags_strdup(src.imports[i]);
     }
     else
     {
-        imports = NULL;
+        imports = nullptr;
     }
 
     exportsCapacity = src.numexports;
@@ -145,14 +151,14 @@ ccScript::ccScript(const ccScript &src)
         export_addr = (int32_t*)malloc(sizeof(int32_t) * numexports);
         for (int i = 0; i < numexports; ++i)
         {
-            exports[i] = strdup(src.exports[i]);
+            exports[i] = ags_strdup(src.exports[i]);
             export_addr[i] = src.export_addr[i];
         }
     }
     else
     {
-        exports = NULL;
-        export_addr = NULL;
+        exports = nullptr;
+        export_addr = nullptr;
     }
 
     capacitySections = src.numSections;
@@ -163,15 +169,15 @@ ccScript::ccScript(const ccScript &src)
         sectionOffsets = (int32_t*)malloc(numSections * sizeof(int32_t));
         for (int i = 0; i < numSections; ++i)
         {
-            sectionNames[i] = strdup(src.sectionNames[i]);
+            sectionNames[i] = ags_strdup(src.sectionNames[i]);
             sectionOffsets[i] = src.sectionOffsets[i];
         }
     }
     else
     {
         numSections = 0;
-        sectionNames = NULL;
-        sectionOffsets = NULL;
+        sectionNames = nullptr;
+        sectionOffsets = nullptr;
     }
 
     instances = 0;
@@ -192,7 +198,7 @@ void ccScript::Write(Stream *out) {
     if (globaldatasize > 0)
         out->WriteArray(globaldata,globaldatasize,1);
     if (codesize > 0)
-        out->WriteArrayOfIntPtr32(code,codesize);
+        out->WriteArrayOfInt32(code,codesize);
     if (stringssize > 0)
         out->WriteArray(strings,stringssize,1);
     out->WriteInt32(numfixups);
@@ -243,18 +249,18 @@ bool ccScript::Read(Stream *in)
     in->Read(globaldata, globaldatasize);
   }
   else
-    globaldata = NULL;
+    globaldata = nullptr;
 
   if (codesize > 0) {
-    code = (intptr_t *)malloc(codesize * sizeof(intptr_t));
+    code = (int32_t *)malloc(codesize * sizeof(int32_t));
     // MACPORT FIX: swap
 
     // 64 bit: Read code into 8 byte array, necessary for being able to perform
     // relocations on the references.
-    in->ReadArrayOfIntPtr32(code, codesize);
+    in->ReadArrayOfInt32(code, codesize);
   }
   else
-    code = NULL;
+    code = nullptr;
 
   if (stringssize > 0) {
     strings = (char *)malloc(stringssize);
@@ -262,7 +268,7 @@ bool ccScript::Read(Stream *in)
     in->Read(strings, stringssize);
   } 
   else
-    strings = NULL;
+    strings = nullptr;
 
   numfixups = in->ReadInt32();
   if (numfixups > 0) {
@@ -273,8 +279,8 @@ bool ccScript::Read(Stream *in)
     in->ReadArrayOfInt32(fixups, numfixups);
   }
   else {
-    fixups = NULL;
-    fixuptypes = NULL;
+    fixups = nullptr;
+    fixuptypes = nullptr;
   }
 
   numimports = in->ReadInt32();
@@ -304,8 +310,8 @@ bool ccScript::Read(Stream *in)
   else
   {
     numSections = 0;
-    sectionNames = NULL;
-    sectionOffsets = NULL;
+    sectionNames = nullptr;
+    sectionOffsets = nullptr;
   }
 
   if (in->ReadInt32() != ENDFILESIG) {
@@ -317,30 +323,30 @@ bool ccScript::Read(Stream *in)
 
 void ccScript::Free()
 {
-    if (globaldata != NULL)
+    if (globaldata != nullptr)
         free(globaldata);
 
-    if (code != NULL)
+    if (code != nullptr)
         free(code);
 
-    if (strings != NULL)
+    if (strings != nullptr)
         free(strings);
 
-    if (fixups != NULL && numfixups > 0)
+    if (fixups != nullptr && numfixups > 0)
         free(fixups);
 
-    if (fixuptypes != NULL && numfixups > 0)
+    if (fixuptypes != nullptr && numfixups > 0)
         free(fixuptypes);
 
-    globaldata = NULL;
-    code = NULL;
-    strings = NULL;
-    fixups = NULL;
-    fixuptypes = NULL;
+    globaldata = nullptr;
+    code = nullptr;
+    strings = nullptr;
+    fixups = nullptr;
+    fixuptypes = nullptr;
 
     int aa;
     for (aa = 0; aa < numimports; aa++) {
-        if (imports[aa] != NULL)
+        if (imports[aa] != nullptr)
             free(imports[aa]);
     }
 
@@ -350,22 +356,22 @@ void ccScript::Free()
     for (aa = 0; aa < numSections; aa++)
         free(sectionNames[aa]);
 
-    if (sectionNames != NULL)
+    if (sectionNames != nullptr)
     {
         free(sectionNames);
         free(sectionOffsets);
-        sectionNames = NULL;
-        sectionOffsets = NULL;
+        sectionNames = nullptr;
+        sectionOffsets = nullptr;
     }
 
-    if (imports != NULL)
+    if (imports != nullptr)
     {
         free(imports);
         free(exports);
         free(export_addr);
-        imports = NULL;
-        exports = NULL;
-        export_addr = NULL;
+        imports = nullptr;
+        exports = nullptr;
+        export_addr = nullptr;
     }
     numimports = 0;
     numexports = 0;

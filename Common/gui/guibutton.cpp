@@ -13,9 +13,8 @@
 //=============================================================================
 
 #include "ac/spritecache.h"
-#include "font/fonts.h"
 #include "gui/guibutton.h"
-#include "gui/guimain.h"
+#include "gui/guimain.h" // TODO: extract helper functions
 #include "util/stream.h"
 #include "util/string_utils.h"
 
@@ -90,7 +89,7 @@ bool GUIButton::IsClippingImage() const
 
 void GUIButton::Draw(Bitmap *ds)
 {
-    bool draw_disabled = !IsEnabled();
+    bool draw_disabled = !IsGUIEnabled(this);
 
     check_font(&Font);
     // if it's "Unchanged when disabled" or "GUI Off", don't grey out
@@ -168,7 +167,7 @@ void GUIButton::OnMouseUp()
     if (IsMouseOver)
     {
         CurrentImage = MouseOverImage;
-        if (IsEnabled() && IsClickable())
+        if (IsGUIEnabled(this) && IsClickable())
             IsActivated = true;
     }
     else
@@ -283,7 +282,7 @@ void GUIButton::DrawImageButton(Bitmap *ds, bool draw_disabled)
     // NOTE: the CLIP flag only clips the image, not the text
     if (IsClippingImage())
         ds->SetClip(Rect(X, Y, X + Width - 1, Y + Height - 1));
-    if (spriteset[CurrentImage] != NULL)
+    if (spriteset[CurrentImage] != nullptr)
         draw_gui_sprite(ds, CurrentImage, X, Y, true);
 
     // Draw active inventory item
@@ -370,7 +369,7 @@ void GUIButton::DrawTextButton(Bitmap *ds, bool draw_disabled)
     ds->DrawLine(Line(X, Y + Height - 1, X + Width - 1, Y + Height - 1), draw_color);
     ds->DrawLine(Line(X + Width - 1, Y, X + Width - 1, Y + Height - 1), draw_color);
 
-    if (draw_disabled || IsMouseOver && IsPushed)
+    if (draw_disabled || (IsMouseOver && IsPushed))
         draw_color = ds->GetCompatibleColor(8);
     else
         draw_color = ds->GetCompatibleColor(15);

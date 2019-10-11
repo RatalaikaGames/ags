@@ -24,14 +24,15 @@
 #include "ac/roomstatus.h"
 #include "ac/screen.h"
 #include "script/cc_error.h"
-#include "media/audio/audio.h"
-#include "media/audio/soundclip.h"
 #include "platform/base/agsplatformdriver.h"
 #include "plugin/agsplugin.h"
 #include "plugin/plugin_engine.h"
 #include "script/script.h"
+#include "gfx/bitmap.h"
 #include "gfx/ddb.h"
 #include "gfx/graphicsdriver.h"
+#include "media/audio/audio_system.h"
+#include "ac/timer.h"
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -44,9 +45,8 @@ extern GameState play;
 extern color palette[256];
 extern IGraphicsDriver *gfxDriver;
 extern AGSPlatformDriver *platform;
-extern Bitmap *virtual_screen;
-extern volatile int timerloop;
 extern color old_palette[256];
+extern volatile int timerloop;
 
 int in_enters_screen=0,done_es_error = 0;
 int in_leaves_screen = -1;
@@ -54,13 +54,13 @@ int in_leaves_screen = -1;
 EventHappened event[MAXEVENTS+1];
 int numevents=0;
 
-char*evblockbasename;
+const char*evblockbasename;
 int evblocknum;
 
 int inside_processevent=0;
 int eventClaimed = EVENT_NONE;
 
-char*tsnames[4]={NULL, REP_EXEC_NAME, "on_key_press","on_mouse_click"};
+const char*tsnames[4]={nullptr, REP_EXEC_NAME, "on_key_press","on_mouse_click"};
 
 
 int run_claimable_event(const char *tsname, bool includeRoom, int numParams, const RuntimeScriptValue *params, bool *eventWasClaimed) {
@@ -73,8 +73,8 @@ int run_claimable_event(const char *tsname, bool includeRoom, int numParams, con
     eventClaimed = EVENT_INPROGRESS;
     int toret;
 
-    if (includeRoom) {
-        toret = roominst->RunScriptFunctionIfExists(tsname, numParams, params);
+    if (includeRoom && roominst) {
+        toret = RunScriptFunctionIfExists(roominst, tsname, numParams, params);
 
         if (eventClaimed == EVENT_CLAIMED) {
             eventClaimed = eventClaimedOldValue;
@@ -84,7 +84,7 @@ int run_claimable_event(const char *tsname, bool includeRoom, int numParams, con
 
     // run script modules
     for (int kk = 0; kk < numScriptModules; kk++) {
-        toret = moduleInst[kk]->RunScriptFunctionIfExists(tsname, numParams, params);
+        toret = RunScriptFunctionIfExists(moduleInst[kk], tsname, numParams, params);
 
         if (eventClaimed == EVENT_CLAIMED) {
             eventClaimed = eventClaimedOldValue;
@@ -106,7 +106,7 @@ void run_on_event (int evtype, RuntimeScriptValue &wparam)
 void run_room_event(int id) {
     evblockbasename="room";
 
-    if (thisroom.EventHandlers != NULL)
+    if (thisroom.EventHandlers != nullptr)
     {
         run_interaction_script(thisroom.EventHandlers.get(), id);
     }
@@ -114,9 +114,9 @@ void run_room_event(int id) {
 
 void run_event_block_inv(int invNum, int event) {
     evblockbasename="inventory%d";
-    if (game.invScripts != NULL)
+    if (loaded_game_file_version > kGameVersion_272)
     {
-        run_interaction_script(game.invScripts[invNum], event);
+        run_interaction_script(game.invScripts[invNum].get(), event);
     }
 }
 
@@ -157,13 +157,13 @@ void process_event(EventHappened*evp) {
         NewRoom(evp->data1);
     }
     else if (evp->type==EV_RUNEVBLOCK) {
-        PInteractionScripts scriptPtr = NULL;
-        char *oldbasename = evblockbasename;
+        PInteractionScripts scriptPtr = nullptr;
+        const char *oldbasename = evblockbasename;
         int   oldblocknum = evblocknum;
 
         if (evp->data1==EVB_HOTSPOT) {
 
-            if (thisroom.Hotspots[evp->data2].EventHandlers != NULL)
+            if (thisroom.Hotspots[evp->data2].EventHandlers != nullptr)
                 scriptPtr = thisroom.Hotspots[evp->data2].EventHandlers;
 
             evblockbasename="hotspot%d";
@@ -172,7 +172,7 @@ void process_event(EventHappened*evp) {
         }
         else if (evp->data1==EVB_ROOM) {
 
-            if (thisroom.EventHandlers != NULL)
+            if (thisroom.EventHandlers != nullptr)
                 scriptPtr = thisroom.EventHandlers;
 
             evblockbasename="room";
@@ -184,7 +184,7 @@ void process_event(EventHappened*evp) {
             //Debug::Printf("Running room interaction, event %d", evp->data3);
         }
 
-        if (scriptPtr != NULL)
+        if (scriptPtr != nullptr)
         {
             run_interaction_script(scriptPtr.get(), evp->data3);
         }
@@ -211,17 +211,15 @@ void process_event(EventHappened*evp) {
             play.next_screen_transition = -1;
         }
 
-        // React to changes to viewports and cameras (possibly from script) just before the render
-        play.UpdateViewports();
-
         if (pl_run_plugin_hooks(AGSE_TRANSITIONIN, 0))
             return;
 
         if (play.fast_forward)
             return;
 
+        const bool ignore_transition = (play.screen_tint > 0);
         if (((theTransition == FADE_CROSSFADE) || (theTransition == FADE_DISSOLVE)) &&
-            (saved_viewport_bitmap == NULL)) 
+            (saved_viewport_bitmap == nullptr) && !ignore_transition)
         {
             // transition type was not crossfade/dissolve when the screen faded out,
             // but it is now when the screen fades in (Eg. a save game was restored
@@ -230,18 +228,14 @@ void process_event(EventHappened*evp) {
             theTransition = FADE_NORMAL;
         }
 
-		Bitmap *screen_bmp = BitmapHelper::GetScreenBitmap();
-        // TODO: use normal coordinates instead of "native_size" and multiply_up_*?
-        const Size &native_size = play.GetNativeSize();
-        const Rect &viewport = play.GetMainViewport();
+	    const Rect &viewport = play.GetMainViewport();
+        // CLNUP: this is remains of legacy code refactoring, cleanup later
+        const Size &data_res = viewport.GetSize();
 
-        if ((theTransition == FADE_INSTANT) || (play.screen_tint >= 0))
+        if ((theTransition == FADE_INSTANT) || ignore_transition)
             set_palette_range(palette, 0, 255, 0);
         else if (theTransition == FADE_NORMAL)
         {
-            if (gfxDriver->UsesMemoryBackBuffer())
-                gfxDriver->RenderToBackBuffer();
-
             my_fade_in(palette,5);
         }
         else if (theTransition == FADE_BOXOUT) 
@@ -252,30 +246,41 @@ void process_event(EventHappened*evp) {
             }
             else
             {
+                // First of all we render the game once again and save backbuffer from further editing.
+                // We put temporary bitmap as a new backbuffer for the transition period, and
+                // will be drawing saved image of the game over to that backbuffer, simulating "box-out".
                 set_palette_range(palette, 0, 255, 0);
+                construct_game_scene(true);
+                construct_game_screen_overlay(false);
                 gfxDriver->RenderToBackBuffer();
-				gfxDriver->SetMemoryBackBuffer(screen_bmp);
-                screen_bmp->Clear();
-                render_to_screen(screen_bmp, 0, 0);
+                Bitmap *saved_backbuf = gfxDriver->GetMemoryBackBuffer();
+                Bitmap *temp_scr = new Bitmap(saved_backbuf->GetWidth(), saved_backbuf->GetHeight(), saved_backbuf->GetColorDepth());
+                gfxDriver->SetMemoryBackBuffer(temp_scr);
+                temp_scr->Clear();
+                render_to_screen();
 
-                int boxwid = 16;
-                int boxhit = native_size.Height / 20;
-                while (boxwid < screen_bmp->GetWidth()) {
+                const int speed = 16;
+                const int yspeed = viewport.GetHeight() / (viewport.GetWidth() / speed);
+                int boxwid = speed, boxhit = yspeed;
+                while (boxwid < temp_scr->GetWidth())
+                {
                     timerloop = 0;
-                    boxwid += 16;
-                    boxhit += native_size.Height / 20;
+                    boxwid += speed;
+                    boxhit += yspeed;
                     boxwid = Math::Clamp(boxwid, 0, viewport.GetWidth());
                     boxhit = Math::Clamp(boxhit, 0, viewport.GetHeight());
                     int lxp = viewport.GetWidth() / 2 - boxwid / 2;
                     int lyp = viewport.GetHeight() / 2 - boxhit / 2;
                     gfxDriver->Vsync();
-                    screen_bmp->Blit(virtual_screen, lxp, lyp, lxp, lyp,
+                    temp_scr->Blit(saved_backbuf, lxp, lyp, lxp, lyp,
                         boxwid, boxhit);
-                    render_to_screen(screen_bmp, viewport.Left, viewport.Top);
-                    update_mp3();
-                        while (timerloop == 0) ;
+                    render_to_screen();
+
+                    update_polled_mp3();
+
+                    WaitForNextFrame();
                 }
-                gfxDriver->SetMemoryBackBuffer(virtual_screen, viewport.Left, viewport.Top);
+                gfxDriver->SetMemoryBackBuffer(saved_backbuf);
             }
             play.screen_is_faded_out = 0;
         }
@@ -293,7 +298,8 @@ void process_event(EventHappened*evp) {
                 // do the crossfade
                 ddb->SetTransparency(transparency);
                 invalidate_screen();
-                draw_screen_callback();
+                construct_game_scene(true);
+                construct_game_screen_overlay(false);
 
                 if (transparency > 16)
                 {
@@ -301,15 +307,18 @@ void process_event(EventHappened*evp) {
                     // draw the old screen on top
                     gfxDriver->DrawSprite(0, 0, ddb);
                 }
-				render_to_screen(screen_bmp, 0, 0);
+				render_to_screen();
+
                 update_polled_stuff_if_runtime();
-                while (timerloop == 0) ;
+
+                WaitForNextFrame();
+
                 transparency -= 16;
             }
             saved_viewport_bitmap->Release();
 
             delete saved_viewport_bitmap;
-            saved_viewport_bitmap = NULL;
+            saved_viewport_bitmap = nullptr;
             set_palette_range(palette, 0, 255, 0);
             gfxDriver->DestroyDDB(ddb);
         }
@@ -319,7 +328,6 @@ void process_event(EventHappened*evp) {
             color interpal[256];
 
             IDriverDependantBitmap *ddb = prepare_screen_for_transition_in();
-
             for (aa=0;aa<16;aa++) {
                 timerloop=0;
                 // merge the palette while dithering
@@ -336,17 +344,18 @@ void process_event(EventHappened*evp) {
                     }
                 }
                 gfxDriver->UpdateDDBFromBitmap(ddb, saved_viewport_bitmap, false);
-                invalidate_screen();
-                draw_screen_callback();
+                construct_game_scene(true);
+                construct_game_screen_overlay(false);
                 gfxDriver->DrawSprite(0, 0, ddb);
-				render_to_screen(screen_bmp, 0, 0);
+				render_to_screen();
+
                 update_polled_stuff_if_runtime();
-                while (timerloop == 0) ;
+
+                WaitForNextFrame();
             }
-            saved_viewport_bitmap->Release();
 
             delete saved_viewport_bitmap;
-            saved_viewport_bitmap = NULL;
+            saved_viewport_bitmap = nullptr;
             set_palette_range(palette, 0, 255, 0);
             gfxDriver->DestroyDDB(ddb);
         }

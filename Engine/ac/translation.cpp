@@ -12,7 +12,6 @@
 //
 //=============================================================================
 
-#define USE_CLIB
 #include "ac/asset_helper.h"
 #include "ac/common.h"
 #include "ac/gamesetup.h"
@@ -22,6 +21,7 @@
 #include "ac/runtime_defines.h"
 #include "ac/translation.h"
 #include "ac/tree_map.h"
+#include "ac/wordsdictionary.h"
 #include "debug/out.h"
 #include "util/misc.h"
 #include "util/stream.h"
@@ -35,14 +35,14 @@ extern GameState play;
 extern char transFileName[MAX_PATH];
 
 
-TreeMap *transtree = NULL;
+TreeMap *transtree = nullptr;
 long lang_offs_start = 0;
 char transFileName[MAX_PATH] = "\0";
 
 void close_translation () {
-    if (transtree != NULL) {
+    if (transtree != nullptr) {
         delete transtree;
-        transtree = NULL;
+        transtree = nullptr;
     }
 }
 
@@ -55,7 +55,7 @@ bool init_translation (const String &lang, const String &fallback_lang, bool qui
     sprintf(transFileName, "%s.tra", lang.GetCStr());
 
     Stream *language_file = find_open_asset(transFileName);
-    if (language_file == NULL)
+    if (language_file == nullptr)
     {
         Debug::Printf(kDbgMsg_Error, "Cannot open translation: %s", transFileName);
         return false;
@@ -71,7 +71,7 @@ bool init_translation (const String &lang, const String &fallback_lang, bool qui
         return false;
     }
 
-    if (transtree != NULL)
+    if (transtree != nullptr)
     {
         close_translation();
     }
@@ -169,7 +169,7 @@ bool parse_translation(Stream *language_file, String &parse_error)
         }
     }
 
-    if (transtree->text == NULL)
+    if (transtree->text == nullptr)
     {
         parse_error = "The translation file was empty.";
         return false;

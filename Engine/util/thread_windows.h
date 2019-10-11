@@ -11,15 +11,8 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
-
 #ifndef __AGS_EE_PLATFORM__THREAD_WINDOWS_H
 #define __AGS_EE_PLATFORM__THREAD_WINDOWS_H
-
-// FIXME: This is a horrible hack to avoid conflicts between Allegro and Windows
-#define BITMAP WINDOWS_BITMAP
-#include <windows.h>
-#undef BITMAP
-
 
 namespace AGS
 {
@@ -33,7 +26,9 @@ public:
   WindowsThread()
   {
     _thread = NULL;
+    _entry = NULL;
     _running = false;
+    _looping = false;
   }
 
   ~WindowsThread()

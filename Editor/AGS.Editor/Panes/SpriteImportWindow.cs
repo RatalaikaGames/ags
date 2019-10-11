@@ -181,7 +181,7 @@ namespace AGS.Editor
             SpriteImportMethod = replace.TransparentColour;
             SelectionOffset = new Point(replace.OffsetX, replace.OffsetY);
             SelectionSize = new Size(replace.Width, replace.Height);
-            UseAlphaChannel = replace.AlphaChannel;
+            UseAlphaChannel = replace.ImportAlphaChannel;
             RemapToGamePalette = replace.RemapToGamePalette;
             UseBackgroundSlots = replace.RemapToRoomPalette;
 
@@ -216,7 +216,7 @@ namespace AGS.Editor
             SpriteImportMethod = replace.TransparentColour;
             SelectionOffset = new Point(replace.OffsetX, replace.OffsetY);
             SelectionSize = new Size(replace.Width, replace.Height);
-            UseAlphaChannel = replace.AlphaChannel;
+            UseAlphaChannel = replace.ImportAlphaChannel;
             RemapToGamePalette = replace.RemapToGamePalette;
             UseBackgroundSlots = replace.RemapToRoomPalette;
 
@@ -289,21 +289,17 @@ namespace AGS.Editor
             }
 
             previewPanel.Refresh();
-
-            // if not doing a tiled import, update selection width and height
-            if (!chkTiled.Checked)
-            {
-                numSizeX.Value = image.Width;
-                numSizeY.Value = image.Height;
-            }
         }
 
         private void updateCornerColours(Point point, Size size)
         {
-            panelTopLeft.BackColor = image.GetPixel(point.X, point.Y);
-            panelTopRight.BackColor = image.GetPixel(point.X + size.Width - 1, point.Y);
-            panelBottomLeft.BackColor = image.GetPixel(point.X, point.Y + size.Height - 1);
-            panelBottomRight.BackColor = image.GetPixel(point.X + size.Width - 1, point.Y + size.Height - 1);
+            if (size.Width > 0 && size.Height > 0)
+            {
+                panelTopLeft.BackColor = image.GetPixel(point.X, point.Y);
+                panelTopRight.BackColor = image.GetPixel(point.X + size.Width - 1, point.Y);
+                panelBottomLeft.BackColor = image.GetPixel(point.X, point.Y + size.Height - 1);
+                panelBottomRight.BackColor = image.GetPixel(point.X + size.Width - 1, point.Y + size.Height - 1);
+            }
         }
 
         private void zoomSlider_Scroll(object sender, EventArgs e)
@@ -327,15 +323,22 @@ namespace AGS.Editor
             e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
             e.Graphics.CompositingQuality = CompositingQuality.HighSpeed;
 
-            // Draw the image
-            e.Graphics.DrawImage(image, -previewPanel.HorizontalScroll.Value,
+            Rectangle imageRect = new Rectangle(-previewPanel.HorizontalScroll.Value,
                 -previewPanel.VerticalScroll.Value, image.Width * zoomLevel, image.Height * zoomLevel);
+
+            // Draw the image
+            e.Graphics.DrawImage(image, imageRect);
+
+            // Draw image boundaries
+            Pen dashed = new Pen(Color.Black, 1);
+            dashed.DashPattern = new float[] { 2, 2 };
+            e.Graphics.DrawRectangle(dashed, imageRect);
 
             // Draw dragging indicator
             if (dragging)
             {
-                numSizeX.Value = position.X / zoomLevel - numOffsetX.Value + 1;
-                numSizeY.Value = position.Y / zoomLevel - numOffsetY.Value + 1;
+                numSizeX.Value = Math.Min(image.Width - numOffsetX.Value, position.X / zoomLevel - numOffsetX.Value + 1);
+                numSizeY.Value = Math.Min(image.Height - numOffsetY.Value, position.Y / zoomLevel - numOffsetY.Value + 1);
 
                 Size snappedSize = new Size((int)numSizeX.Value * zoomLevel, (int)numSizeY.Value * zoomLevel);
                 Point snappedStart = new Point((int)numOffsetX.Value * zoomLevel - previewPanel.HorizontalScroll.Value, (int)numOffsetY.Value * zoomLevel - previewPanel.VerticalScroll.Value);
@@ -508,7 +511,18 @@ namespace AGS.Editor
         private void cmbFilenames_SelectedIndexChanged(object sender, EventArgs e)
         {
             string filename = imageLookup[cmbFilenames.SelectedIndex];
-            image = SpriteTools.LoadFirstImageFromFile(filename);
+
+            try
+            {
+                image = SpriteTools.LoadFirstImageFromFile(filename);
+            }
+            catch (Types.InvalidDataException ex)
+            {
+                // use a placeholder in-case of bad data
+                Factory.GUIController.ShowMessage(ex.Message, MessageBoxIconType.Error);
+                image = SpriteTools.GetPlaceHolder();
+            }
+
             PostImageLoad();
         }
 
@@ -534,12 +548,20 @@ namespace AGS.Editor
                 return;
             }
 
-            chkTiled.Checked = true;
-            dragging = true;
-
             Point mouse = e.Location;
+            Rectangle imageRect = new Rectangle(-previewPanel.HorizontalScroll.Value,
+                -previewPanel.VerticalScroll.Value, image.Width * zoomLevel, image.Height * zoomLevel);
+
+            if (!imageRect.Contains(mouse))
+            {
+                // ignore selections that start outside of the image
+                return;
+            }
+
             mouse.X = mouse.X + previewPanel.HorizontalScroll.Value;
             mouse.Y = mouse.Y + previewPanel.VerticalScroll.Value;
+            chkTiled.Checked = true;
+            dragging = true;
 
             // if the first click was the right button
             bool origin = e.Button == MouseButtons.Right && start == null;
@@ -571,19 +593,21 @@ namespace AGS.Editor
                 mouse.X = mouse.X + previewPanel.HorizontalScroll.Value;
                 mouse.Y = mouse.Y + previewPanel.VerticalScroll.Value;
 
-                if (mouse.X < start.X)
-                {
-                    mouse.X = start.X;
-                }
-
-                if (mouse.Y < start.Y)
-                {
-                    mouse.Y = start.Y;
-                }
-
                 position = mouse;
                 position.X = (position.X / zoomLevel) * zoomLevel;
                 position.Y = (position.Y / zoomLevel) * zoomLevel;
+
+                if (mouse.X < start.X)
+                {
+                    numOffsetX.Value = Math.Max(0, position.X / zoomLevel);
+                    position.X = start.X;
+                }
+
+                if (mouse.Y < start.Y) {
+                    numOffsetY.Value = Math.Max(0, position.Y / zoomLevel);
+                    position.Y = start.Y;
+                }
+
                 previewPanel.Invalidate();
             }
         }

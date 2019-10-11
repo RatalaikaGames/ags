@@ -12,24 +12,27 @@
 //
 //=============================================================================
 
-#include <stdarg.h>
-#include <string.h>
-#include "cc_error.h"
+#include <stdio.h>
+#include <utility>
 #include "script/script_common.h"  // current_line
+#include "util/string.h"
 
-extern void cc_error_at_line(char *buffer, const char *error_msg);
-extern void cc_error_without_line(char *buffer, const char *error_msg);
+using namespace AGS::Common;
+
+// Returns full script error message and callstack (if possible)
+extern std::pair<String, String> cc_error_at_line(const char *error_msg);
+// Returns script error message without location or callstack
+extern String cc_error_without_line(const char *error_msg);
 
 int ccError = 0;
 int ccErrorLine = 0;
-char ccErrorString[400];
-char ccErrorCallStack[400];
+String ccErrorString;
+String ccErrorCallStack;
 bool ccErrorIsUserError = false;
 const char *ccCurScriptName = "";
 
 void cc_error(const char *descr, ...)
 {
-    ccErrorCallStack[0] = 0;
     ccErrorIsUserError = false;
     if (descr[0] == '!')
     {
@@ -37,19 +40,23 @@ void cc_error(const char *descr, ...)
         descr++;
     }
 
-    char displbuf[1000];
     va_list ap;
-
     va_start(ap, descr);
-    vsprintf(displbuf, descr, ap);
+    String displbuf = String::FromFormatV(descr, ap);
     va_end(ap);
 
-    if (currentline > 0) {
+    if (currentline > 0)
+    {
         // [IKM] Implementation is project-specific
-        cc_error_at_line(ccErrorString, displbuf);
+        std::pair<String, String> errinfo = cc_error_at_line(displbuf);
+        ccErrorString = errinfo.first;
+        ccErrorCallStack = errinfo.second;
     }
     else
-        cc_error_without_line(ccErrorString, displbuf);
+    {
+        ccErrorString = cc_error_without_line(displbuf);
+        ccErrorCallStack = "";
+    }
 
     ccError = 1;
     ccErrorLine = currentline;

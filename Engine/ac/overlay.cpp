@@ -143,11 +143,11 @@ ScriptOverlay* Overlay_CreateTextual(int x, int y, int width, int font, int colo
 void remove_screen_overlay_index(int cc) {
     int dd;
     delete screenover[cc].pic;
-    screenover[cc].pic=NULL;
+    screenover[cc].pic=nullptr;
 
-    if (screenover[cc].bmp != NULL)
+    if (screenover[cc].bmp != nullptr)
         gfxDriver->DestroyDDB(screenover[cc].bmp);
-    screenover[cc].bmp = NULL;
+    screenover[cc].bmp = nullptr;
 
     if (screenover[cc].type==OVER_COMPLETE) is_complete_overlay--;
     if (screenover[cc].type==OVER_TEXTMSG) is_text_overlay--;
@@ -246,7 +246,7 @@ void get_overlay_position(int overlayidx, int *x, int *y) {
 
         if (!screenover[overlayidx].positionRelativeToScreen)
         {
-            Point tdxy = play.ScreenToRoom(tdxp, tdyp);
+            Point tdxy = play.RoomToScreen(tdxp, tdyp);
             tdxp = tdxy.X;
             tdyp = tdxy.Y;
         }
@@ -264,7 +264,7 @@ void recreate_overlay_ddbs()
         if (screenover[i].pic)
             screenover[i].bmp = gfxDriver->CreateDDBFromBitmap(screenover[i].pic, false);
         else
-            screenover[i].bmp = NULL;
+            screenover[i].bmp = nullptr;
     }
 }
 
@@ -298,7 +298,7 @@ RuntimeScriptValue Sc_Overlay_SetText(void *self, const RuntimeScriptValue *para
 {
     API_OBJCALL_SCRIPT_SPRINTF(Overlay_SetText, 4);
     Overlay_SetText((ScriptOverlay*)self, params[0].IValue, params[1].IValue, params[2].IValue, scsf_buffer);
-    return RuntimeScriptValue();
+    return RuntimeScriptValue((int32_t)0);
 }
 
 // void (ScriptOverlay *sco)

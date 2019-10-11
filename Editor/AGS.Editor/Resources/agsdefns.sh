@@ -15,31 +15,8 @@
 // macro defined the deprecated API contents that were still active in
 // corresponding version are kept enabled; otherwise these are disabled.
 
-// Configure STRICT macros: if STRICT compilation mode is enabled
-// setup separate STRICT* modes for thos non-object-oriented API parts
-// that became obsoleted in corresponding version of API.
-// Take compatibility level into consideration here: if the compatibility
-// level is low enough then do NOT declare STRICT* macro.
-#ifdef STRICT
 /*
-  #ifdef SCRIPT_API_v330
-    #ifndef SCRIPT_COMPAT_v321
-      #define STRICT_IN_v330
-    #endif
-  #endif
-  #ifdef SCRIPT_API_v340
-    #ifndef SCRIPT_COMPAT_v335
-      #define STRICT_IN_v340
-    #endif
-  #endif
 */
-  #ifdef SCRIPT_API_v350
-    #ifndef SCRIPT_COMPAT_v341
-      #define STRICT_IN_v350
-    #endif
-  #endif
-#endif
-
 #define function int  // $AUTOCOMPLETEIGNORE$
 // CursorMode isn't actually defined yet, but int will do
 #define CursorMode int
@@ -186,7 +163,8 @@ enum CutsceneSkipType {
   eSkipAnyKey = 2,
   eSkipMouseClick = 3,
   eSkipAnyKeyOrMouseClick = 4,
-  eSkipESCOrRightButton = 5
+  eSkipESCOrRightButton = 5,
+  eSkipScriptOnly = 6
 };
 
 enum DialogOptionState {
@@ -350,6 +328,12 @@ enum eKeyCode
   eKeyF12 = 434
 };
 
+#ifdef SCRIPT_API_v3507
+managed struct Point {
+	int x, y;
+};
+#endif
+
 #define CHARID int  // $AUTOCOMPLETEIGNORE$
 builtin struct ColorType {
   char r,g,b;
@@ -391,6 +375,20 @@ enum CharacterDirection {
   eDirectionNone = SCR_NO_VALUE
 };
 
+#ifdef SCRIPT_API_v350
+enum StringCompareStyle
+{
+  eCaseInsensitive = 0,
+  eCaseSensitive = 1
+};
+
+enum SortStyle
+{
+  eNonSorted = 0,
+  eSorted = 1
+};
+#endif
+
 internalstring autoptr builtin managed struct String {
   /// Creates a formatted string using the supplied parameters.
   import static String Format(const string format, ...);    // $AUTOCOMPLETESTATICONLY$
@@ -400,29 +398,41 @@ internalstring autoptr builtin managed struct String {
   import String  Append(const string appendText);
   /// Returns a new string that has the extra character appended.
   import String  AppendChar(char extraChar);
-  /// Compares this string to the other string.
-  import int     CompareTo(const string otherString, bool caseSensitive = false);
   import int     Contains(const string needle);   // $AUTOCOMPLETEIGNORE$
   /// Creates a copy of the string.
   import String  Copy();
-  /// Checks whether this string ends with the specified text.
-  import bool    EndsWith(const string endsWithText, bool caseSensitive = false);
   /// Returns the index of the first occurrence of the needle in this string.
   import int     IndexOf(const string needle);
   /// Returns a lower-cased version of this string.
   import String  LowerCase();
-  /// Returns a copy of this string with all occurrences of LookForText replaced with ReplaceWithText
-  import String  Replace(const string lookForText, const string replaceWithText, bool caseSensitive = false);
   /// Returns a new string, with the specified character changed.
   import String  ReplaceCharAt(int index, char newChar);
-  /// Checks whether this string starts with the specified text.
-  import bool    StartsWith(const string startsWithText, bool caseSensitive = false);
   /// Returns a portion of the string.
   import String  Substring(int index, int length);
   /// Truncates the string down to the specified length by removing characters from the end.
   import String  Truncate(int length);
   /// Returns an upper-cased version of this string.
   import String  UpperCase();
+#ifdef SCRIPT_API_v350
+  /// Compares this string to the other string.
+  import int     CompareTo(const string otherString, StringCompareStyle style = eCaseInsensitive);
+  /// Checks whether this string ends with the specified text.
+  import bool    EndsWith(const string endsWithText, StringCompareStyle style = eCaseInsensitive);
+  /// Returns a copy of this string with all occurrences of LookForText replaced with ReplaceWithText
+  import String  Replace(const string lookForText, const string replaceWithText, StringCompareStyle style = eCaseInsensitive);
+  /// Checks whether this string starts with the specified text.
+  import bool    StartsWith(const string startsWithText, StringCompareStyle style = eCaseInsensitive);
+#endif
+#ifndef SCRIPT_API_v350
+  /// Compares this string to the other string.
+  import int     CompareTo(const string otherString, bool caseSensitive = false);
+  /// Checks whether this string ends with the specified text.
+  import bool    EndsWith(const string endsWithText, bool caseSensitive = false);
+  /// Returns a copy of this string with all occurrences of LookForText replaced with ReplaceWithText
+  import String  Replace(const string lookForText, const string replaceWithText, bool caseSensitive = false);
+  /// Checks whether this string starts with the specified text.
+  import bool    StartsWith(const string startsWithText, bool caseSensitive = false);
+#endif
   /// Converts the string to a float.
   readonly import attribute float AsFloat;
   /// Converts the string to an integer.
@@ -432,6 +442,60 @@ internalstring autoptr builtin managed struct String {
   /// Returns the length of the string.
   readonly import attribute int Length;
 };
+
+#ifdef SCRIPT_API_v350
+builtin managed struct Dictionary
+{
+  /// Creates a new empty Dictionary of the given properties.
+  import static Dictionary* Create(SortStyle sortStyle = eNonSorted, StringCompareStyle compareStyle = eCaseInsensitive); // $AUTOCOMPLETESTATICONLY$
+
+  /// Removes all items from the dictionary.
+  import void Clear();
+  /// Tells if given key is in the dictionary.
+  import bool Contains(const string key);
+  /// Gets value by the key; returns null if such key does not exist.
+  import String Get(const string key);
+  /// Removes key/value pair from the dictionary, fails if there was no such key.
+  import bool Remove(const string key);
+  /// Assigns a value to the given key, adds this key if it did not exist yet.
+  import bool Set(const string key, const string value);
+
+  /// Gets if this dictionary is case-sensitive.
+  import readonly attribute StringCompareStyle CompareStyle;
+  /// Gets the method items are arranged in this dictionary.
+  import readonly attribute SortStyle SortStyle;
+  /// Gets the number of key/value pairs currently in the dictionary.
+  import readonly attribute int ItemCount;
+  /// Creates a dynamic array filled with keys in same order as they are stored in the Dictionary.
+  import String[] GetKeysAsArray();
+  /// Creates a dynamic array filled with values in same order as they are stored in the Dictionary.
+  import String[] GetValuesAsArray();
+};
+
+builtin managed struct Set
+{
+  /// Creates a new empty Set of the given properties.
+  import static Set* Create(SortStyle sortStyle = eNonSorted, StringCompareStyle compareStyle = eCaseInsensitive); // $AUTOCOMPLETESTATICONLY$
+
+  /// Adds item to the set, fails if such item was already existing.
+  import bool Add(const string item);
+  /// Removes all items from the set.
+  import void Clear();
+  /// Tells if given item is in the set.
+  import bool Contains(const string item);
+  /// Removes item from the set, fails if there was no such item.
+  import bool Remove(const string item);
+
+  /// Gets if this set is case-sensitive.
+  import readonly attribute StringCompareStyle CompareStyle;
+  /// Gets the method items are arranged in this set.
+  import readonly attribute SortStyle SortStyle;
+  /// Gets the number of items currently in the set.
+  import readonly attribute int ItemCount;
+  /// Creates a dynamic array filled with items in same order as they are stored in the Set.
+  import String[] GetItemsAsArray();
+};
+#endif
 
 builtin managed struct AudioClip;
 
@@ -493,16 +557,18 @@ builtin managed struct DrawingSurface {
   import attribute int DrawingColor;
   /// Gets the height of this surface.
   readonly import attribute int Height;
+#ifdef SCRIPT_COMPAT_v341
+#endif
   /// Gets the width of the surface.
   readonly import attribute int Width;
 };
 
-#ifdef SCRIPT_API_v350
+#ifdef SCRIPT_API_v3507
 builtin managed struct Camera;
 builtin managed struct Viewport;
 #endif
 
-builtin managed struct Room {
+builtin struct Room {
   /// Gets a custom text property associated with this room.
   import static String GetTextProperty(const string property);
   /// Gets a drawing surface that allows you to manipulate the room background.
@@ -535,102 +601,9 @@ builtin managed struct Room {
   import static bool SetTextProperty(const string property, const string value);
   /// Performs default processing of a mouse click at the specified co-ordinates.
   import static void ProcessClick(int x, int y, CursorMode);
-#ifdef SCRIPT_API_v350
-  /// Gets the room camera
-  import static readonly attribute Camera *Camera;
-#endif
 };
 
-builtin managed struct Game {
-  /// Changes the active translation.
-  import static bool   ChangeTranslation(const string newTranslationFileName);
-  /// Returns true the first time this command is called with this token.
-  import static bool   DoOnceOnly(const string token);
-  /// Gets the AGS Colour Number for the specified RGB colour.
-  import static int    GetColorFromRGB(int red, int green, int blue);
-  /// Gets the number of frames in the specified view loop.
-  import static int    GetFrameCountForLoop(int view, int loop);
-  /// Gets the name of whatever is on the screen at (x,y)
-  import static String GetLocationName(int x, int y);
-  /// Gets the number of loops in the specified view.
-  import static int    GetLoopCountForView(int view);
-  /// Returns the current pattern/track number if the current music is MOD or XM.
-  import static int    GetMODPattern();
-  /// Gets whether the "Run next loop after this" setting is checked for the specified loop.
-  import static bool   GetRunNextSettingForLoop(int view, int loop);
-  /// Gets the description of the specified save game slot.
-  import static String GetSaveSlotDescription(int saveSlot);
-  /// Gets the ViewFrame instance for the specified view frame.
-  import static ViewFrame* GetViewFrame(int view, int loop, int frame);
-  /// Prompts the user to type in a string, and returns the text that they type in.
-  import static String InputBox(const string prompt);
-  /// Gets whether any audio (of this type) is currently playing.
-  import static bool   IsAudioPlaying(AudioType audioType=SCR_NO_VALUE);
-  /// Changes the volume drop applied to this audio type when speech is played
-  import static void   SetAudioTypeSpeechVolumeDrop(AudioType, int volumeDrop);
-  /// Changes the default volume of audio clips of the specified type.
-  import static void   SetAudioTypeVolume(AudioType, int volume, ChangeVolumeType);
-  /// Sets the directory where AGS will save and load saved games.
-  import static bool   SetSaveGameDirectory(const string directory);
-  /// Stops all currently playing audio (optionally of the specified type).
-  import static void   StopAudio(AudioType audioType=SCR_NO_VALUE);
-  /// Gets the number of characters in the game.
-  readonly import static attribute int CharacterCount;
-  /// Gets the number of dialogs in the game.
-  readonly import static attribute int DialogCount;
-  /// Gets the name of the game EXE file.
-  readonly import static attribute String FileName;
-  /// Gets the number of fonts in the game.
-  readonly import static attribute int FontCount;
-  /// Accesses the legacy Global Messages, from AGS 2.x
-  readonly import static attribute String GlobalMessages[];
-  /// Accesses the global strings collection. This is obsolete.
-  import static attribute String GlobalStrings[];
-  /// Gets the number of GUIs in the game.
-  readonly import static attribute int GUICount;
-  /// Gets/sets the time for which user input is ignored after some text is automatically removed
-  import static attribute int IgnoreUserInputAfterTextTimeoutMs;
-  /// Checks whether the game is currently in the middle of a skippable cutscene.
-  readonly import static attribute bool InSkippableCutscene;
-  /// Gets the number of inventory items in the game.
-  readonly import static attribute int InventoryItemCount;
-  /// Gets/sets the minimum time that a piece of speech text stays on screen (in milliseconds)
-  import static attribute int MinimumTextDisplayTimeMs;
-  /// Gets the number of mouse cursors in the game.
-  readonly import static attribute int MouseCursorCount;
-  /// Gets/sets the game name.
-  import static attribute String Name;
-  /// Gets/sets the normal font used for displaying text.
-  import static attribute FontType NormalFont;
-  /// Checks whether the game is currently skipping over a cutscene.
-  readonly import static attribute bool SkippingCutscene;
-  /// Gets/sets the font used for displaying speech text.
-  import static attribute FontType SpeechFont;
-  /// Gets the height of the specified sprite.
-  readonly import static attribute int SpriteHeight[];
-  /// Gets the width of the specified sprite.
-  readonly import static attribute int SpriteWidth[];
-  /// Gets/sets how fast speech text is removed from the screen.
-  import static attribute int TextReadingSpeed;
-  /// Gets name of the currently active translation.
-  readonly import static attribute String TranslationFilename;
-  /// Gets the number of views in the game.
-  readonly import static attribute int ViewCount;
-  /// Returns true if the given plugin is currently loaded.
-  import static bool   IsPluginLoaded(const string name);
-  /// Gets the number of audio clips in the game.
-  readonly import static attribute int AudioClipCount;
-  /// Accesses the audio clips collection.
-  readonly import static attribute AudioClip *AudioClips[];
-#ifdef SCRIPT_API_v350
-  /// Gets/sets whether the viewport should automatically adjust itself and camera to the new room's background size
-  import static attribute bool AutoSizeViewportOnRoomLoad;
-  /// Gets the room viewport
-  import static readonly attribute Viewport *RoomViewport;
-#endif
-};
-
-builtin managed struct Parser {
+builtin struct Parser {
   /// Returns the parser dictionary word ID for the specified word
   import static int    FindWordID(const string wordToFind);
   /// Stores the supplied user text for later use with Said
@@ -698,11 +671,19 @@ import void DeleteSaveSlot(int slot);
 import void SetRestartPoint();
 /// Gets what type of thing is in the room at the specified co-ordinates.
 import LocationType GetLocationType(int x, int y);
-/// Returns which walkable area is at the specified position relative to the current viewport.
+#ifdef SCRIPT_COMPAT_v350
+/// Returns which walkable area is at the specified position on screen.
 import int  GetWalkableAreaAt(int screenX, int screenY);
+#endif
+#ifdef SCRIPT_API_v3507
+/// Returns which walkable area is at the specified position on screen.
+import int  GetWalkableAreaAtScreen(int screenX, int screenY);
+/// Returns which walkable area is at the specified position within the room.
+import int  GetWalkableAreaAtRoom(int roomX, int roomY);
+#endif
 /// Returns the scaling level at the specified position within the room.
 import int  GetScalingAt (int x, int y);
-#ifndef STRICT_IN_v350
+#ifdef SCRIPT_COMPAT_v350
 /// Locks the viewport to stop the screen scrolling automatically.
 import void SetViewport(int x, int y);
 /// Allows AGS to scroll the screen automatically to follow the player character.
@@ -759,7 +740,7 @@ struct Mouse {
   /// Gets/sets whether the mouse cursor is visible.
   import static attribute bool Visible;
   /// Gets/sets whether the user-defined factors are applied to mouse movement
-  readonly import static attribute bool ControlEnabled;
+  import static attribute bool ControlEnabled;
   /// Gets/sets the mouse speed
   import static attribute float Speed;
   /// Fires mouse click event at current mouse position.
@@ -789,12 +770,14 @@ import void StopDialog();
 /// Determines whether two objects or characters are overlapping each other.
 import int  AreThingsOverlapping(int thing1, int thing2);
 
+#ifdef SCRIPT_COMPAT_v321
 /// Sets whether voice and/or text are used in the game.
 import void SetVoiceMode(eVoiceMode);
 /// Sets how the player can skip speech lines.
 import void SetSkipSpeech(int skipFlag);
 /// Changes the style in which speech is displayed.
 import void SetSpeechStyle(eSpeechStyle);
+#endif
 
 /// Starts a timer, which will expire after the specified number of game loops.
 import void SetTimer(int timerID, int timeout);
@@ -1032,6 +1015,11 @@ import void ClaimEvent();
 import void SetTextWindowGUI (int gui);
 import int  FindGUIID(const string);  // $AUTOCOMPLETEIGNORE$
 
+#ifdef SCRIPT_API_v3507
+/// Skip current cutscene (if one is currently in progress)
+import void SkipCutscene();
+#endif
+
 enum EventType {
   eEventLeaveRoom = 1,
   eEventEnterRoomBeforeFadein = 2,
@@ -1043,12 +1031,14 @@ enum EventType {
   eEventRestoreGame = 9
 };
 
+#ifdef SCRIPT_API_v350
 enum GUIPopupStyle {
   eGUIPopupNormal = 0,
   eGUIPopupMouseYPos = 1,
   eGUIPopupModal = 2,
   eGUIPopupPersistent = 3
 };
+#endif
 
 // forward-declare these so that they can be returned by GUIControl class
 builtin managed struct GUI;
@@ -1116,7 +1106,7 @@ builtin managed struct Label extends GUIControl {
   /// Gets/sets the colour in which the label text is drawn.
   import attribute int  TextColor;
 #ifdef SCRIPT_API_v350
-  /// Gets/sets list item's text alignment.
+  /// Gets/sets label's text alignment.
   import attribute HorizontalAlignment TextAlignment;
 #endif
 };
@@ -1349,10 +1339,14 @@ builtin managed struct Hotspot {
   /// Sets a text custom property for this hotspot.
   import bool SetTextProperty(const string property, const string value);
   readonly int reserved[2];   // $AUTOCOMPLETEIGNORE$
+#ifdef SCRIPT_API_v3507
+  /// Returns the hotspot at the specified position within this room.
+  import static Hotspot* GetAtRoomXY(int x, int y);      // $AUTOCOMPLETESTATICONLY$
+#endif
 };
 
 builtin managed struct Region {
-  /// Gets the region at the specified location within this room.
+  /// Returns the region at the specified position within this room.
   import static Region* GetAtRoomXY(int x, int y);    // $AUTOCOMPLETESTATICONLY$
   /// Runs the event handler for the specified event for this region.
   import void RunInteraction(int event);
@@ -1376,6 +1370,10 @@ builtin managed struct Region {
   readonly import attribute int  TintSaturation;
   /// Gets the Luminance of this region's colour tint.
   readonly import attribute int  TintLuminance;
+#ifdef SCRIPT_API_v3507
+  /// Returns the region at the specified position on the screen.
+  import static Region* GetAtScreenXY(int x, int y);    // $AUTOCOMPLETESTATICONLY$
+#endif
   readonly int reserved[2];   // $AUTOCOMPLETEIGNORE$
 };
 
@@ -1536,15 +1534,21 @@ builtin managed struct AudioClip {
   readonly import attribute bool IsAvailable;
   /// Gets the type of audio that this clip contains.
   readonly import attribute AudioType Type;
+#ifdef SCRIPT_API_v350
+  /// Gets the clip's ID number.
+  readonly import attribute int ID;
+#endif
 };
 
 builtin struct System {
+#ifdef SCRIPT_COMPAT_v350
   readonly int  screen_width,screen_height;
   readonly int  color_depth;
   readonly int  os;
   readonly int  windowed;
   int  vsync;
   readonly int  viewport_width, viewport_height;
+#endif
   /// Gets whether Caps Lock is currently on.
   readonly import static attribute bool CapsLock;
   /// Gets a specific audio channel instance.
@@ -1561,20 +1565,24 @@ builtin struct System {
   readonly import static attribute bool NumLock;
   /// Gets which operating system the game is running on.
   readonly import static attribute eOperatingSystem OperatingSystem;
+#ifdef SCRIPT_COMPAT_v350
   /// Gets the screen height of the current resolution.
   readonly import static attribute int  ScreenHeight;
   /// Gets the screen width of the current resolution.
   readonly import static attribute int  ScreenWidth;
+#endif
   /// Gets whether Scroll Lock is currently on.
   readonly import static attribute bool ScrollLock;
   /// Gets whether the player's system supports gamma adjustment.
   readonly import static attribute bool SupportsGammaControl;
   /// Gets the AGS engine version number.
   readonly import static attribute String Version;
+#ifdef SCRIPT_COMPAT_v350
   /// Gets the height of the visible area in which the game is displayed.
   readonly import static attribute int  ViewportHeight;
   /// Gets the width of the visible area in which the game is displayed.
   readonly import static attribute int  ViewportWidth;
+#endif
   /// Gets/sets the audio output volume, from 0-100.
   import static attribute int  Volume;
   /// Gets/sets whether waiting for the vertical sync is enabled.
@@ -1605,8 +1613,14 @@ enum WalkWhere {
 };
 
 builtin managed struct Object {
+#ifdef SCRIPT_API_v3507
+  /// Animates the object using its current view.
+  import function Animate(int loop, int delay, RepeatStyle=eOnce, BlockingStyle=eBlock, Direction=eForwards, int frame=0);
+#endif
+#ifndef SCRIPT_API_v3507
   /// Animates the object using its current view.
   import function Animate(int loop, int delay, RepeatStyle=eOnce, BlockingStyle=eBlock, Direction=eForwards);
+#endif
   /// Gets the object that is on the screen at the specified co-ordinates.
   import static Object* GetAtScreenXY(int x, int y);    // $AUTOCOMPLETESTATICONLY$
   /// Gets an integer Custom Property for this object.
@@ -1651,8 +1665,10 @@ builtin managed struct Object {
   readonly import attribute int ID;
   /// Gets/sets whether the object ignores walkable area scaling.
   import attribute bool IgnoreScaling;
+#ifdef SCRIPT_COMPAT_v340
   /// Gets/sets whether the object ignores walk-behind areas.
   import attribute bool IgnoreWalkbehinds;
+#endif
   /// Gets the current loop number during an animation.
   readonly import attribute int  Loop;
   /// Gets whether the object is currently moving.
@@ -1695,6 +1711,10 @@ builtin managed struct Object {
   readonly import attribute int  TintSaturation;
   /// Gets the Luminance of this object's colour tint.
   readonly import attribute int  TintLuminance;
+#ifdef SCRIPT_API_v3507
+  /// Returns the object at the specified position within this room.
+  import static Object* GetAtRoomXY(int x, int y);      // $AUTOCOMPLETESTATICONLY$
+#endif
 
   readonly int reserved[2];  // $AUTOCOMPLETEIGNORE$
 };
@@ -1710,8 +1730,14 @@ builtin managed struct Character {
   import function AddInventory(InventoryItem *item, int addAtIndex=SCR_NO_VALUE);
   /// Manually adds a waypoint to the character's movement path.
   import function AddWaypoint(int x, int y);
+#ifdef SCRIPT_API_v3507
+  /// Animates the character using its current locked view.
+  import function Animate(int loop, int delay, RepeatStyle=eOnce, BlockingStyle=eBlock, Direction=eForwards, int frame=0);
+#endif
+#ifndef SCRIPT_API_v3507
   /// Animates the character using its current locked view.
   import function Animate(int loop, int delay, RepeatStyle=eOnce, BlockingStyle=eBlock, Direction=eForwards);
+#endif
   /// Moves the character to another room. If this is the player character, the game will also switch to that room.
   import function ChangeRoom(int room, int x=SCR_NO_VALUE, int y=SCR_NO_VALUE, CharacterDirection direction=eDirectionNone);
   /// Moves the character to another room, using the old-style position variable
@@ -1819,8 +1845,10 @@ builtin managed struct Character {
   /// Gets/sets whether the character ignores region tints and lighting.
   import attribute bool IgnoreLighting;
   import attribute bool IgnoreScaling;       // obsolete. $AUTOCOMPLETEIGNORE$
+#ifdef SCRIPT_COMPAT_v340
   /// Gets/sets whether the character ignores walk-behind areas and is always placed on top.
   import attribute bool IgnoreWalkbehinds; 
+#endif
   /// Accesses the number of each inventory item that the character currently has.
   import attribute int  InventoryQuantity[];
   /// Gets/sets the character's current loop number within its current view.
@@ -1901,6 +1929,10 @@ builtin managed struct Character {
   readonly import attribute int  TintSaturation;
   /// Gets the Luminance of this character's colour tint.
   readonly import attribute int  TintLuminance;
+#ifdef SCRIPT_API_v3507
+  /// Returns the character at the specified position within this room.
+  import static Character* GetAtRoomXY(int x, int y);      // $AUTOCOMPLETESTATICONLY$
+#endif
   /// The character's current X-position.
   import attribute int  x;
   /// The character's current Y-position.
@@ -1915,6 +1947,111 @@ builtin managed struct Character {
   // TODO: find out if Visible property may work as a proper analogue, otherwise add new one
   char  on;  // $AUTOCOMPLETEIGNORE$
   };
+
+builtin struct Game {
+  /// Changes the active translation.
+  import static bool   ChangeTranslation(const string newTranslationFileName);
+  /// Returns true the first time this command is called with this token.
+  import static bool   DoOnceOnly(const string token);
+  /// Gets the AGS Colour Number for the specified RGB colour.
+  import static int    GetColorFromRGB(int red, int green, int blue);
+  /// Gets the number of frames in the specified view loop.
+  import static int    GetFrameCountForLoop(int view, int loop);
+  /// Gets the name of whatever is on the screen at (x,y)
+  import static String GetLocationName(int x, int y);
+  /// Gets the number of loops in the specified view.
+  import static int    GetLoopCountForView(int view);
+  /// Returns the current pattern/track number if the current music is MOD or XM.
+  import static int    GetMODPattern();
+  /// Gets whether the "Run next loop after this" setting is checked for the specified loop.
+  import static bool   GetRunNextSettingForLoop(int view, int loop);
+  /// Gets the description of the specified save game slot.
+  import static String GetSaveSlotDescription(int saveSlot);
+  /// Gets the ViewFrame instance for the specified view frame.
+  import static ViewFrame* GetViewFrame(int view, int loop, int frame);
+  /// Prompts the user to type in a string, and returns the text that they type in.
+  import static String InputBox(const string prompt);
+  /// Gets whether any audio (of this type) is currently playing.
+  import static bool   IsAudioPlaying(AudioType audioType=SCR_NO_VALUE);
+  /// Changes the volume drop applied to this audio type when speech is played
+  import static void   SetAudioTypeSpeechVolumeDrop(AudioType, int volumeDrop);
+  /// Changes the default volume of audio clips of the specified type.
+  import static void   SetAudioTypeVolume(AudioType, int volume, ChangeVolumeType);
+  /// Sets the directory where AGS will save and load saved games.
+  import static bool   SetSaveGameDirectory(const string directory);
+  /// Stops all currently playing audio (optionally of the specified type).
+  import static void   StopAudio(AudioType audioType=SCR_NO_VALUE);
+#ifndef STRICT_AUDIO
+  /// Stops all currently playing sound effects.
+  import static void   StopSound(bool includeAmbientSounds=false);   // $AUTOCOMPLETEIGNORE$
+#endif
+  /// Gets the number of characters in the game.
+  readonly import static attribute int CharacterCount;
+  /// Gets the number of dialogs in the game.
+  readonly import static attribute int DialogCount;
+  /// Gets the name of the game EXE file.
+  readonly import static attribute String FileName;
+  /// Gets the number of fonts in the game.
+  readonly import static attribute int FontCount;
+  /// Accesses the legacy Global Messages, from AGS 2.x
+  readonly import static attribute String GlobalMessages[];
+  /// Accesses the global strings collection. This is obsolete.
+  import static attribute String GlobalStrings[];
+  /// Gets the number of GUIs in the game.
+  readonly import static attribute int GUICount;
+  /// Gets/sets the time for which user input is ignored after some text is automatically removed
+  import static attribute int IgnoreUserInputAfterTextTimeoutMs;
+  /// Checks whether the game is currently in the middle of a skippable cutscene.
+  readonly import static attribute bool InSkippableCutscene;
+  /// Gets the number of inventory items in the game.
+  readonly import static attribute int InventoryItemCount;
+  /// Gets/sets the minimum time that a piece of speech text stays on screen (in milliseconds)
+  import static attribute int MinimumTextDisplayTimeMs;
+  /// Gets the number of mouse cursors in the game.
+  readonly import static attribute int MouseCursorCount;
+  /// Gets/sets the game name.
+  import static attribute String Name;
+  /// Gets/sets the normal font used for displaying text.
+  import static attribute FontType NormalFont;
+  /// Checks whether the game is currently skipping over a cutscene.
+  readonly import static attribute bool SkippingCutscene;
+  /// Gets/sets the font used for displaying speech text.
+  import static attribute FontType SpeechFont;
+  /// Gets the height of the specified sprite.
+  readonly import static attribute int SpriteHeight[];
+  /// Gets the width of the specified sprite.
+  readonly import static attribute int SpriteWidth[];
+  /// Gets/sets how fast speech text is removed from the screen.
+  import static attribute int TextReadingSpeed;
+  /// Gets name of the currently active translation.
+  readonly import static attribute String TranslationFilename;
+  /// Gets whether the game is using native co-ordinates.
+  readonly import static attribute bool UseNativeCoordinates;
+  /// Gets the number of views in the game.
+  readonly import static attribute int ViewCount;
+#ifdef SCRIPT_API_v340
+  /// Returns true if the given plugin is currently loaded.
+  import static bool   IsPluginLoaded(const string name);
+  /// Gets the number of audio clips in the game.
+  readonly import static attribute int AudioClipCount;
+  /// Accesses the audio clips collection.
+  readonly import static attribute AudioClip *AudioClips[];
+#endif
+#ifdef SCRIPT_API_v350
+  /// Play speech voice-over in non-blocking mode, optionally apply music and sound volume reduction
+  import static AudioChannel* PlayVoiceClip(Character*, int cue, bool as_speech = true);
+  /// Simulate a keypress on the keyboard.
+  import static void   SimulateKeyPress(eKeyCode key);
+#endif
+#ifdef SCRIPT_API_v3507
+  /// Gets the primary camera
+  import static readonly attribute Camera *Camera;
+  /// Gets the Camera by index.
+  import static readonly attribute Camera *Cameras[];
+  /// Gets the number of cameras.
+  import static readonly attribute int CameraCount;
+#endif
+};
 
 builtin struct GameState {
   int  score;
@@ -1955,7 +2092,12 @@ builtin struct GameState {
   int  game_speed_modifier;  // $AUTOCOMPLETEIGNORE$
   int  score_sound;
   int  previous_game_data;
+#ifndef SCRIPT_COMPAT_v341
+  readonly int unused__041; // $AUTOCOMPLETEIGNORE$
+#endif
+#ifdef SCRIPT_COMPAT_v341
   int  replay_hotkey;
+#endif
   int  dialog_options_x;
   int  dialog_options_y;
   int  narrator_speech;
@@ -1977,8 +2119,14 @@ builtin struct GameState {
   int  screenshot_width;
   int  screenshot_height;
   int  top_bar_font;
+#ifndef SCRIPT_COMPAT_v321
+  int  reserved__2;   // $AUTOCOMPLETEIGNORE$
+#endif
   int  auto_use_walkto_points;
   int  inventory_greys_out;
+#ifndef SCRIPT_COMPAT_v321
+  int  reserved__3;   // $AUTOCOMPLETEIGNORE$
+#endif
   int  abort_key;
   readonly int fade_color_red;
   readonly int fade_color_green;
@@ -2037,9 +2185,8 @@ builtin struct Speech {
   import static attribute eVoiceMode      VoiceMode;
 };
 
-#ifdef SCRIPT_API_v350
-builtin managed struct Camera
-{
+#ifdef SCRIPT_API_v3507
+builtin managed struct Camera {
   /// Gets/sets the X position of this camera in the room.
   import attribute int X;
   /// Gets/sets the Y position of this camera in the room.
@@ -2048,17 +2195,21 @@ builtin managed struct Camera
   import attribute int Width;
   /// Gets/sets the camera's capture height in room coordinates.
   import attribute int Height;
-  /// Gets/sets this camera's room horizontal scaling relative to the viewport it is displayed in.
-  import attribute float ScaleX;
-  /// Gets/sets this camera's room vertical scaling relative to the viewport it is displayed in.
-  import attribute float ScaleY;
 
   /// Gets/sets whether this camera will follow the player character automatically.
   import attribute bool AutoTracking;
+
+  /// Creates a new Camera.
+  import static Camera *Create();
+  /// Removes an existing camera; note that primary camera will never be removed
+  import void Delete();
+  /// Changes camera position in the room and disables automatic tracking of the player character.
+  import void SetAt(int x, int y);
+  /// Changes camera's capture dimensions in room coordinates.
+  import void SetSize(int width, int height);
 };
 
-builtin managed struct Viewport
-{
+builtin managed struct Viewport {
   /// Gets/sets the X position on the screen where this viewport is located.
   import attribute int X;
   /// Gets/sets the Y position on the screen where this viewport is located.
@@ -2067,8 +2218,45 @@ builtin managed struct Viewport
   import attribute int Width;
   /// Gets/sets the viewport's height in screen coordinates.
   import attribute int Height;
-  /// Gets the room camera displayed in this viewport.
-  import readonly attribute Camera *Camera;
+  /// Gets/sets the room camera displayed in this viewport.
+  import attribute Camera *Camera;
+  /// Gets/sets whether the viewport is drawn on screen.
+  import attribute bool Visible;
+  /// Gets/sets the Viewport's z-order relative to other viewports.
+  import attribute int ZOrder;
+
+  /// Creates a new Viewport.
+  import static Viewport *Create();
+  /// Returns the viewport at the specified screen location.
+  import static Viewport *GetAtScreenXY(int x, int y);
+  /// Removes an existing viewport; note that primary viewport will never be removed
+  import void Delete();
+  /// Changes viewport's position on the screen
+  import void SetPosition(int x, int y, int width, int height);
+  /// Returns the point in room corresponding to the given screen coordinates if seen through this viewport.
+  import Point *ScreenToRoomPoint(int scrx, int scry, bool clipViewport = true);
+  /// Returns the point on screen corresponding to the given room coordinates if seen through this viewport.
+  import Point *RoomToScreenPoint(int roomx, int roomy, bool clipViewport = true);
+};
+
+builtin struct Screen {
+  /// Gets the width of the game resolution.
+  import static readonly attribute int Width;
+  /// Gets the height of the game resolution.
+  import static readonly attribute int Height;
+  /// Gets/sets whether the viewport should automatically adjust itself and camera to the new room's background size.
+  import static attribute bool AutoSizeViewportOnRoomLoad;
+  /// Gets the primary room viewport.
+  import static readonly attribute Viewport *Viewport;
+  /// Gets a Viewport by index.
+  import static readonly attribute Viewport *Viewports[];
+  /// Gets the number of viewports.
+  import static readonly attribute int ViewportCount;
+
+  /// Returns the point in room which is displayed at the given screen coordinates.
+  import static Point *ScreenToRoomPoint(int sx, int sy);
+  /// Returns the point on screen corresponding to the given room coordinates relative to the main viewport.
+  import static Point *RoomToScreenPoint(int rx, int ry);
 };
 #endif
 

@@ -18,6 +18,10 @@
 //
 //=============================================================================
 
+#include "core/platform.h"
+
+#if AGS_PLATFORM_OS_WINDOWS && ! defined (AGS_NO_VIDEO_PLAYER)
+
 //#define ALLEGRO_STATICLINK  // already defined in project settings
 #include <allegro.h>
 #include <winalleg.h>
@@ -27,10 +31,11 @@
 #include <mmstream.h>	// Multimedia stream interfaces
 #include <ddstream.h>	// DirectDraw multimedia stream interfaces
 #include <initguid.h>   // Defines DEFINE_GUID macro and enables GUID initialization
-//#include <dsound.h>
+#include "ac/draw.h"
 #include "gfx/bitmap.h"
 #include "gfx/graphicsdriver.h"
 #include "main/game_run.h"
+#include "platform/base/agsplatformdriver.h"
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -38,13 +43,9 @@ using namespace AGS::Engine;
 //link with the following libraries under project/settings/link...
 //amstrmid.lib quartz.lib strmbase.lib ddraw.lib 
 
-extern void update_polled_audio_and_crossfade();
+extern void update_audio_system_on_game_loop();
 extern void update_polled_stuff_if_runtime();
-extern int rec_mgetbutton();
-extern void NextIteration();
-extern void update_music_volume();
-extern void render_to_screen(Bitmap *toRender, int atx, int aty);
-extern int crossFading, crossFadeStep;
+extern int ags_mgetbutton();
 extern volatile char want_exit;
 extern IGraphicsDriver *gfxDriver;
 //int errno;
@@ -242,12 +243,13 @@ void RenderToSurface(Bitmap *vscreen) {
   }
   else {
     g_bAppactive = TRUE;
-    acquire_screen();
-	Bitmap *screen_bmp = BitmapHelper::GetScreenBitmap();
+	Bitmap *screen_bmp = gfxDriver->GetMemoryBackBuffer();
+    // TODO: don't render on screen bitmap, use gfxDriver->DrawSprite instead!
+    screen_bmp->Acquire();
     // Because vscreen is a DX Video Bitmap, it can be stretched
     // onto the screen (also a Video Bmp) but not onto a memory
     // bitmap (which is what "screen" is when using gfx filters)
-    if (is_video_bitmap(screen))
+    if (screen_bmp->IsVideoBitmap())
     {
 		screen_bmp->StretchBlt(vscreen,
 		  RectWH(0, 0, vscreen->GetWidth(), vscreen->GetHeight()),
@@ -264,12 +266,13 @@ void RenderToSurface(Bitmap *vscreen) {
 		         screen_bmp->GetHeight() / 2 - newHeight / 2,
 			     newWidth, newHeight));
     }
-    release_screen();
+    screen_bmp->Release();
 
-    render_to_screen(screen_bmp, 0, 0);
-    // if we're not playing AVI sound, poll the game MP3
+    // if we're not playing AVI sound, poll the audio system
     if (!useSound)
-      update_polled_audio_and_crossfade();
+      update_audio_system_on_game_loop();
+
+    render_to_screen();
   }	
 }
 
@@ -343,7 +346,7 @@ int dxmedia_play_video(const char* filename, bool pUseSound, int canskip, int st
   newWidth = vscreen->GetWidth();
   newHeight = vscreen->GetHeight();
 
-  Bitmap *screen_bmp = BitmapHelper::GetScreenBitmap();
+  Bitmap *screen_bmp = gfxDriver->GetMemoryBackBuffer();
 
   if ((stretch == 1) ||
 	  (vscreen->GetWidth() > screen_bmp->GetWidth()) ||
@@ -379,14 +382,13 @@ int dxmedia_play_video(const char* filename, bool pUseSound, int canskip, int st
   currentlyPlaying = true;
 
   gfxDriver->ClearDrawLists();
-  Bitmap *savedBackBuffer = gfxDriver->GetMemoryBackBuffer();
-  gfxDriver->SetMemoryBackBuffer(screen_bmp);
 
   while ((g_bAppactive) && (!want_exit)) {
 
-    while (currentlyPaused) ;
+    while (currentlyPaused) {
+      platform->YieldCPU();
+    }
 
-    NextIteration();
     RenderToSurface(vscreen);
     //Sleep(0);
     int key;
@@ -396,13 +398,11 @@ int dxmedia_play_video(const char* filename, bool pUseSound, int canskip, int st
       if (canskip >= 2)
         break;
     }
-    if ((rec_mgetbutton() >= 0) && (canskip == 3))
+    if ((ags_mgetbutton() >= 0) && (canskip == 3))
       break;
   }
 
   dxmedia_abort_video();
-
-  gfxDriver->SetMemoryBackBuffer(savedBackBuffer);
 
   return 0;
 }
@@ -430,3 +430,5 @@ int WINAPI WinMain(
   return 0;
 }
 #endif
+
+#endif // AGS_PLATFORM_OS_WINDOWS

@@ -11,11 +11,10 @@ namespace AGS.Editor
     {
         private const string MENU_ITEM_DELETE = "DeleteObject";
         private const string MENU_ITEM_NEW = "NewObject";
-        private const string MENU_ITEM_COPY_COORDS = "CopyCoordinates";
         private const string MENU_ITEM_OBJECT_COORDS = "ObjectCoordinates";
         protected Room _room;
         protected Panel _panel;
-
+        private bool _isOn;
         private GUIController.PropertyObjectChangedHandler _propertyObjectChangedDelegate;
         private RoomObject _selectedObject;
 		private RoomObject _lastSelectedObject;
@@ -49,6 +48,7 @@ namespace AGS.Editor
         public bool Modified { get; set; }
         public bool Visible { get; set; }
         public bool Locked { get; set; }
+        public bool Enabled { get { return _isOn; } }
 
         public SortedDictionary<string, DesignTimeProperties> DesignItems { get; private set; }
         /// <summary>
@@ -123,40 +123,29 @@ namespace AGS.Editor
             foreach (RoomObject obj in _objectBaselines)
             {
                 if (!DesignItems[GetItemID(obj)].Visible) continue;
-                int height = GetSpriteHeightForGameResolution(obj.Image);
+                int width, height;
+                Utilities.GetSizeSpriteWillBeRenderedInGame(obj.Image, out width, out height);
                 int ypos = state.RoomYToWindow(obj.StartY - height);
 				Factory.NativeProxy.DrawSpriteToBuffer(obj.Image, state.RoomXToWindow(obj.StartX), ypos, state.Scale);
             }
             
         }
 
-        // CLNUP same as CharctersEditorFilters.cs
-        private int GetSpriteHeightForGameResolution(int spriteSlot)
-        {
-            return Factory.NativeProxy.GetSpriteHeight(spriteSlot);
-        }
-
-        // CLNUP same as CharctersEditorFilters.cs
-        private int GetSpriteWidthForGameResolution(int spriteSlot)
-        {
-            return Factory.NativeProxy.GetSpriteWidth(spriteSlot);
-        }
-
         public virtual void Paint(Graphics graphics, RoomEditorState state)
         {
-            int xPos;
-            int yPos;
-
-            if (_selectedObject == null)
+            if (!Enabled || _selectedObject == null)
                 return;
+
             DesignTimeProperties design = DesignItems[GetItemID(_selectedObject)];
             if (!design.Visible)
                 return;
 
-            int width = state.RoomSizeToWindow(GetSpriteWidthForGameResolution(_selectedObject.Image));
-			int height = state.RoomSizeToWindow(GetSpriteHeightForGameResolution(_selectedObject.Image));
-			xPos = state.RoomXToWindow(_selectedObject.StartX);
-			yPos = state.RoomYToWindow(_selectedObject.StartY) - height;
+            int width, height;
+            Utilities.GetSizeSpriteWillBeRenderedInGame(_selectedObject.Image, out width, out height);
+            width = state.RoomSizeToWindow(width);
+            height = state.RoomSizeToWindow(height);
+            int xPos = state.RoomXToWindow(_selectedObject.StartX);
+            int yPos = state.RoomYToWindow(_selectedObject.StartY) - height;
             Pen pen = new Pen(Color.Goldenrod);
             pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dot;
             graphics.DrawRectangle(pen, xPos, yPos, width, height);
@@ -185,11 +174,6 @@ namespace AGS.Editor
             }
         }
 
-        public void MouseDownAlways(MouseEventArgs e, RoomEditorState state)
-        {
-            _selectedObject = null;
-        }
-
         public virtual bool MouseDown(MouseEventArgs e, RoomEditorState state)
         {
             int x = state.WindowXToRoom(e.X);
@@ -211,6 +195,11 @@ namespace AGS.Editor
                     _mouseOffsetY = y - obj.StartY;
                 }
             }
+            else
+            {
+                _selectedObject = null;
+            }
+
             if (_selectedObject == null)
             {                
                 if (e.Button == MouseButtons.Right)
@@ -236,32 +225,11 @@ namespace AGS.Editor
         }
 
         private bool HitTest(RoomObject obj, int x, int y)
-        { 
-            int width = GetSpriteWidthForGameResolution(obj.Image);
-            int height = GetSpriteHeightForGameResolution(obj.Image);
+        {
+            int width, height;
+            Utilities.GetSizeSpriteWillBeRenderedInGame(obj.Image, out width, out height);
             return ((x >= obj.StartX) && (x < obj.StartX + width) &&
                 (y >= obj.StartY - height) && (y < obj.StartY));
-        }
-
-        private void CoordMenuEventHandler(object sender, EventArgs e)
-        {
-            int tempx = _menuClickX;
-            int tempy = _menuClickY;
-
-            string textToCopy = tempx.ToString() + ", " + tempy.ToString();
-            Utilities.CopyTextToClipboard(textToCopy);
-        }
-
-        private void ShowCoordMenu(MouseEventArgs e, RoomEditorState state)
-        {
-            EventHandler onClick = new EventHandler(CoordMenuEventHandler);
-            ContextMenuStrip menu = new ContextMenuStrip();
-            menu.Items.Add(new ToolStripMenuItem("Copy mouse coordinates to clipboard", null, onClick, MENU_ITEM_COPY_COORDS));
-
-            _menuClickX = state.WindowXToRoom(e.X);
-            _menuClickY = state.WindowYToRoom(e.Y);
-
-            menu.Show(_panel, e.X, e.Y);
         }
 
         private void ContextMenuEventHandler(object sender, EventArgs e)
@@ -283,11 +251,11 @@ namespace AGS.Editor
                             UpdateObjectRef(obj, oldID);
                         }
                     }
+                    OnItemsChanged(this, null);
                     _selectedObject = null;
                     Factory.GUIController.SetPropertyGridObject(_room);
                     SetPropertyGridList();
                     _room.Modified = true;
-                    OnItemsChanged(this, null);
                     _panel.Invalidate();
                 }
             }
@@ -304,18 +272,17 @@ namespace AGS.Editor
                 newObj.StartY = SetObjectCoordinate(_menuClickY);
                 _room.Objects.Add(newObj);
                 AddObjectRef(newObj);
+                OnItemsChanged(this, null);
                 SetSelectedObject(newObj);
                 SetPropertyGridList();
                 Factory.GUIController.SetPropertyGridObject(newObj);
                 _room.Modified = true;
-                OnItemsChanged(this, null);
                 _panel.Invalidate();                
             }
             else if (item.Name == MENU_ITEM_OBJECT_COORDS)
             {
                 int tempx = _selectedObject.StartX;
                 int tempy = _selectedObject.StartY;
-
                 string textToCopy = tempx.ToString() + ", " + tempy.ToString();
                 Utilities.CopyTextToClipboard(textToCopy);
             }
@@ -345,11 +312,6 @@ namespace AGS.Editor
         {
             _movingObjectWithMouse = false;
 			_lastSelectedObject = _selectedObject;
-
-            if (e.Button == MouseButtons.Middle)
-            {
-                ShowCoordMenu(e, state);
-            }
             return false;
         }
 
@@ -358,9 +320,10 @@ namespace AGS.Editor
 			if (_lastSelectedObject != null)
 			{
 				Sprite chosenSprite = SpriteChooser.ShowSpriteChooser(_lastSelectedObject.Image);
-				if (chosenSprite != null)
+				if (chosenSprite != null && chosenSprite.Number != _lastSelectedObject.Image)
 				{
 					_lastSelectedObject.Image = chosenSprite.Number;
+					_room.Modified = true;
 				}
                 return true;
 			}
@@ -416,11 +379,13 @@ namespace AGS.Editor
         {
             SetPropertyGridList();
             Factory.GUIController.OnPropertyObjectChanged += _propertyObjectChangedDelegate;
+            _isOn = true;
         }
 
         public void FilterOff()
         {
             Factory.GUIController.OnPropertyObjectChanged -= _propertyObjectChangedDelegate;
+            _isOn = false;
         }
 
         public void Dispose()

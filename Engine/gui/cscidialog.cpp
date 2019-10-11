@@ -21,7 +21,7 @@
 #include "ac/gui.h"
 #include "ac/keycode.h"
 #include "ac/mouse.h"
-#include "ac/record.h"
+#include "ac/sys_events.h"
 #include "ac/runtime_defines.h"
 #include "font/fonts.h"
 #include "gui/cscidialog.h"
@@ -29,9 +29,11 @@
 #include "gui/guimain.h"
 #include "gui/mycontrols.h"
 #include "main/game_run.h"
-#include "media/audio/audio.h"
 #include "gfx/graphicsdriver.h"
 #include "gfx/bitmap.h"
+#include "media/audio/audio_system.h"
+#include "platform/base/agsplatformdriver.h"
+#include "ac/timer.h"
 
 using AGS::Common::Bitmap;
 namespace BitmapHelper = AGS::Common::BitmapHelper;
@@ -40,9 +42,6 @@ extern char ignore_bounds; // from mousew32
 extern IGraphicsDriver *gfxDriver;
 extern volatile int timerloop; // ac_timer
 extern GameSetup usetup;
-
-//extern void get_save_game_path(int slotNum, char *buffer);
-//extern char saveGameDirectory[260];
 
 
 //-----------------------------------------------------------------------------
@@ -77,7 +76,14 @@ void __my_wbutt(Bitmap *ds, int x1, int y1, int x2, int y2)
 
 //-----------------------------------------------------------------------------
 
-int WINAPI _export CSCIGetVersion()
+OnScreenWindow::OnScreenWindow()
+{
+    x = y = 0;
+    handle = -1;
+    oldtop = -1;
+}
+
+int CSCIGetVersion()
 {
     return 0x0100;
 }
@@ -85,12 +91,12 @@ int WINAPI _export CSCIGetVersion()
 int windowcount = 0, curswas = 0;
 int win_x = 0, win_y = 0, win_width = 0, win_height = 0;
 // CLNUP dialogs are based on 320x200 coords, will need to at least center them
-int WINAPI _export CSCIDrawWindow(Bitmap *ds, int xx, int yy, int wid, int hit)
+int CSCIDrawWindow(int xx, int yy, int wid, int hit)
 {
     ignore_bounds++;
     int drawit = -1;
     for (int aa = 0; aa < MAXSCREENWINDOWS; aa++) {
-        if (oswi[aa].buffer == NULL) {
+        if (oswi[aa].handle < 0) {
             drawit = aa;
             break;
         }
@@ -100,18 +106,19 @@ int WINAPI _export CSCIDrawWindow(Bitmap *ds, int xx, int yy, int wid, int hit)
         quit("Too many windows created.");
 
     windowcount++;
-    //  domouse(2);
+    //  ags_domouse(DOMOUSE_DISABLE);
     xx -= 2;
     yy -= 2;
     wid += 4;
     hit += 4;
-    oswi[drawit].buffer = wnewblock(ds, xx, yy, xx + wid, yy + hit);
+    Bitmap *ds = prepare_gui_screen(xx, yy, wid, hit, true);
     oswi[drawit].x = xx;
     oswi[drawit].y = yy;
-    __my_wbutt(ds, xx + 1, yy + 1, xx + wid - 1, yy + hit - 1);    // wbutt goes outside its area
-    //  domouse(1);
+    __my_wbutt(ds, 0, 0, wid - 1, hit - 1);    // wbutt goes outside its area
+    //  ags_domouse(DOMOUSE_ENABLE);
     oswi[drawit].oldtop = topwindowhandle;
     topwindowhandle = drawit;
+    oswi[drawit].handle = topwindowhandle;
     win_x = xx;
     win_y = yy;
     win_width = wid;
@@ -119,26 +126,24 @@ int WINAPI _export CSCIDrawWindow(Bitmap *ds, int xx, int yy, int wid, int hit)
     return drawit;
 }
 
-void WINAPI _export CSCIEraseWindow(Bitmap *ds, int handl)
+void CSCIEraseWindow(int handl)
 {
-    //  domouse(2);
+    //  ags_domouse(DOMOUSE_DISABLE);
     ignore_bounds--;
     topwindowhandle = oswi[handl].oldtop;
-    wputblock(ds, oswi[handl].x, oswi[handl].y, oswi[handl].buffer, 0);
-    delete oswi[handl].buffer;
-    //  domouse(1);
-    oswi[handl].buffer = NULL;
+    oswi[handl].handle = -1;
+    //  ags_domouse(DOMOUSE_ENABLE);
     windowcount--;
+    clear_gui_screen();
 }
 
-int WINAPI _export CSCIWaitMessage(Bitmap *ds, CSCIMessage * cscim)
+int CSCIWaitMessage(CSCIMessage * cscim)
 {
-    NextIteration();
     for (int uu = 0; uu < MAXCONTROLS; uu++) {
-        if (vobjs[uu] != NULL) {
-            //      domouse(2);
+        if (vobjs[uu] != nullptr) {
+            //      ags_domouse(DOMOUSE_DISABLE);
             vobjs[uu]->drawifneeded();
-            //      domouse(1);
+            //      ags_domouse(DOMOUSE_ENABLE);
         }
     }
 
@@ -146,7 +151,7 @@ int WINAPI _export CSCIWaitMessage(Bitmap *ds, CSCIMessage * cscim)
 
     while (1) {
         timerloop = 0;
-        NextIteration();
+        update_audio_system_on_game_loop();
         refresh_gui_screen();
 
         cscim->id = -1;
@@ -172,7 +177,7 @@ int WINAPI _export CSCIWaitMessage(Bitmap *ds, CSCIMessage * cscim)
             }
         }
 
-        if (rec_mgetbutton() != NONE) {
+        if (ags_mgetbutton() != NONE) {
             if (checkcontrols()) {
                 cscim->id = controlid;
                 cscim->code = CM_COMMAND;
@@ -187,19 +192,17 @@ int WINAPI _export CSCIWaitMessage(Bitmap *ds, CSCIMessage * cscim)
         if (cscim->code > 0)
             break;
 
-        update_polled_audio_and_crossfade();
-        while (timerloop == 0) ;
+        WaitForNextFrame();
     }
 
-    clear_gui_screen();
     return 0;
 }
 
-int WINAPI _export CSCICreateControl(int typeandflags, int xx, int yy, int wii, int hii, const char *title)
+int CSCICreateControl(int typeandflags, int xx, int yy, int wii, int hii, const char *title)
 {
     int usec = -1;
     for (int hh = 1; hh < MAXCONTROLS; hh++) {
-        if (vobjs[hh] == NULL) {
+        if (vobjs[hh] == nullptr) {
             usec = hh;
             break;
         }
@@ -226,21 +229,21 @@ int WINAPI _export CSCICreateControl(int typeandflags, int xx, int yy, int wii, 
 
     vobjs[usec]->typeandflags = typeandflags;
     vobjs[usec]->wlevel = topwindowhandle;
-    //  domouse(2);
-    vobjs[usec]->draw(GetVirtualScreen());
-    //  domouse(1);
+    //  ags_domouse(DOMOUSE_DISABLE);
+    vobjs[usec]->draw( get_gui_screen() );
+    //  ags_domouse(DOMOUSE_ENABLE);
     return usec;
 }
 
-void WINAPI _export CSCIDeleteControl(int haa)
+void CSCIDeleteControl(int haa)
 {
     delete vobjs[haa];
-    vobjs[haa] = NULL;
+    vobjs[haa] = nullptr;
 }
 
-int WINAPI _export CSCISendControlMessage(int haa, int mess, int wPar, long lPar)
+int CSCISendControlMessage(int haa, int mess, int wPar, long lPar)
 {
-    if (vobjs[haa] == NULL)
+    if (vobjs[haa] == nullptr)
         return -1;
     return vobjs[haa]->processmessage(mess, wPar, lPar);
 }
@@ -248,12 +251,16 @@ int WINAPI _export CSCISendControlMessage(int haa, int mess, int wPar, long lPar
 // TODO: this is silly, make a uniform formula
 int checkcontrols()
 {
+    // NOTE: this is because old code was working with full game screen
+    const int mousex = ::mousex - win_x;
+    const int mousey = ::mousey - win_y;
+
     smcode = 0;
     for (int kk = 0; kk < MAXCONTROLS; kk++) {
-        if (vobjs[kk] != NULL) {
-            if (vobjs[kk]->mouseisinarea()) {
+        if (vobjs[kk] != nullptr) {
+            if (vobjs[kk]->mouseisinarea(mousex, mousey)) {
                 controlid = kk;
-                return vobjs[kk]->pressedon();
+                return vobjs[kk]->pressedon(mousex, mousey);
             }
         }
     }
@@ -263,7 +270,7 @@ int checkcontrols()
 int finddefaultcontrol(int flagmask)
 {
     for (int ff = 0; ff < MAXCONTROLS; ff++) {
-        if (vobjs[ff] == NULL)
+        if (vobjs[ff] == nullptr)
             continue;
 
         if (vobjs[ff]->wlevel != topwindowhandle)

@@ -100,7 +100,8 @@ enum MessageType
     // Convenient aliases
     kDbgMsg_Default             = kDbgMsg_Debug,
     kDbgMsgSet_NoDebug          = 0x001D,
-    kDbgMsgSet_Errors           = 0x0019,
+    kDbgMsgSet_Errors           = 0x0018,
+    kDbgMsgSet_InitAndErrors    = 0x0019,
     // Output everything
     kDbgMsgSet_All              = 0xFFFF
 };
@@ -133,22 +134,6 @@ struct DebugGroupID
     bool IsValid() const { return ID != kDbgGroup_None || !SID.IsEmpty(); }
     // Tells if both id components are properly set
     bool IsComplete() const { return ID != kDbgGroup_None && !SID.IsEmpty(); }
-};
-
-struct DebugMessage
-{
-    String       Text;
-    uint32_t     GroupID;
-    String       GroupName;
-    MessageType  MT;
-
-    DebugMessage() : GroupID(kDbgGroup_None), MT(kDbgMsg_None) {}
-    DebugMessage(const String &text, uint32_t group_id, const String &group_name, MessageType mt)
-        : Text(text)
-        , GroupID(group_id)
-        , GroupName(group_name)
-        , MT(mt)
-    {}
 };
 
 namespace Debug

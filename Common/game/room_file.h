@@ -21,9 +21,8 @@
 #ifndef __AGS_CN_GAME_ROOMFILE_H
 #define __AGS_CN_GAME_ROOMFILE_H
 
-#include "util/stdtr1compat.h"
-#include TR1INCLUDE(memory)
-#include "game/room_file.h"
+#include <memory>
+#include <vector>
 #include "game/room_version.h"
 #include "util/error.h"
 #include "util/stream.h"
@@ -59,7 +58,7 @@ String GetRoomFileErrorText(RoomFileErrorType err);
 
 typedef TypedCodeError<RoomFileErrorType, GetRoomFileErrorText> RoomFileError;
 typedef ErrorHandle<RoomFileError> HRoomFileError;
-typedef stdtr1compat::shared_ptr<Stream> PStream;
+typedef std::shared_ptr<Stream> PStream;
 
 
 // RoomDataSource defines a successfully opened room file

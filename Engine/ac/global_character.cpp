@@ -200,7 +200,7 @@ void AnimateCharacterEx(int chh, int loopn, int sppd, int rept, int direction, i
 void FollowCharacter(int who, int tofollow, int distaway, int eagerness) {
     if (!is_valid_character(who))
         quit("!FollowCharacter: Invalid character specified");
-    CharacterInfo *chtofollow = NULL;
+    CharacterInfo *chtofollow = nullptr;
     if (tofollow != -1)
     {
         if (!is_valid_character(tofollow))
@@ -356,7 +356,8 @@ void MoveCharacterToObject(int chaa,int obbj) {
         return;
 
     walk_character(chaa,objs[obbj].x+5,objs[obbj].y+6,0, true);
-    GameLoopUntilEvent(UNTIL_MOVEEND,(long)&game.chars[chaa].walking);
+
+    GameLoopUntilNotMoving(&game.chars[chaa].walking);
 }
 */
 
@@ -365,7 +366,8 @@ void MoveCharacterToHotspot(int chaa,int hotsp) {
         quit("!MovecharacterToHotspot: invalid hotspot");
     if (thisroom.Hotspots[hotsp].WalkTo.X<1) return;
     walk_character(chaa,thisroom.Hotspots[hotsp].WalkTo.X,thisroom.Hotspots[hotsp].WalkTo.Y,0, true);
-    GameLoopUntilEvent(UNTIL_MOVEEND,(long)&game.chars[chaa].walking);
+
+    GameLoopUntilNotMoving(&game.chars[chaa].walking);
 }
 
 // [DEPRECATED]
@@ -385,7 +387,8 @@ void MoveCharacterToHotspot(int chaa,int hotsp) {
         MoveCharacterDirect(chaa,xx,yy);
     else
         MoveCharacter(chaa,xx,yy);
-    GameLoopUntilEvent(UNTIL_MOVEEND,(long)&game.chars[chaa].walking);
+
+    GameLoopUntilNotMoving(&game.chars[chaa].walking);
 }*/
 
 int GetCharacterSpeechAnimationDelay(CharacterInfo *cha)
@@ -413,11 +416,11 @@ void RunCharacterInteraction (int cc, int mood) {
     else if (mood==MODE_CUSTOM2) passon = 7;
 
     evblockbasename="character%d"; evblocknum=cc;
-    if (game.charScripts != NULL) 
+    if (loaded_game_file_version > kGameVersion_272)
     {
         if (passon>=0)
-            run_interaction_script(game.charScripts[cc], passon, 4, (passon == 3));
-        run_interaction_script(game.charScripts[cc], 4);  // any click on char
+            run_interaction_script(game.charScripts[cc].get(), passon, 4, (passon == 3));
+        run_interaction_script(game.charScripts[cc].get(), 4);  // any click on char
     }
 }
 
@@ -463,15 +466,17 @@ void GetCharacterPropertyText (int item, const char *property, char *bufer) {
 }
 */
 
-int GetCharacterAt (int xx, int yy) {
-    Point roompt = play.ScreenToRoom(xx, yy);
-    return is_pos_on_character(roompt.X, roompt.Y);
+int GetCharIDAtScreen(int xx, int yy) {
+    VpPoint vpt = play.ScreenToRoom(xx, yy);
+    if (vpt.second < 0)
+        return -1;
+    return is_pos_on_character(vpt.first.X, vpt.first.Y);
 }
 
 // [DEPRECATED] still used by Character_SetAsPlayer
 void SetActiveInventory(int iit) {
 
-    ScriptInvItem *tosend = NULL;
+    ScriptInvItem *tosend = nullptr;
     if ((iit > 0) && (iit < game.numinvitems))
         tosend = &scrInv[iit];
     else if (iit != -1)

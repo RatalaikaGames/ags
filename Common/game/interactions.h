@@ -167,20 +167,21 @@ struct Interaction
     // have practical sense
     void ReadFromSavedgame_v321(Stream *in);
     void WriteToSavedgame_v321(Stream *out) const;
-    void ReadTimesRunFromSavedgame(Stream *in);
-    void WriteTimesRunToSavedgame(Stream *out) const;
+    void ReadTimesRunFromSave_v321(Stream *in);
+    void WriteTimesRunToSave_v321(Stream *out) const;
 
     Interaction &operator =(const Interaction &inter);
 };
 */
 
 // CLNUP probably remove this too later
-// Legacy pre-3.0 kind of global variables
+
+// Legacy pre-3.0 kind of global and local room variables
 struct InteractionVariable
 {
-    String Name;
-    char   Type;
-    int    Value;
+    String Name {};
+    char   Type {'\0'};
+    int    Value {0};
 
     InteractionVariable();
     InteractionVariable(const String &name, char type, int val);
@@ -188,6 +189,8 @@ struct InteractionVariable
     void Read(Stream *in);
     void Write(Stream *out) const;
 };
+
+typedef std::vector<InteractionVariable> InterVarVector;
 
 
 // A list of script function names for all supported events
@@ -198,7 +201,7 @@ struct InteractionScripts
     static InteractionScripts *CreateFromStream(Stream *in);
 };
 
-typedef stdtr1compat::shared_ptr<InteractionScripts> PInteractionScripts;
+typedef std::shared_ptr<InteractionScripts> PInteractionScripts;
 
 // CLNUP Legacy deserializer
 void LegacyInteractionReadSkip(Stream *in);

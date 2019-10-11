@@ -24,17 +24,17 @@
 #include "ac/global_display.h"
 #include "ac/global_room.h"
 #include "ac/mouse.h"
-#include "ac/record.h"
+#include "ac/sys_events.h"
 #include "debug/debug_log.h"
 #include "gui/guidialog.h"
 #include "main/game_run.h"
-#include "media/audio/audio.h"
 #include "platform/base/agsplatformdriver.h"
 #include "ac/spritecache.h"
 #include "script/runtimescriptvalue.h"
 #include "ac/dynobj/cc_character.h"
 #include "ac/dynobj/cc_inventory.h"
 #include "util/math.h"
+#include "media/audio/audio_system.h"
 
 using namespace AGS::Common;
 
@@ -57,7 +57,7 @@ int in_inv_screen = 0, inv_screen_newroom = -1;
 // *** INV WINDOW FUNCTIONS
 
 void InvWindow_SetCharacterToUse(GUIInvWindow *guii, CharacterInfo *chaa) {
-  if (chaa == NULL)
+  if (chaa == nullptr)
     guii->CharId = -1;
   else
     guii->CharId = chaa->index_id;
@@ -69,7 +69,7 @@ void InvWindow_SetCharacterToUse(GUIInvWindow *guii, CharacterInfo *chaa) {
 
 CharacterInfo* InvWindow_GetCharacterToUse(GUIInvWindow *guii) {
   if (guii->CharId < 0)
-    return NULL;
+    return nullptr;
 
   return &game.chars[guii->CharId];
 }
@@ -135,7 +135,7 @@ void InvWindow_ScrollUp(GUIInvWindow *guii) {
 
 ScriptInvItem* InvWindow_GetItemAtIndex(GUIInvWindow *guii, int index) {
   if ((index < 0) || (index >= charextra[guii->GetCharacterId()].invorder_count))
-    return NULL;
+    return nullptr;
   return &scrInv[charextra[guii->GetCharacterId()].invorder[index]];
 }
 
@@ -200,7 +200,8 @@ struct InventoryScreen
 
     void Prepare();
     int  Redraw();
-    void RedrawOverItem(int isonitem);
+    void Draw(Bitmap *ds);
+    void RedrawOverItem(Bitmap *ds, int isonitem);
     bool Run();
     void Close();
 };
@@ -218,21 +219,23 @@ void InventoryScreen::Prepare()
     in_inv_screen++;
     inv_screen_newroom = -1;
 
-    // sprites 2041, 2042 and 2043 were hardcoded in the older versions
-    // of the engine to be used in the built-in inventory window
-    if (spriteset[2041] == NULL || spriteset[2042] == NULL || spriteset[2043] == NULL)
-        debug_script_warn("InventoryScreen: one or more of the inventory screen graphics (sprites 2041, 2042, 2043) does not exist, using sprite 0 instead");
-    btn_look_sprite = spriteset[2041] != NULL ? 2041 : 0;
-    btn_select_sprite = spriteset[2042] != NULL ? 2042 : 0;
-    btn_ok_sprite = spriteset[2043] != NULL ? 2043 : 0;
+    // Sprites 2041, 2042 and 2043 were hardcoded in the older versions of
+    // the engine to be used in the built-in inventory window.
+    // If they did not exist engine first fell back to sprites 0, 1, 2 instead.
+    // Fun fact: this fallback does not seem to be intentional, and was a
+    // coincidental result of SpriteCache incorrectly remembering "last seeked
+    // sprite" as 2041/2042/2043 while in fact stream was after sprite 0.
+    if (spriteset[2041] == nullptr || spriteset[2042] == nullptr || spriteset[2043] == nullptr)
+        debug_script_warn("InventoryScreen: one or more of the inventory screen graphics (sprites 2041, 2042, 2043) does not exist, fallback to sprites 0, 1, 2 instead");
+    btn_look_sprite = spriteset[2041] != nullptr ? 2041 : 0;
+    btn_select_sprite = spriteset[2042] != nullptr ? 2042 : (spriteset[1] != nullptr ? 1 : 0);
+    btn_ok_sprite = spriteset[2043] != nullptr ? 2043 : (spriteset[2] != nullptr ? 2 : 0);
 
     break_code = 0;
 }
 
 int InventoryScreen::Redraw()
 {
-    Bitmap *ds = GetVirtualScreen();
-
     numitems=0;
     widest=0;
     highest=0;
@@ -278,13 +281,24 @@ int InventoryScreen::Redraw()
     if (windowwid < 105) windowwid = 105;
     windowxp=play.GetUIViewport().GetWidth()/2-windowwid/2;
     windowyp=play.GetUIViewport().GetHeight()/2-windowhit/2;
-    buttonyp=windowyp+windowhit-BUTTONAREAHEIGHT;
+    buttonyp = windowhit - BUTTONAREAHEIGHT;
+    bartop = 2;
+    barxp = 2;
+
+    Bitmap *ds = prepare_gui_screen(windowxp, windowyp, windowwid, windowhit, true);
+    Draw(ds);
+    //ags_domouse(DOMOUSE_ENABLE);
+    set_mouse_cursor(cmode);
+    wasonitem = -1;
+    return 0;
+}
+
+void InventoryScreen::Draw(Bitmap *ds)
+{
     color_t draw_color = ds->GetCompatibleColor(play.sierra_inv_color);
-    ds->FillRect(Rect(windowxp,windowyp,windowxp+windowwid,windowyp+windowhit), draw_color);
-    draw_color = ds->GetCompatibleColor(0); 
-    bartop = windowyp + 2;
-    barxp = windowxp + 2;
-    ds->FillRect(Rect(barxp,bartop, windowxp + windowwid - 2,buttonyp-1), draw_color);
+    ds->FillRect(Rect(0,0,windowwid,windowhit), draw_color);
+    draw_color = ds->GetCompatibleColor(0);
+    ds->FillRect(Rect(barxp,bartop, windowwid - 2,buttonyp-1), draw_color);
     for (int i = top_item; i < numitems; ++i) {
         if (i >= top_item + num_visible_items)
             break;
@@ -294,9 +308,9 @@ int InventoryScreen::Redraw()
     }
 #define BUTTONWID Math::Max(1, game.SpriteInfos[btn_select_sprite].Width)
     // Draw select, look and OK buttons
-    wputblock(ds, windowxp+2, buttonyp + 2, spriteset[btn_look_sprite], 1);
-    wputblock(ds, windowxp+3+BUTTONWID, buttonyp + 2, spriteset[btn_select_sprite], 1);
-    wputblock(ds, windowxp+4+BUTTONWID*2, buttonyp + 2, spriteset[btn_ok_sprite], 1);
+    wputblock(ds, 2, buttonyp + 2, spriteset[btn_look_sprite], 1);
+    wputblock(ds, 3+BUTTONWID, buttonyp + 2, spriteset[btn_select_sprite], 1);
+    wputblock(ds, 4+BUTTONWID*2, buttonyp + 2, spriteset[btn_ok_sprite], 1);
 
     // Draw Up and Down buttons if required
     Bitmap *arrowblock = BitmapHelper::CreateTransparentBitmap (ARROWBUTTONWID, ARROWBUTTONWID);
@@ -310,24 +324,16 @@ int InventoryScreen::Redraw()
 	arrowblock->FloodFill(ARROWBUTTONWID/2, 4, draw_color);
 
     if (top_item > 0)
-        wputblock(ds, windowxp+windowwid-ARROWBUTTONWID, buttonyp + 2, arrowblock, 1);
+        wputblock(ds, windowwid-ARROWBUTTONWID, buttonyp + 2, arrowblock, 1);
     if (top_item + num_visible_items < numitems)
-        arrowblock->FlipBlt(arrowblock, windowxp+windowwid-ARROWBUTTONWID, buttonyp + 4 + ARROWBUTTONWID, Common::kBitmap_VFlip);
+        arrowblock->FlipBlt(arrowblock, windowwid-ARROWBUTTONWID, buttonyp + 4 + ARROWBUTTONWID, Common::kBitmap_VFlip);
     delete arrowblock;
-
-    //domouse(1);
-    set_mouse_cursor(cmode);
-    wasonitem=-1;
-
-    prepare_gui_screen(windowxp, windowyp, windowwid, windowhit, true);
-    return 0;
 }
 
-void InventoryScreen::RedrawOverItem(int isonitem)
+void InventoryScreen::RedrawOverItem(Bitmap *ds, int isonitem)
 {
     int rectxp=barxp+1+(wasonitem%4)*widest;
     int rectyp=bartop+1+((wasonitem - top_item)/4)*highest;
-    Bitmap *ds = GetVirtualScreen();
     if (wasonitem>=0)
     {
         color_t draw_color = ds->GetCompatibleColor(0);
@@ -344,16 +350,19 @@ void InventoryScreen::RedrawOverItem(int isonitem)
 
 bool InventoryScreen::Run()
 {
-    if (kbhit() != 0)
+    if (ags_kbhit() != 0)
     {
         return false; // end inventory screen loop
     }
 
         timerloop = 0;
-        NEXT_ITERATION();
+        //ags_domouse(DOMOUSE_UPDATE);
+        update_audio_system_on_game_loop();
         refresh_gui_screen();
-        //domouse(0);
-        update_polled_audio_and_crossfade();
+
+        // NOTE: this is because old code was working with full game screen
+        const int mousex = ::mousex - windowxp;
+        const int mousey = ::mousey - windowyp;
 
         int isonitem=((mousey-bartop)/highest)*ICONSPERLINE+(mousex-barxp)/widest;
         if (mousey<=bartop) isonitem=-1;
@@ -361,9 +370,9 @@ bool InventoryScreen::Run()
         if ((isonitem<0) | (isonitem>=numitems) | (isonitem >= top_item + num_visible_items))
             isonitem=-1;
 
-        int mclick = mgetbutton();
+        int mclick = ags_mgetbutton();
         if (mclick == LEFT) {
-            if ((mousey<windowyp) | (mousey>windowyp+windowhit) | (mousex<windowxp) | (mousex>windowxp+windowwid))
+            if ((mousey<0) | (mousey>windowhit) | (mousex<0) | (mousex>windowwid))
                 return true; // continue inventory screen loop
             if (mousey<buttonyp) {
                 int clickedon=isonitem;
@@ -372,7 +381,7 @@ bool InventoryScreen::Run()
                 play.used_inv_on = dii[clickedon].num;
 
                 if (cmode==MODE_LOOK) {
-                    //domouse(2);
+                    //ags_domouse(DOMOUSE_DISABLE);
                     run_event_block_inv(dii[clickedon].num, 0); 
                     // in case the script did anything to the screen, redraw it
                     UpdateGameOnce();
@@ -388,7 +397,7 @@ bool InventoryScreen::Run()
                     int activeinvwas = playerchar->activeinv;
                     playerchar->activeinv = toret;
 
-                    //domouse(2);
+                    //ags_domouse(DOMOUSE_DISABLE);
                     run_event_block_inv(dii[clickedon].num, 3);
 
                     // if the script didn't change it, then put it back
@@ -418,11 +427,11 @@ bool InventoryScreen::Run()
                 return true; // continue inventory screen loop
             }
             else {
-                if (mousex >= windowxp+windowwid-ARROWBUTTONWID) {
+                if (mousex >= windowwid-ARROWBUTTONWID) {
                     if (mousey < buttonyp + 2 + ARROWBUTTONWID) {
                         if (top_item > 0) {
                             top_item -= ICONSPERLINE;
-                            //domouse(2);
+                            //ags_domouse(DOMOUSE_DISABLE);
 
                             break_code = Redraw();
                             return break_code == 0;
@@ -430,7 +439,7 @@ bool InventoryScreen::Run()
                     }
                     else if ((mousey < buttonyp + 4 + ARROWBUTTONWID*2) && (top_item + num_visible_items < numitems)) {
                         top_item += ICONSPERLINE;
-                        //domouse(2);
+                        //ags_domouse(DOMOUSE_DISABLE);
                         
                         break_code = Redraw();
                         return break_code == 0;
@@ -438,7 +447,7 @@ bool InventoryScreen::Run()
                     return true; // continue inventory screen loop
                 }
 
-                int buton=(mousex-windowxp)-2;
+                int buton=mousex-2;
                 if (buton<0) return true; // continue inventory screen loop
                 buton/=BUTTONWID;
                 if (buton>=3) return true; // continue inventory screen loop
@@ -461,12 +470,15 @@ bool InventoryScreen::Run()
         }
         else if (isonitem!=wasonitem)
         {
-            //domouse(2);
-            RedrawOverItem(isonitem);
-            //domouse(1);
+            //ags_domouse(DOMOUSE_DISABLE);
+            RedrawOverItem(get_gui_screen(), isonitem);
+            //ags_domouse(DOMOUSE_ENABLE);
         }
         wasonitem=isonitem;
-        PollUntilNextFrame();
+
+        update_polled_stuff_if_runtime();
+
+        WaitForNextFrame();
 
     return true; // continue inventory screen loop
 }
@@ -475,8 +487,7 @@ void InventoryScreen::Close()
 {
     clear_gui_screen();
     set_default_cursor();
-    //domouse(2);
-    construct_virtual_screen(true);
+    invalidate_screen();
     in_inv_screen--;
 }
 
@@ -496,7 +507,7 @@ int __actual_invscreen()
         return InvScr.break_code;
     }
 
-    clear_input_buffer();
+    ags_clear_input_buffer();
 
     InvScr.Close();
     return InvScr.toret;

@@ -18,21 +18,14 @@
 //
 //=============================================================================
 
+#include "core/platform.h"
+
 #define _WGT45_
 
 #ifndef __WGT4_H
 #define __WGT4_H
 
-#ifdef USE_ALLEGRO3
-#include <allegro3.h>
-#else
-#define ALLEGRO_NO_FIX_ALIASES
 #include "allegro.h"
-#endif
-
-#ifdef WINDOWS_VERSION
-#include "winalleg.h"
-#endif
 
 namespace AGS { namespace Common { class Bitmap; }}
 using namespace AGS; // FIXME later
@@ -45,12 +38,6 @@ using namespace AGS; // FIXME later
 #define color RGB
 
 //=============================================================================
-
-extern Common::Bitmap *SetVirtualScreen(Common::Bitmap *nss);
-// CHECKME: temporary solution for plugin system
-extern Common::Bitmap *SetVirtualScreenRaw(BITMAP *nss);
-// Not physically a screen bitmap, but rather what counts as one at this moment
-extern Common::Bitmap *GetVirtualScreen();
 
 // [IKM] 2012-09-13: this function is now defined in engine and editor separately
 extern void __my_setcolor(int *ctset, int newcol, int wantColDep);
@@ -88,8 +75,5 @@ extern "C"
 // archive attributes to search for - al_findfirst breaks with 0
 #define FA_SEARCH -1
 
-#if defined (WINDOWS_VERSION)
-#undef CreateFile  // undef the declaration from winbase.h
-#endif
 
 #endif // __WGT4_H

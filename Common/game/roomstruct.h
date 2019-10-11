@@ -37,16 +37,15 @@
 #ifndef __AGS_CN_GAME__ROOMINFO_H
 #define __AGS_CN_GAME__ROOMINFO_H
 
-#include "util/stdtr1compat.h"
-#include TR1INCLUDE(memory)
+#include <memory>
+#include "ac/common_defines.h"
 #include "game/interactions.h"
-#include "script/cc_script.h" // ccScript
 #include "util/geometry.h"
-#include "util/string_types.h"
 #include "util/wgt2allg.h" // color (allegro RGB)
 
 struct ccScript;
 struct SpriteInfo;
+typedef std::shared_ptr<ccScript> PScript;
 
 // TODO: move the following enums under AGS::Common namespace
 // later, when more engine source is put in AGS namespace and
@@ -97,7 +96,7 @@ namespace Common
 class Bitmap;
 class Stream;
 
-typedef stdtr1compat::shared_ptr<Bitmap> PBitmap;
+typedef std::shared_ptr<Bitmap> PBitmap;
 
 // Various room options
 struct RoomOptions
@@ -137,6 +136,7 @@ struct RoomEdges
     int32_t Bottom;
 
     RoomEdges();
+    RoomEdges(int l, int r, int t, int b);
 };
 
 // Room hotspot description
@@ -231,6 +231,15 @@ struct MessageInfo
 };
 
 
+// Room's legacy resolution type
+enum RoomResolutionType
+{
+    kRoomRealRes = 0, // room should always be treated as-is
+    kRoomLoRes = 1, // created for low-resolution game
+    kRoomHiRes = 2 // created for high-resolution game
+};
+
+
 //
 // Description of a single room.
 // This class contains initial room data. Some of it may still be modified
@@ -242,6 +251,7 @@ public:
     RoomStruct();
     ~RoomStruct();
 
+    // Gets legacy resolution type
     // Releases room resources
     void            Free();
     // Release room messages and scripts correspondingly. These two functions are needed
@@ -272,6 +282,9 @@ public:
     // the room must have behavior specific to certain version of AGS.
     int32_t                 DataVersion;
 
+    // Room region masks resolution. Defines the relation between room and mask units.
+    // Mask point is calculated as roompt / MaskResolution. Must be >= 1.
+    int32_t                 MaskResolution;
     // Size of the room, in logical coordinates (= pixels)
     int32_t                 Width;
     int32_t                 Height;
@@ -320,7 +333,13 @@ public:
 };
 
 
-void load_room(const char *file, RoomStruct *room, const std::vector<SpriteInfo> &sprinfos);
+// Loads new room data into the given RoomStruct object
+void load_room(const char *filename, RoomStruct *room, const std::vector<SpriteInfo> &sprinfos);
+// Ensures that all existing room masks match room background size and
+// MaskResolution property, resizes mask bitmaps if necessary.
+void FixRoomMasks(RoomStruct *room);
+// Adjusts bitmap size if necessary and returns either new or old bitmap.
+PBitmap FixBitmap(PBitmap bmp, int dst_width, int dst_height);
 
 } // namespace Common
 } // namespace AGS

@@ -26,7 +26,10 @@ struct _Rect {
     int x1,y1,x2,y2;
 };
 
-int  GetObjectAt(int xx,int yy);
+// Get object at the given screen coordinates
+int  GetObjectIDAtScreen(int xx,int yy);
+// Get object at the given room coordinates
+int  GetObjectIDAtRoom(int roomx, int roomy);
 void SetObjectTint(int obj, int red, int green, int blue, int opacity, int luminance);
 void RemoveObjectTint(int obj);
 void SetObjectView(int obn,int vii);
@@ -38,6 +41,7 @@ int  GetObjectBaseline(int obn);
 //void AnimateObjectEx(int obn,int loopn,int spdd,int rept, int direction, int blocking);
 //void AnimateObject(int obn,int loopn,int spdd,int rept);
 void AnimateObject(int obn, int loopn, int spdd, int rept, int direction=0, int blocking=0);
+void AnimateObjectImpl(int obn, int loopn, int spdd, int rept, int direction, int blocking, int sframe);
 void MergeObject(int obn);
 void StopObjectMoving(int objj);
 void ObjectOff(int obn);

@@ -12,9 +12,9 @@
 //
 //=============================================================================
 
-#include "util/textstreamreader.h"
-#include "util/stream.h"
 #include "util/math.h"
+#include "util/stream.h"
+#include "util/textstreamreader.h"
 
 namespace AGS
 {
@@ -44,7 +44,7 @@ const Stream *TextStreamReader::GetStream() const
 
 void TextStreamReader::ReleaseStream()
 {
-    _stream = NULL;
+    _stream = nullptr;
 }
 
 bool TextStreamReader::EOS() const

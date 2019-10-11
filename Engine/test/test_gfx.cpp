@@ -12,8 +12,10 @@
 //
 //=============================================================================
 
-#ifdef _DEBUG
+#include "core/platform.h"
+#ifdef AGS_RUN_TESTS
 
+#include <stdlib.h>
 #include "gfx/gfx_def.h"
 #include "debug/assert.h"
 
@@ -36,4 +38,4 @@ void Test_Gfx()
     }
 }
 
-#endif // _DEBUG
+#endif // AGS_RUN_TESTS

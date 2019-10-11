@@ -15,8 +15,7 @@
 #ifndef __AGS_EE_GAME__SAVEGAME_H
 #define __AGS_EE_GAME__SAVEGAME_H
 
-#include "util/stdtr1compat.h"
-#include TR1INCLUDE(memory)
+#include <memory>
 #include "ac/game_version.h"
 #include "util/error.h"
 #include "util/version.h"
@@ -37,7 +36,7 @@ using Common::Stream;
 using Common::String;
 using Common::Version;
 
-typedef stdtr1compat::shared_ptr<Stream> PStream;
+typedef std::shared_ptr<Stream> PStream;
 
 //-----------------------------------------------------------------------------
 // Savegame version history
@@ -49,9 +48,10 @@ enum SavegameVersion
 {
     kSvgVersion_Undefined = 0,
     kSvgVersion_321       = 8,
-    kSvgVersion_Components= 9, // temp format, not supported anymore
+    kSvgVersion_Components= 9,
     kSvgVersion_Cmp_64bit = 10,
-    kSvgVersion_Current   = kSvgVersion_Cmp_64bit,
+    kSvgVersion_350_final = 11,
+    kSvgVersion_Current   = kSvgVersion_350_final,
     kSvgVersion_LowestSupported = kSvgVersion_321 // change if support dropped
 };
 

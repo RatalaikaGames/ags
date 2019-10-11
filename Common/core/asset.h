@@ -20,7 +20,6 @@
 #define __AGS_CN_CORE__ASSET_H
 
 #include <vector>
-#include "api/stream_api.h"
 #include "util/string.h"
 
 namespace AGS
@@ -46,6 +45,7 @@ typedef std::vector<AssetInfo> AssetVec;
 struct AssetLibInfo
 {
     String BaseFileName;               // library's base (head) filename
+    String BaseFilePath;               // full path to the base filename
     std::vector<String> LibFileNames;  // filename for each library part
 
     // Library contents

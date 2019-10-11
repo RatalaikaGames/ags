@@ -12,9 +12,9 @@
 //
 //=============================================================================
 
-#if !defined(LINUX_VERSION)
-#error This file should only be included on the Linux or BSD build
-#endif
+#include "core/platform.h"
+
+#if AGS_PLATFORM_OS_LINUX
 
 // ********* LINUX PLACEHOLDER DRIVER *********
 
@@ -22,6 +22,7 @@
 #include <allegro.h>
 #include <xalleg.h>
 #include "ac/runtime_defines.h"
+#include "gfx/gfxdefines.h"
 #include "platform/base/agsplatformdriver.h"
 #include "plugin/agsplugin.h"
 #include "util/string.h"
@@ -37,26 +38,27 @@ using AGS::Common::String;
 // Allegro 4.4 source under "src/x/xwin.c".
 #include "icon.xpm"
 void* allegro_icon = icon_xpm;
-String LinuxOutputDirectory;
+String CommonDataDirectory;
+String UserDataDirectory;
 
 struct AGSLinux : AGSPlatformDriver
 {
-  virtual void Delay(int millis) override;
-  virtual void DisplayAlert(const char*, ...) override;
-  virtual const char *GetUserSavedgamesDirectory() override;
-  virtual const char *GetUserConfigDirectory() override;
-  virtual const char *GetUserGlobalConfigDirectory() override;
-  virtual const char *GetAppOutputDirectory() override;
-  virtual unsigned long GetDiskFreeSpaceMB() override;
-  virtual const char* GetNoMouseErrorString() override;
-  virtual bool IsMouseControlSupported(bool windowed) override;
-  virtual const char* GetAllegroFailUserHint() override;
-  virtual eScriptSystemOSID GetSystemOSID() override;
-  virtual void PlayVideo(const char* name, int skip, int flags) override;
-  virtual void PostAllegroExit() override;
-  virtual void SetGameWindowIcon() override;
-  virtual bool LockMouseToWindow() override;
-  virtual void UnlockMouse() override;
+  void DisplayAlert(const char*, ...) override;
+  const char *GetAllUsersDataDirectory() override;
+  const char *GetUserSavedgamesDirectory() override;
+  const char *GetUserConfigDirectory() override;
+  const char *GetUserGlobalConfigDirectory() override;
+  const char *GetAppOutputDirectory() override;
+  unsigned long GetDiskFreeSpaceMB() override;
+  const char* GetNoMouseErrorString() override;
+  bool IsMouseControlSupported(bool windowed) override;
+  const char* GetAllegroFailUserHint() override;
+  eScriptSystemOSID GetSystemOSID() override;
+  void PostAllegroExit() override;
+  void SetGameWindowIcon() override;
+  bool LockMouseToWindow() override;
+  void UnlockMouse() override;
+  void GetSystemDisplayModes(std::vector<Engine::DisplayMode> &dms) override;
 };
 
 
@@ -66,7 +68,10 @@ void AGSLinux::DisplayAlert(const char *text, ...) {
   va_start(ap, text);
   vsprintf(displbuf, text, ap);
   va_end(ap);
-  printf("%s", displbuf);
+  if (_logToStdErr)
+    fprintf(stderr, "%s\n", displbuf);
+  else
+    fprintf(stdout, "%s\n", displbuf);
 }
 
 size_t BuildXDGPath(char *destPath, size_t destSize)
@@ -89,30 +94,32 @@ size_t BuildXDGPath(char *destPath, size_t destSize)
     if (mkdir(destPath, 0755) != 0 && errno != EEXIST)
       return 0;
   }
-  l += snprintf(destPath + l, destSize - l, "/ags");
-  if (mkdir(destPath, 0755) != 0 && errno != EEXIST)
-    return 0;
   return l;
 }
 
-void DetermineAppOutputDirectory()
+void DetermineDataDirectories()
 {
-  if (!LinuxOutputDirectory.IsEmpty())
-  {
+  if (!UserDataDirectory.IsEmpty())
     return;
-  }
-
   char xdg_path[256];
-  if (BuildXDGPath(xdg_path, sizeof(xdg_path)) > 0)
-    LinuxOutputDirectory = xdg_path;
-  else
-    LinuxOutputDirectory = "/tmp";
+  if (BuildXDGPath(xdg_path, sizeof(xdg_path)) == 0)
+    sprintf(xdg_path, "%s", "/tmp");
+  UserDataDirectory.Format("%s/ags", xdg_path);
+  mkdir(UserDataDirectory.GetCStr(), 0755);
+  CommonDataDirectory.Format("%s/ags-common", xdg_path);
+  mkdir(CommonDataDirectory.GetCStr(), 0755);
+}
+
+const char *AGSLinux::GetAllUsersDataDirectory()
+{
+  DetermineDataDirectories();
+  return CommonDataDirectory;
 }
 
 const char *AGSLinux::GetUserSavedgamesDirectory()
 {
-  DetermineAppOutputDirectory();
-  return LinuxOutputDirectory;
+  DetermineDataDirectories();
+  return UserDataDirectory;
 }
 
 const char *AGSLinux::GetUserConfigDirectory()
@@ -127,15 +134,8 @@ const char *AGSLinux::GetUserGlobalConfigDirectory()
 
 const char *AGSLinux::GetAppOutputDirectory()
 {
-  DetermineAppOutputDirectory();
-  return LinuxOutputDirectory;
-}
-
-void AGSLinux::Delay(int millis) {
-  struct timespec ts;
-  ts.tv_sec = 0;
-  ts.tv_nsec = millis * 1000000;
-  nanosleep(&ts, NULL);
+  DetermineDataDirectories();
+  return UserDataDirectory;
 }
 
 unsigned long AGSLinux::GetDiskFreeSpaceMB() {
@@ -161,10 +161,6 @@ eScriptSystemOSID AGSLinux::GetSystemOSID() {
   return eOS_Linux;
 }
 
-void AGSLinux::PlayVideo(const char *name, int skip, int flags) {
-  // do nothing
-}
-
 void AGSLinux::PostAllegroExit() {
   // do nothing
 }
@@ -174,7 +170,7 @@ void AGSLinux::SetGameWindowIcon() {
 }
 
 AGSPlatformDriver* AGSPlatformDriver::GetDriver() {
-  if (instance == NULL)
+  if (instance == nullptr)
     instance = new AGSLinux();
   return instance;
 }
@@ -190,3 +186,17 @@ void AGSLinux::UnlockMouse()
 {
     XUngrabPointer(_xwin.display, CurrentTime);
 }
+
+void AGSLinux::GetSystemDisplayModes(std::vector<Engine::DisplayMode> &dms)
+{
+    dms.clear();
+    GFX_MODE_LIST *gmlist = get_gfx_mode_list(GFX_XWINDOWS_FULLSCREEN);
+    for (int i = 0; i < gmlist->num_modes; ++i)
+    {
+        const GFX_MODE &m = gmlist->mode[i];
+        dms.push_back(Engine::DisplayMode(Engine::GraphicResolution(m.width, m.height, m.bpp)));
+    }
+    destroy_gfx_mode_list(gmlist);
+}
+
+#endif

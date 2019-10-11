@@ -12,9 +12,9 @@
 //
 //=============================================================================
 
-#include "ac/common.h"
-#include "gui/guiobject.h"
+#include "ac/common.h" // quit
 #include "gui/guimain.h"
+#include "gui/guiobject.h"
 #include "util/stream.h"
 
 namespace AGS
@@ -33,6 +33,7 @@ GUIObject::GUIObject()
     Height      = 0;
     ZOrder      = -1;
     IsActivated    = false;
+    _scEventCount = 0;
 }
 
 int GUIObject::GetEventCount() const
@@ -61,8 +62,7 @@ bool GUIObject::IsDeleted() const
 
 bool GUIObject::IsEnabled() const
 {
-    // TODO: a global variable should not be checked by control
-    return !((Flags & kGUICtrl_Enabled) == 0 || all_buttons_disabled);
+    return (Flags & kGUICtrl_Enabled) != 0;
 }
 
 bool GUIObject::IsOverControl(int x, int y, int leeway) const

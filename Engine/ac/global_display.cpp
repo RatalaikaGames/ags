@@ -54,9 +54,12 @@ void DisplaySimple(const char *text)
     DisplayAtY (-1, text);
 }
 
-void DisplayTopBar(int ypos, int ttexcol, int backcol, const char *title, const char*text) {
-
-    strcpy(topBar.text, get_translation(title));
+void DisplayTopBar(int ypos, int ttexcol, int backcol, const char *title, const char *text)
+{
+    // FIXME: refactor source_text_length and get rid of this ugly hack!
+    const int real_text_sourcelen = source_text_length;
+    snprintf(topBar.text, sizeof(topBar.text), "%s", get_translation(title));
+    source_text_length = real_text_sourcelen;
 
     if (ypos > 0)
         play.top_bar_ypos = ypos;

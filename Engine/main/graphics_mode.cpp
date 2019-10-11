@@ -17,6 +17,7 @@
 //
 
 #include <algorithm>
+#include "core/platform.h"
 #include "ac/draw.h"
 #include "debug/debugger.h"
 #include "debug/out.h"
@@ -32,7 +33,7 @@
 #include "platform/base/agsplatformdriver.h"
 
 // Don't try to figure out the window size on the mac because the port resizes itself.
-#if defined(MAC_VERSION) || defined(ALLEGRO_SDL2) || defined(IOS_VERSION) || defined(PSP_VERSION) || defined(ANDROID_VERSION)
+#if AGS_PLATFORM_OS_MACOS || defined(ALLEGRO_SDL2) || AGS_PLATFORM_OS_IOS || AGS_PLATFORM_OS_ANDROID
 #define USE_SIMPLE_GFX_INIT
 #endif
 
@@ -45,7 +46,7 @@ extern IGraphicsDriver *gfxDriver;
 extern volatile int timerloop;
 
 
-IGfxDriverFactory *GfxFactory = NULL;
+IGfxDriverFactory *GfxFactory = nullptr;
 
 // Last saved fullscreen and windowed configs; they are used when switching
 // between between fullscreen and windowed modes at runtime.
@@ -73,6 +74,12 @@ GameFrameSetup::GameFrameSetup(FrameScaleDefinition def, int factor)
 bool GameFrameSetup::IsValid() const
 {
     return ScaleDef != kFrame_IntScale || ScaleFactor > 0;
+}
+
+ScreenSizeSetup::ScreenSizeSetup()
+    : SizeDef(kScreenDef_MaxDisplay)
+    , MatchDeviceRatio(true)
+{
 }
 
 DisplayModeSetup::DisplayModeSetup()
@@ -135,20 +142,6 @@ bool graphics_mode_set_filter_any(const GfxFilterSetup &setup)
     return true;
 }
 
-bool find_nearest_supported_mode(const Size &wanted_size, const int color_depth, const Size *ratio_reference, const Size *upper_bound,
-                                 DisplayMode &dm)
-{
-    IGfxModeList *modes = gfxDriver->GetSupportedModeList(color_depth);
-    if (!modes)
-    {
-        Debug::Printf(kDbgMsg_Error, "Couldn't get a list of supported resolutions");
-        return false;
-    }
-    bool result = find_nearest_supported_mode(*modes, wanted_size, color_depth, ratio_reference, upper_bound, dm);
-    delete modes;
-    return result;
-}
-
 bool find_nearest_supported_mode(const IGfxModeList &modes, const Size &wanted_size, const int color_depth,
                                  const Size *ratio_reference, const Size *upper_bound, DisplayMode &dm, int *mode_index)
 {
@@ -199,8 +192,8 @@ bool find_nearest_supported_mode(const IGfxModeList &modes, const Size &wanted_s
         bool same_diff_h_higher = (diff_h == nearest_height_diff && nearest_height < wanted_size.Height);
 
         if (nearest_width == 0 ||
-            (diff_w < nearest_width_diff || same_diff_w_higher) && diff_h <= nearest_height_diff ||
-            (diff_h < nearest_height_diff || same_diff_h_higher) && diff_w <= nearest_width_diff)
+            ((diff_w < nearest_width_diff || same_diff_w_higher) && diff_h <= nearest_height_diff) ||
+            ((diff_h < nearest_height_diff || same_diff_h_higher) && diff_w <= nearest_width_diff))
         {
             nearest_width = mode.Width;
             nearest_width_diff = diff_w;
@@ -302,6 +295,8 @@ bool try_init_compatible_mode(const DisplayMode &dm, const bool match_device_rat
         Debug::Printf("Maximal allowed window size: %d x %d", device_size.Width, device_size.Height);
     DisplayMode dm_compat = dm;
 
+    std::unique_ptr<IGfxModeList> modes(gfxDriver->GetSupportedModeList(dm.ColorDepth));  // TODO: use unique_ptr when available
+
     // Windowed mode
     if (dm.Windowed)
     {
@@ -318,15 +313,15 @@ bool try_init_compatible_mode(const DisplayMode &dm, const bool match_device_rat
         // If told to find mode with aspect ratio matching current desktop resolution, then first
         // try find matching one, and if failed then try any compatible one
         bool mode_found = false;
-        if (match_device_ratio)
-            mode_found = find_nearest_supported_mode(screen_size, dm.ColorDepth, &device_size, NULL, dm_compat);
-        if (!mode_found)
-            mode_found = find_nearest_supported_mode(screen_size, dm.ColorDepth, NULL, NULL, dm_compat);
-        if (!mode_found)
+        if (modes.get())
         {
-            Debug::Printf("Could not find compatible fullscreen mode");
-            return false;
+            if (match_device_ratio)
+                mode_found = find_nearest_supported_mode(*modes.get(), screen_size, dm.ColorDepth, &device_size, nullptr, dm_compat);
+            if (!mode_found)
+                mode_found = find_nearest_supported_mode(*modes.get(), screen_size, dm.ColorDepth, nullptr, nullptr, dm_compat);
         }
+        if (!mode_found)
+            Debug::Printf("Could not find compatible fullscreen mode. Will try to force-set mode requested by user and fallback to windowed mode if that fails.");
         dm_compat.Vsync = dm.Vsync;
         dm_compat.Windowed = false;
     }
@@ -337,7 +332,7 @@ bool try_init_compatible_mode(const DisplayMode &dm, const bool match_device_rat
         // When initializing windowed mode we could start with any random window size;
         // if that did not work, try to find nearest supported mode, as with fullscreen mode,
         // except refering to max window size as an upper bound
-        if (find_nearest_supported_mode(screen_size, dm.ColorDepth, NULL, &device_size, dm_compat))
+        if (find_nearest_supported_mode(*modes.get(), screen_size, dm.ColorDepth, nullptr, &device_size, dm_compat))
         {
             dm_compat.Vsync = dm.Vsync;
             dm_compat.Windowed = true;
@@ -374,7 +369,7 @@ void log_out_driver_modes(const int color_depth)
     IGfxModeList *modes = gfxDriver->GetSupportedModeList(color_depth);
     if (!modes)
     {
-        Debug::Printf("Couldn't get a list of supported resolutions for color depth = %d", color_depth);
+        Debug::Printf(kDbgMsg_Error, "Couldn't get a list of supported resolutions for color depth = %d", color_depth);
         return;
     }
     const int mode_count = modes->GetModeCount();
@@ -488,7 +483,8 @@ bool graphics_mode_init_any(const Size game_size, const ScreenSetup &setup, cons
     const bool ignore_device_ratio = setup.DisplayMode.Windowed || scsz.SizeDef == kScreenDef_Explicit;
     GameFrameSetup gameframe = setup.DisplayMode.Windowed ? setup.WinGameFrame : setup.FsGameFrame;
     const String scale_option = make_scaling_option(gameframe);
-    Debug::Printf(kDbgMsg_Init, "Game settings: windowed = %s, screen def: %s, screen size: %d x %d, match device ratio: %s, game scale: %s",
+    Debug::Printf(kDbgMsg_Init, "Graphic settings: driver: %s, windowed: %s, screen def: %s, screen size: %d x %d, match device ratio: %s, game scale: %s",
+        setup.DriverID.GetCStr(),
         setup.DisplayMode.Windowed ? "yes" : "no", screen_sz_def_options[scsz.SizeDef],
         scsz.Size.Width, scsz.Size.Height,
         ignore_device_ratio ? "ignore" : (scsz.MatchDeviceRatio ? "yes" : "no"), scale_option.GetCStr());
@@ -497,7 +493,11 @@ bool graphics_mode_init_any(const Size game_size, const ScreenSetup &setup, cons
     // TODO: make factory & driver IDs case-insensitive!
     StringV ids;
     GetGfxDriverFactoryNames(ids);
-    StringV::iterator it = std::find(ids.begin(), ids.end(), setup.DriverID);
+    StringV::iterator it = ids.begin();
+    for (; it != ids.end(); ++it)
+    {
+        if (it->CompareNoCase(setup.DriverID) == 0) break;
+    }
     if (it != ids.end())
         std::rotate(ids.begin(), it, ids.end());
     else
@@ -672,8 +672,8 @@ void graphics_mode_shutdown()
 {
     if (GfxFactory)
         GfxFactory->Shutdown();
-    GfxFactory = NULL;
-    gfxDriver = NULL;
+    GfxFactory = nullptr;
+    gfxDriver = nullptr;
 
     // Tell Allegro that we are no longer in graphics mode
     set_gfx_mode(GFX_TEXT, 0, 0, 0, 0);

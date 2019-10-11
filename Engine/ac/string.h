@@ -19,6 +19,7 @@
 #define __AGS_EE_AC__STRING_H
 
 #include <stdarg.h>
+#include "ac/dynobj/cc_dynamicobject.h"
 
 // Check that a supplied buffer from a text script function was not null
 #define VALIDATE_STRING(strin) if ((unsigned long)strin <= 4096) quit("!String argument was null: make sure you pass a string, not an int, as a buffer")
@@ -43,8 +44,12 @@ int StrContains (const char *s1, const char *s2);
 //=============================================================================
 
 const char* CreateNewScriptString(const char *fromText, bool reAllocate = true);
-void reverse_text(char *text);
-void break_up_text_into_lines(int wii,int fonnt, const char*todis);
+DynObjectRef CreateNewScriptStringObj(const char *fromText, bool reAllocate = true);
+class SplitLines;
+// Break up the text into lines restricted by the given width;
+// returns number of lines, or 0 if text cannot be split well to fit in this width.
+// Does additional processing, like removal of voice-over tags and text reversal if right-to-left text display is on.
+size_t break_up_text_into_lines(const char *todis, SplitLines &lines, int wii, int fonnt, size_t max_lines = -1);
 void check_strlen(char*ptt);
 void my_strncpy(char *dest, const char *src, int len);
 

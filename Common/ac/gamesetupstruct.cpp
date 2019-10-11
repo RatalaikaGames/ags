@@ -12,22 +12,72 @@
 //
 //=============================================================================
 
+#include "ac/audiocliptype.h"
 #include "ac/gamesetupstruct.h"
-#include "ac/common.h"
-#include "core/asset.h"
-#include "core/assetmanager.h"
-#include "util/string_utils.h"      // fputstring, etc
-#include "util/string.h"
+#include "ac/wordsdictionary.h"
+#include "ac/dynobj/scriptaudioclip.h"
+#include "game/interactions.h"
 #include "util/alignedstream.h"
-#include "util/math.h"
 
 using namespace AGS::Common;
 
-// Assigns font info parameters using flags value read from the game data
-void SetFontInfoFromSerializedFlags(FontInfo &finfo, char flags)
+GameSetupStruct::GameSetupStruct()
+    : filever(0)
+    , roomCount(0)
+    , roomNumbers(nullptr)
+    , roomNames(nullptr)
+    , scoreClipID(0)
 {
-    finfo.Flags = flags & ~FFLG_SIZEMASK;
-    finfo.SizePt = flags &  FFLG_SIZEMASK;
+    memset(invinfo, 0, sizeof(invinfo));
+    memset(mcurs, 0, sizeof(mcurs));
+    memset(lipSyncFrameLetters, 0, sizeof(lipSyncFrameLetters));
+    memset(guid, 0, sizeof(guid));
+    memset(saveGameFileExtension, 0, sizeof(saveGameFileExtension));
+    memset(saveGameFolderName, 0, sizeof(saveGameFolderName));
+}
+
+GameSetupStruct::~GameSetupStruct()
+{
+    Free();
+}
+
+void GameSetupStruct::Free()
+{
+    GameSetupStructBase::Free();
+
+    charScripts.clear();
+    numcharacters = 0;
+    invScripts.clear();
+    numinvitems = 0;
+
+    for (int i = 0; i < roomCount; i++)
+        delete roomNames[i];
+    delete[] roomNames;
+    delete[] roomNumbers;
+    roomCount = 0;
+
+    audioClips.clear();
+    audioClipTypes.clear();
+
+    charProps.clear();
+    viewNames.clear();
+}
+
+// Assigns font info parameters using legacy flags value read from the game data
+void SetFontInfoFromLegacyFlags(FontInfo &finfo, const uint8_t data)
+{
+    finfo.Flags = (data >> 6) & 0xFF;
+    finfo.SizePt = data & FFLG_LEGACY_SIZEMASK;
+}
+
+void AdjustFontInfoUsingFlags(FontInfo &finfo, const uint32_t flags)
+{
+    finfo.Flags = flags;
+    if ((flags & FFLG_SIZEMULTIPLIER) != 0)
+    {
+        finfo.SizeMultiplier = finfo.SizePt;
+        finfo.SizePt = 0;
+    }
 }
 
 ScriptAudioClip* GetAudioClipForOldStyleNumber(GameSetupStruct &game, bool is_music, int num)
@@ -38,12 +88,12 @@ ScriptAudioClip* GetAudioClipForOldStyleNumber(GameSetupStruct &game, bool is_mu
     else
         clip_name.Format("aSound%d", num);
 
-    for (int i = 0; i < game.audioClipCount; ++i)
+    for (size_t i = 0; i < game.audioClips.size(); ++i)
     {
         if (clip_name.Compare(game.audioClips[i].scriptName) == 0)
             return &game.audioClips[i];
     }
-    return NULL;
+    return nullptr;
 }
 
 //-----------------------------------------------------------------------------
@@ -56,21 +106,35 @@ void GameSetupStruct::read_savegame_info(Common::Stream *in, GameDataVersion dat
         in->Read(&saveGameFolderName[0], MAX_SG_FOLDER_LEN);
 }
 
-void GameSetupStruct::read_font_flags(Common::Stream *in, GameDataVersion data_ver)
+void GameSetupStruct::read_font_infos(Common::Stream *in, GameDataVersion data_ver)
 {
     fonts.resize(numfonts);
-    for (int i = 0; i < numfonts; ++i)
-        SetFontInfoFromSerializedFlags(fonts[i], in->ReadInt8());
-    for (int i = 0; i < numfonts; ++i)
-        fonts[i].Outline = in->ReadInt8(); // size of char
-    if (data_ver < kGameVersion_341)
-        return;
-    // Extended font parameters
-    for (int i = 0; i < numfonts; ++i)
+    if (data_ver < kGameVersion_350)
     {
-        fonts[i].YOffset = in->ReadInt32();
-        if (data_ver >= kGameVersion_341_2)
+        for (int i = 0; i < numfonts; ++i)
+            SetFontInfoFromLegacyFlags(fonts[i], in->ReadInt8());
+        for (int i = 0; i < numfonts; ++i)
+            fonts[i].Outline = in->ReadInt8(); // size of char
+        if (data_ver < kGameVersion_341)
+            return;
+        for (int i = 0; i < numfonts; ++i)
+        {
+            fonts[i].YOffset = in->ReadInt32();
+            if (data_ver >= kGameVersion_341_2)
+                fonts[i].LineSpacing = Math::Max(0, in->ReadInt32());
+        }
+    }
+    else
+    {
+        for (int i = 0; i < numfonts; ++i)
+        {
+            uint32_t flags = in->ReadInt32();
+            fonts[i].SizePt = in->ReadInt32();
+            fonts[i].Outline = in->ReadInt32();
+            fonts[i].YOffset = in->ReadInt32();
             fonts[i].LineSpacing = Math::Max(0, in->ReadInt32());
+            AdjustFontInfoUsingFlags(fonts[i], flags);
+        }
     }
 }
 
@@ -107,23 +171,20 @@ void GameSetupStruct::read_interaction_scripts(Common::Stream *in, GameDataVersi
 {
     numGlobalVars = 0;
 
-    int bb;
-
-    charScripts = new InteractionScripts*[numcharacters];
-    invScripts = new InteractionScripts*[numinvitems];
-    for (bb = 0; bb < numcharacters; bb++) {
-        charScripts[bb] = InteractionScripts::CreateFromStream(in);
-    }
-    for (bb = 1; bb < numinvitems; bb++) {
-        invScripts[bb] = InteractionScripts::CreateFromStream(in);
-    }
+        charScripts.resize(numcharacters);
+        invScripts.resize(numinvitems);
+        for (size_t i = 0; i < (size_t)numcharacters; ++i)
+            charScripts[i].reset(InteractionScripts::CreateFromStream(in));
+        // NOTE: new inventory items' events are loaded starting from 1 for some reason
+        for (size_t i = 1; i < (size_t)numinvitems; ++i)
+            invScripts[i].reset(InteractionScripts::CreateFromStream(in));
 
 }
 
 void GameSetupStruct::read_words_dictionary(Common::Stream *in)
 {
     if (load_dictionary) {
-        dict = (WordsDictionary*)malloc(sizeof(WordsDictionary));
+        dict = new WordsDictionary();
         read_dictionary (dict, in);
     }
 }
@@ -153,7 +214,7 @@ void GameSetupStruct::WriteMouseCursors_Aligned(Stream *out)
 
 void GameSetupStruct::read_characters(Common::Stream *in, GameDataVersion data_ver)
 {
-    chars=(CharacterInfo*)calloc(1,sizeof(CharacterInfo)*numcharacters+5);
+    chars = new CharacterInfo[numcharacters + 5]; // TODO: why +5, is this really needed?
 
     ReadCharacters_Aligned(in);
 }
@@ -168,11 +229,11 @@ void GameSetupStruct::read_messages(Common::Stream *in, GameDataVersion data_ver
 {
     for (int ee=0;ee<MAXGLOBALMES;ee++) {
         if (!load_messages[ee]) continue;
-        messages[ee]=(char*)malloc(500);
-        read_string_decrypt(in, messages[ee], 500);
+        messages[ee] = new char[GLOBALMESLENGTH];
+        read_string_decrypt(in, messages[ee], GLOBALMESLENGTH);
     }
     delete [] load_messages;
-    load_messages = NULL;
+    load_messages = nullptr;
 }
 
 void GameSetupStruct::ReadCharacters_Aligned(Stream *in)
@@ -233,20 +294,18 @@ HGameFileError GameSetupStruct::read_customprops(Common::Stream *in, GameDataVer
 
 HGameFileError GameSetupStruct::read_audio(Common::Stream *in, GameDataVersion data_ver)
 {
-    audioClipTypeCount = in->ReadInt32();
-
-    audioClipTypes = (AudioClipType*)malloc(audioClipTypeCount * sizeof(AudioClipType));
-    for (int i = 0; i < audioClipTypeCount; ++i)
+    size_t audiotype_count = in->ReadInt32();
+    audioClipTypes.resize(audiotype_count);
+    for (size_t i = 0; i < audiotype_count; ++i)
     {
         audioClipTypes[i].ReadFromFile(in);
     }
 
-    audioClipCount = in->ReadInt32();
-    audioClips = (ScriptAudioClip*)malloc(audioClipCount * sizeof(ScriptAudioClip));
-    ReadAudioClips_Aligned(in);
-    
-    scoreClipID = in->ReadInt32();
+    size_t audioclip_count = in->ReadInt32();
+    audioClips.resize(audioclip_count);
+    ReadAudioClips_Aligned(in, audioclip_count);
 
+    scoreClipID = in->ReadInt32();
     return HGameFileError::None();
 }
 
@@ -259,14 +318,14 @@ void GameSetupStruct::read_room_names(Stream *in, GameDataVersion data_ver)
     if (options[OPT_DEBUGMODE] != 0)
     {
         roomCount = in->ReadInt32();
-        roomNumbers = (int*)malloc(roomCount * sizeof(int));
-        roomNames = (char**)malloc(roomCount * sizeof(char*));
+        roomNumbers = new int[roomCount];
+        roomNames = new char*[roomCount];
         String pexbuf;
         for (int bb = 0; bb < roomCount; bb++)
         {
             roomNumbers[bb] = in->ReadInt32();
             pexbuf.Read(in, STD_BUFFER_SIZE);
-            roomNames[bb] = (char*)malloc(pexbuf.GetLength() + 1);
+            roomNames[bb] = new char[pexbuf.GetLength() + 1];
             strcpy(roomNames[bb], pexbuf);
         }
     }
@@ -276,10 +335,10 @@ void GameSetupStruct::read_room_names(Stream *in, GameDataVersion data_ver)
     }
 }
 
-void GameSetupStruct::ReadAudioClips_Aligned(Common::Stream *in)
+void GameSetupStruct::ReadAudioClips_Aligned(Common::Stream *in, size_t count)
 {
     AlignedStream align_s(in, Common::kAligned_Read);
-    for (int i = 0; i < audioClipCount; ++i)
+    for (size_t i = 0; i < count; ++i)
     {
         audioClips[i].ReadFromFile(&align_s);
         align_s.Reset();
@@ -289,8 +348,6 @@ void GameSetupStruct::ReadAudioClips_Aligned(Common::Stream *in)
 void GameSetupStruct::ReadFromSaveGame_v321(Stream *in, char* gswas, ccScript* compsc, CharacterInfo* chwas,
                                        WordsDictionary *olddict, char** mesbk)
 {
-    int bb;
-
     ReadInvInfo_Aligned(in);
     ReadMouseCursors_Aligned(in);
 

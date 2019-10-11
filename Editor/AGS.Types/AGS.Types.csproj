@@ -153,6 +153,7 @@
     <Compile Include="GlobalVariable.cs" />
     <Compile Include="GlobalVariables.cs" />
     <Compile Include="GUIControlGroup.cs" />
+    <Compile Include="HelperTypes\SpriteInfo.cs" />
     <Compile Include="Interfaces\IRePopulatableComponent.cs" />
     <Compile Include="Interfaces\ILoadedRoom.cs" />
     <Compile Include="InteractionSchema.cs" />
@@ -179,6 +180,7 @@
     <Compile Include="PropertyGridExtras\CustomPropertiesUIEditor.cs" />
     <Compile Include="PropertyGridExtras\InteractionPropertyDescriptor.cs" />
     <Compile Include="PropertyGridExtras\PropertyTabInteractions.cs" />
+    <Compile Include="PropertyGridExtras\RoomMaskResolutionTypeConverter.cs" />
     <Compile Include="PropertyGridExtras\RoomMessagesUIEditor.cs" />
     <Compile Include="PropertyGridExtras\SpriteFileNameEditor.cs" />
     <Compile Include="PropertyGridExtras\SpriteSelectUIEditor.cs" />
@@ -256,6 +258,7 @@
     <Compile Include="Enums\DialogOptionsNumbering.cs" />
     <Compile Include="Enums\GameScaling.cs" />
     <Compile Include="Enums\RenderAtScreenResolution.cs" />
+    <Compile Include="Enums\RuntimeAudioDriver.cs" />
     <Compile Include="Enums\ScriptAPIVersion.cs" />
     <Compile Include="Enums\SpriteAlphaStyle.cs" />
     <Compile Include="HelperTypes\BindingListWithRemoving.cs" />

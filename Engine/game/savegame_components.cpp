@@ -14,6 +14,7 @@
 
 #include <map>
 
+#include "ac/audiocliptype.h"
 #include "ac/character.h"
 #include "ac/common.h"
 #include "ac/dialogtopic.h"
@@ -33,6 +34,7 @@
 #include "ac/dynobj/cc_serializer.h"
 #include "debug/out.h"
 #include "game/savegame_components.h"
+#include "game/savegame_internal.h"
 #include "gfx/bitmap.h"
 #include "gui/animatingguibutton.h"
 #include "gui/guibutton.h"
@@ -42,13 +44,12 @@
 #include "gui/guimain.h"
 #include "gui/guislider.h"
 #include "gui/guitextbox.h"
-#include "media/audio/audio.h"
-#include "media/audio/soundclip.h"
 #include "plugin/agsplugin.h"
 #include "plugin/plugin_engine.h"
 #include "script/cc_error.h"
 #include "script/script.h"
 #include "util/filestream.h" // TODO: needed only because plugins expect file handle
+#include "media/audio/audio_system.h"
 
 using namespace Common;
 
@@ -184,6 +185,36 @@ inline bool AssertGameObjectContent2(HSaveError &err, int new_val, int original_
 }
 
 
+void WriteCameraState(const Camera &cam, Stream *out)
+{
+    int flags = 0;
+    if (cam.IsLocked()) flags |= kSvgCamPosLocked;
+    out->WriteInt32(flags);
+    const Rect &rc = cam.GetRect();
+    out->WriteInt32(rc.Left);
+    out->WriteInt32(rc.Top);
+    out->WriteInt32(rc.GetWidth());
+    out->WriteInt32(rc.GetHeight());
+}
+
+void WriteViewportState(const Viewport &view, Stream *out)
+{
+    int flags = 0;
+    if (view.IsVisible()) flags |= kSvgViewportVisible;
+    out->WriteInt32(flags);
+    const Rect &rc = view.GetRect();
+    out->WriteInt32(rc.Left);
+    out->WriteInt32(rc.Top);
+    out->WriteInt32(rc.GetWidth());
+    out->WriteInt32(rc.GetHeight());
+    out->WriteInt32(view.GetZOrder());
+    auto cam = view.GetCamera();
+    if (cam)
+        out->WriteInt32(cam->GetID());
+    else
+        out->WriteInt32(-1);
+}
+
 HSaveError WriteGameState(PStream out)
 {
     // Game base
@@ -203,46 +234,134 @@ HSaveError WriteGameState(PStream out)
     out->WriteInt32(cur_mode);
     out->WriteInt32(cur_cursor);
     out->WriteInt32(mouse_on_iface);
-    // Viewport
-    out->WriteInt32(play.GetRoomCamera().Left);
-    out->WriteInt32(play.GetRoomCamera().Top);
+
+    // Viewports and cameras
+    int viewcam_flags = 0;
+    if (play.IsAutoRoomViewport())
+        viewcam_flags |= kSvgGameAutoRoomView;
+    out->WriteInt32(viewcam_flags);
+    out->WriteInt32(play.GetRoomCameraCount());
+    for (int i = 0; i < play.GetRoomCameraCount(); ++i)
+        WriteCameraState(*play.GetRoomCamera(i), out.get());
+    out->WriteInt32(play.GetRoomViewportCount());
+    for (int i = 0; i < play.GetRoomViewportCount(); ++i)
+        WriteViewportState(*play.GetRoomViewport(i), out.get());
+
     return HSaveError::None();
+}
+
+void ReadLegacyCameraState(Stream *in, RestoredData &r_data)
+{
+    // Precreate viewport and camera and save data in temp structs
+    int camx = in->ReadInt32();
+    int camy = in->ReadInt32();
+    play.CreateRoomCamera();
+    play.CreateRoomViewport();
+    const auto &main_view = play.GetMainViewport();
+    RestoredData::CameraData cam_dat;
+    cam_dat.ID = 0;
+    cam_dat.Left = camx;
+    cam_dat.Top = camy;
+    cam_dat.Width = main_view.GetWidth();
+    cam_dat.Height = main_view.GetHeight();
+    r_data.Cameras.push_back(cam_dat);
+    RestoredData::ViewportData view_dat;
+    view_dat.ID = 0;
+    view_dat.Width = main_view.GetWidth();
+    view_dat.Height = main_view.GetHeight();
+    view_dat.Flags = kSvgViewportVisible;
+    view_dat.CamID = 0;
+    r_data.Viewports.push_back(view_dat);
+}
+
+void ReadCameraState(RestoredData &r_data, Stream *in)
+{
+    RestoredData::CameraData cam;
+    cam.ID = r_data.Cameras.size();
+    cam.Flags = in->ReadInt32();
+    cam.Left = in->ReadInt32();
+    cam.Top = in->ReadInt32();
+    cam.Width = in->ReadInt32();
+    cam.Height = in->ReadInt32();
+    r_data.Cameras.push_back(cam);
+}
+
+void ReadViewportState(RestoredData &r_data, Stream *in)
+{
+    RestoredData::ViewportData view;
+    view.ID = r_data.Viewports.size();
+    view.Flags = in->ReadInt32();
+    view.Left = in->ReadInt32();
+    view.Top = in->ReadInt32();
+    view.Width = in->ReadInt32();
+    view.Height = in->ReadInt32();
+    view.ZOrder = in->ReadInt32();
+    view.CamID = in->ReadInt32();
+    r_data.Viewports.push_back(view);
 }
 
 HSaveError ReadGameState(PStream in, int32_t cmp_ver, const PreservedParams &pp, RestoredData &r_data)
 {
     HSaveError err;
+    GameStateSvgVersion svg_ver = (GameStateSvgVersion)cmp_ver;
     // Game base
     game.ReadFromSavegame(in);
     // Game palette
     in->ReadArray(palette, sizeof(color), 256);
 
     // Game state
-    play.ReadFromSavegame(in.get(), (GameStateSvgVersion)cmp_ver);
+    play.ReadFromSavegame(in.get(), svg_ver, r_data);
 
     // Other dynamic values
     r_data.FPS = in->ReadInt32();
-    loopcounter = in->ReadInt32();
+    set_loop_counter(in->ReadInt32());
     ifacepopped = in->ReadInt32();
     game_paused = in->ReadInt32();
     // Mouse cursor state
     r_data.CursorMode = in->ReadInt32();
     r_data.CursorID = in->ReadInt32();
     mouse_on_iface = in->ReadInt32();
-    // Viewport state
-    int camx = in->ReadInt32();
-    int camy = in->ReadInt32();
-    play.SetRoomCameraAt(camx, camy);
+
+    // Viewports and cameras
+    if (svg_ver < kGSSvgVersion_3510)
+    {
+        ReadLegacyCameraState(in.get(), r_data);
+        r_data.Cameras[0].Flags = r_data.Camera0_Flags;
+    }
+    else
+    {
+        int viewcam_flags = in->ReadInt32();
+        play.SetAutoRoomViewport((viewcam_flags & kSvgGameAutoRoomView) != 0);
+        // TODO: we create viewport and camera objects here because they are
+        // required for the managed pool deserialization, but read actual
+        // data into temp structs because we need to apply it after active
+        // room is loaded.
+        // See comments to RestoredData struct for further details.
+        int cam_count = in->ReadInt32();
+        for (int i = 0; i < cam_count; ++i)
+        {
+            play.CreateRoomCamera();
+            ReadCameraState(r_data, in.get());
+        }
+        int view_count = in->ReadInt32();
+        for (int i = 0; i < view_count; ++i)
+        {
+            play.CreateRoomViewport();
+            ReadViewportState(r_data, in.get());
+        }
+    }
     return err;
 }
 
 HSaveError WriteAudio(PStream out)
 {
+    AudioChannelsLock lock;
+
     // Game content assertion
-    out->WriteInt32(game.audioClipTypeCount);
-    out->WriteInt32(game.audioClipCount);
+    out->WriteInt32(game.audioClipTypes.size());
+    out->WriteInt32(game.audioClips.size());
     // Audio types
-    for (int i = 0; i < game.audioClipTypeCount; ++i)
+    for (size_t i = 0; i < game.audioClipTypes.size(); ++i)
     {
         game.audioClipTypes[i].WriteToSavegame(out.get());
         out->WriteInt32(play.default_audio_type_volumes[i]);
@@ -251,17 +370,18 @@ HSaveError WriteAudio(PStream out)
     // Audio clips and crossfade
     for (int i = 0; i <= MAX_SOUND_CHANNELS; i++)
     {
-        if ((channels[i] != NULL) && (channels[i]->done == 0) && (channels[i]->sourceClip != NULL))
+        auto* ch = lock.GetChannelIfPlaying(i);
+        if ((ch != nullptr) && (ch->sourceClip != nullptr))
         {
-            out->WriteInt32(((ScriptAudioClip*)channels[i]->sourceClip)->id);
-            out->WriteInt32(channels[i]->get_pos());
-            out->WriteInt32(channels[i]->priority);
-            out->WriteInt32(channels[i]->repeat ? 1 : 0);
-            out->WriteInt32(channels[i]->vol);
-            out->WriteInt32(channels[i]->panning);
-            out->WriteInt32(channels[i]->volAsPercentage);
-            out->WriteInt32(channels[i]->panningAsPercentage);
-            out->WriteInt32(channels[i]->speed);
+            out->WriteInt32(((ScriptAudioClip*)ch->sourceClip)->id);
+            out->WriteInt32(ch->get_pos());
+            out->WriteInt32(ch->priority);
+            out->WriteInt32(ch->repeat ? 1 : 0);
+            out->WriteInt32(ch->vol);
+            out->WriteInt32(ch->panning);
+            out->WriteInt32(ch->volAsPercentage);
+            out->WriteInt32(ch->panningAsPercentage);
+            out->WriteInt32(ch->get_speed());
         }
         else
         {
@@ -285,13 +405,13 @@ HSaveError ReadAudio(PStream in, int32_t cmp_ver, const PreservedParams &pp, Res
 {
     HSaveError err;
     // Game content assertion
-    if (!AssertGameContent(err, in->ReadInt32(), game.audioClipTypeCount, "Audio Clip Types"))
+    if (!AssertGameContent(err, in->ReadInt32(), game.audioClipTypes.size(), "Audio Clip Types"))
         return err;
-    if (!AssertGameContent(err, in->ReadInt32(), game.audioClipCount, "Audio Clips"))
+    if (!AssertGameContent(err, in->ReadInt32(), game.audioClips.size(), "Audio Clips"))
         return err;
 
     // Audio types
-    for (int i = 0; i < game.audioClipTypeCount; ++i)
+    for (size_t i = 0; i < game.audioClipTypes.size(); ++i)
     {
         game.audioClipTypes[i].ReadFromSavegame(in.get());
         play.default_audio_type_volumes[i] = in->ReadInt32();
@@ -632,7 +752,7 @@ HSaveError ReadDynamicSprites(PStream in, int32_t cmp_ver, const PreservedParams
     // ensure the sprite set is at least large enough
     // to accomodate top dynamic sprite index
     const int top_index = in->ReadInt32();
-    spriteset.EnlargeTo(top_index + 1);
+    spriteset.EnlargeTo(top_index);
     for (int i = 0; i < spr_count; ++i)
     {
         int id = in->ReadInt32();
@@ -675,7 +795,7 @@ HSaveError WriteDynamicSurfaces(PStream out)
     out->WriteInt32(MAX_DYNAMIC_SURFACES);
     for (int i = 0; i < MAX_DYNAMIC_SURFACES; ++i)
     {
-        if (dynamicallyCreatedSurfaces[i] == NULL)
+        if (dynamicallyCreatedSurfaces[i] == nullptr)
         {
             out->WriteInt8(0);
         }
@@ -698,7 +818,7 @@ HSaveError ReadDynamicSurfaces(PStream in, int32_t cmp_ver, const PreservedParam
     for (int i = 0; i < MAX_DYNAMIC_SURFACES; ++i)
     {
         if (in->ReadInt8() == 0)
-            r_data.DynamicSurfaces[i] = NULL;
+            r_data.DynamicSurfaces[i] = nullptr;
         else
             r_data.DynamicSurfaces[i] = read_serialized_bitmap(in.get());
     }
@@ -811,7 +931,7 @@ HSaveError WriteThisRoom(PStream out)
         if (play.raw_modified[i])
             serialize_bitmap(thisroom.BgFrames[i].Graphic.get(), out.get());
     }
-    out->WriteBool(raw_saved_screen != NULL);
+    out->WriteBool(raw_saved_screen != nullptr);
     if (raw_saved_screen)
         serialize_bitmap(raw_saved_screen, out.get());
 
@@ -860,7 +980,7 @@ HSaveError ReadThisRoom(PStream in, int32_t cmp_ver, const PreservedParams &pp, 
         if (play.raw_modified[i])
             r_data.RoomBkgScene[i].reset(read_serialized_bitmap(in.get()));
         else
-            r_data.RoomBkgScene[i] = NULL;
+            r_data.RoomBkgScene[i] = nullptr;
     }
     if (in->ReadBool())
         raw_saved_screen = read_serialized_bitmap(in.get());
@@ -909,22 +1029,26 @@ HSaveError ReadManagedPool(PStream in, int32_t cmp_ver, const PreservedParams &p
     if (ccUnserializeAllObjects(in.get(), &ccUnserializer))
     {
         return new SavegameError(kSvgErr_GameObjectInitFailed,
-            String::FromFormat("Managed pool deserialization failed: %s", ccErrorString));
+            String::FromFormat("Managed pool deserialization failed: %s", ccErrorString.GetCStr()));
     }
     return HSaveError::None();
 }
 
 HSaveError WritePluginData(PStream out)
 {
-    // [IKM] Plugins expect FILE pointer! // TODO something with this later...
-    pl_run_plugin_hooks(AGSE_SAVEGAME, (long)((Common::FileStream*)out.get())->GetHandle());
+    auto pluginFileHandle = AGSE_SAVEGAME;
+    pl_set_file_handle(pluginFileHandle, out.get());
+    pl_run_plugin_hooks(AGSE_SAVEGAME, pluginFileHandle);
+    pl_clear_file_handle();
     return HSaveError::None();
 }
 
 HSaveError ReadPluginData(PStream in, int32_t cmp_ver, const PreservedParams &pp, RestoredData &r_data)
 {
-    // [IKM] Plugins expect FILE pointer! // TODO something with this later
-    pl_run_plugin_hooks(AGSE_RESTOREGAME, (long)((Common::FileStream*)in.get())->GetHandle());
+    auto pluginFileHandle = AGSE_RESTOREGAME;
+    pl_set_file_handle(pluginFileHandle, in.get());
+    pl_run_plugin_hooks(AGSE_RESTOREGAME, pluginFileHandle);
+    pl_clear_file_handle();
     return HSaveError::None();
 }
 
@@ -944,8 +1068,8 @@ ComponentHandler ComponentHandlers[] =
 {
     {
         "Game State",
-        0,
-        0,
+        kGSSvgVersion_3510,
+        kGSSvgVersion_Initial,
         WriteGameState,
         ReadGameState
     },
@@ -1054,7 +1178,7 @@ ComponentHandler ComponentHandlers[] =
         WritePluginData,
         ReadPluginData
     },
-    { NULL, 0, NULL, NULL } // end of array
+    { nullptr, 0, 0, nullptr, nullptr } // end of array
 };
 
 
@@ -1103,10 +1227,10 @@ HSaveError ReadComponent(PStream in, SvgCmpReadHelper &hlp, ComponentInfo &info)
     if (!ReadFormatTag(in, info.Name, true))
         return new SavegameError(kSvgErr_ComponentOpeningTagFormat);
     info.Version = in->ReadInt32();
-    info.DataSize = in->ReadInt64();
+    info.DataSize = hlp.Version >= kSvgVersion_Cmp_64bit ? in->ReadInt64() : in->ReadInt32();
     info.DataOffset = in->GetPosition();
 
-    const ComponentHandler *handler = NULL;
+    const ComponentHandler *handler = nullptr;
     std::map<String, ComponentHandler>::const_iterator it_hdr = hlp.Handlers.find(info.Name);
     if (it_hdr != hlp.Handlers.end())
         handler = &it_hdr->second;

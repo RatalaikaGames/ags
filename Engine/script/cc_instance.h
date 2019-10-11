@@ -19,9 +19,8 @@
 #ifndef __CC_INSTANCE_H
 #define __CC_INSTANCE_H
 
-#include "util/stdtr1compat.h"
-#include TR1INCLUDE(memory)
-#include TR1INCLUDE(unordered_map)
+#include <memory>
+#include <unordered_map>
 
 #include "script/script_common.h"
 #include "script/cc_script.h"  // ccScript
@@ -108,13 +107,16 @@ struct ccInstance
 {
 public:
     // TODO: change to std:: if moved to C++11
-    typedef stdtr1compat::unordered_map<int32_t, ScriptVariable> ScVarMap;
-    typedef stdtr1compat::shared_ptr<ScVarMap>                   PScVarMap;
+    typedef std::unordered_map<int32_t, ScriptVariable> ScVarMap;
+    typedef std::shared_ptr<ScVarMap>                   PScVarMap;
 public:
     int32_t flags;
     PScVarMap globalvars;
     char *globaldata;
     int32_t globaldatasize;
+    // Executed byte-code. Unlike ccScript's code array which is int32_t, the one
+    // in ccInstance must be intptr_t to accomodate real pointers placed after
+    // performing fixups.
     intptr_t *code;
     ccInstance *runningInst;  // might point to another instance if in far call
     int32_t codesize;
@@ -155,30 +157,28 @@ public:
 
     ccInstance();
     ~ccInstance();
-    // create a runnable instance of the same script, sharing global memory
+    // Create a runnable instance of the same script, sharing global memory
     ccInstance *Fork();
-    // specifies that when the current function returns to the script, it
+    // Specifies that when the current function returns to the script, it
     // will stop and return from CallInstance
     void    Abort();
-    // aborts instance, then frees the memory later when it is done with
+    // Aborts instance, then frees the memory later when it is done with
     void    AbortAndDestroy();
     
-    // call an exported function in the script (2nd arg is number of params)
+    // Call an exported function in the script
     int     CallScriptFunction(const char *funcname, int32_t num_params, const RuntimeScriptValue *params);
-    bool    DoRunScriptFuncCantBlock(NonBlockingScriptFunction* funcToRun, bool hasTheFunc);
-    int     PrepareTextScript(const char **tsname);
+    // Begin executing script starting from the given bytecode index
     int     Run(int32_t curpc);
-    int     RunScriptFunctionIfExists(const char *tsname, int numParam, const RuntimeScriptValue *params);
-    int     RunTextScript(const char *tsname);
-    int     RunTextScriptIParam(const char *tsname, const RuntimeScriptValue &iparam);
-    int     RunTextScript2IParam(const char *tsname, const RuntimeScriptValue &iparam, const RuntimeScriptValue &param2);
     
-    void    GetCallStack(char *buffer, int maxLines);
-    void    GetScriptName(char *curScrName);
+    // Get the script's execution position and callstack as human-readable text
+    Common::String GetCallStack(int maxLines);
+    // Get the script's execution position
     void    GetScriptPosition(ScriptPosition &script_pos);
-    // get the address of an exported variable in the script
+    // Get the address of an exported symbol (function or variable) in the script
     RuntimeScriptValue GetSymbolAddress(const char *symname);
     void    DumpInstruction(const ScriptOperation &op);
+    // Tells whether this instance is in the process of executing the byte-code
+    bool    IsBeingRun() const;
 
 protected:
     bool    _Create(PScript scri, ccInstance * joined);

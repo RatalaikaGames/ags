@@ -19,8 +19,7 @@
 #ifndef __AGS_EE_GFX__ALI3DOGL_H
 #define __AGS_EE_GFX__ALI3DOGL_H
 
-#include "util/stdtr1compat.h"
-#include TR1INCLUDE(memory)
+#include <memory>
 #include "gfx/bitmap.h"
 #include "gfx/ddb.h"
 #include "gfx/gfxdriverfactorybase.h"
@@ -65,16 +64,16 @@ class OGLBitmap : public VideoMemDDB
 public:
     // Transparency is a bit counter-intuitive
     // 0=not transparent, 255=invisible, 1..254 barely visible .. mostly visible
-    virtual void SetTransparency(int transparency) { _transparency = transparency; }
-    virtual void SetFlippedLeftRight(bool isFlipped) { _flipped = isFlipped; }
-    virtual void SetStretch(int width, int height, bool useResampler = true)
+    void SetTransparency(int transparency) override { _transparency = transparency; }
+    void SetFlippedLeftRight(bool isFlipped) override { _flipped = isFlipped; }
+    void SetStretch(int width, int height, bool useResampler = true) override
     {
         _stretchToWidth = width;
         _stretchToHeight = height;
         _useResampler = useResampler;
     }
-    virtual void SetLightLevel(int lightLevel)  { _lightLevel = lightLevel; }
-    virtual void SetTint(int red, int green, int blue, int tintSaturation) 
+    void SetLightLevel(int lightLevel) override  { _lightLevel = lightLevel; }
+    void SetTint(int red, int green, int blue, int tintSaturation) override 
     {
         _red = red;
         _green = green;
@@ -104,12 +103,13 @@ public:
         _stretchToWidth = 0;
         _stretchToHeight = 0;
         _useResampler = false;
+        _red = _green = _blue = 0;
         _tintSaturation = 0;
         _lightLevel = 0;
         _transparency = 0;
         _opaque = opaque;
-        _vertex = NULL;
-        _tiles = NULL;
+        _vertex = nullptr;
+        _tiles = nullptr;
         _numTiles = 0;
     }
 
@@ -118,7 +118,7 @@ public:
 
     void Dispose();
 
-    ~OGLBitmap()
+    ~OGLBitmap() override
     {
         Dispose();
     }
@@ -130,6 +130,8 @@ struct OGLSpriteBatch
 {
     // List of sprites to render
     std::vector<OGLDrawListEntry> List;
+    // Clipping viewport
+    Rect Viewport;
     // Transformation matrix, built from the batch description
     GLMATRIX Matrix;
 };
@@ -144,12 +146,12 @@ public:
     {
     }
 
-    virtual int GetModeCount() const
+    int GetModeCount() const override
     {
         return _modes.size();
     }
 
-    virtual bool GetMode(int index, DisplayMode &mode) const
+    bool GetMode(int index, DisplayMode &mode) const override
     {
         if (index >= 0 && (size_t)index < _modes.size())
         {
@@ -169,52 +171,53 @@ class OGLGfxFilter;
 class OGLGraphicsDriver : public VideoMemoryGraphicsDriver
 {
 public:
-    virtual const char*GetDriverName() { return "OpenGL"; }
-    virtual const char*GetDriverID() { return "OGL"; }
-    virtual void SetTintMethod(TintMethod method);
-    virtual bool SetDisplayMode(const DisplayMode &mode, volatile int *loopTimer);
-    virtual bool SetNativeSize(const Size &src_size);
-    virtual bool SetRenderFrame(const Rect &dst_rect);
-    virtual int GetDisplayDepthForNativeDepth(int native_color_depth) const;
-    virtual IGfxModeList *GetSupportedModeList(int color_depth);
-    virtual bool IsModeSupported(const DisplayMode &mode);
-    virtual PGfxFilter GetGraphicsFilter() const;
-    virtual void UnInit();
-    virtual void ClearRectangle(int x1, int y1, int x2, int y2, RGB *colorToUse);
-    virtual int  GetCompatibleBitmapFormat(int color_depth);
-    virtual IDriverDependantBitmap* CreateDDBFromBitmap(Bitmap *bitmap, bool hasAlpha, bool opaque);
-    virtual void UpdateDDBFromBitmap(IDriverDependantBitmap* bitmapToUpdate, Bitmap *bitmap, bool hasAlpha);
-    virtual void DestroyDDB(IDriverDependantBitmap* bitmap);
-    virtual void DrawSprite(int x, int y, IDriverDependantBitmap* bitmap);
-    virtual void RenderToBackBuffer();
-    virtual void Render();
-    virtual void Render(GlobalFlipType flip);
-    virtual void GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_native_res);
-    virtual void EnableVsyncBeforeRender(bool enabled) { }
-    virtual void Vsync();
-    virtual void RenderSpritesAtScreenResolution(bool enabled, int supersampling);
-    virtual void FadeOut(int speed, int targetColourRed, int targetColourGreen, int targetColourBlue);
-    virtual void FadeIn(int speed, PALETTE p, int targetColourRed, int targetColourGreen, int targetColourBlue);
-    virtual void BoxOutEffect(bool blackingOut, int speed, int delay);
-    virtual bool PlayVideo(const char *filename, bool useSound, VideoSkipType skipType, bool stretchToFullScreen);
-    virtual bool SupportsGammaControl();
-    virtual void SetGamma(int newGamma);
-    virtual void UseSmoothScaling(bool enabled) { _smoothScaling = enabled; }
-    virtual bool RequiresFullRedrawEachFrame() { return true; }
-    virtual bool HasAcceleratedTransform() { return true; }
-    virtual void SetScreenTint(int red, int green, int blue);
+    const char*GetDriverName() override { return "OpenGL"; }
+    const char*GetDriverID() override { return "OGL"; }
+    void SetTintMethod(TintMethod method) override;
+    bool SetDisplayMode(const DisplayMode &mode, volatile int *loopTimer) override;
+    bool SetNativeSize(const Size &src_size) override;
+    bool SetRenderFrame(const Rect &dst_rect) override;
+    int GetDisplayDepthForNativeDepth(int native_color_depth) const override;
+    IGfxModeList *GetSupportedModeList(int color_depth) override;
+    bool IsModeSupported(const DisplayMode &mode) override;
+    PGfxFilter GetGraphicsFilter() const override;
+    void UnInit();
+    // Clears the screen rectangle. The coordinates are expected in the **native game resolution**.
+    void ClearRectangle(int x1, int y1, int x2, int y2, RGB *colorToUse) override;
+    int  GetCompatibleBitmapFormat(int color_depth) override;
+    IDriverDependantBitmap* CreateDDBFromBitmap(Bitmap *bitmap, bool hasAlpha, bool opaque) override;
+    void UpdateDDBFromBitmap(IDriverDependantBitmap* bitmapToUpdate, Bitmap *bitmap, bool hasAlpha) override;
+    void DestroyDDB(IDriverDependantBitmap* bitmap) override;
+    void DrawSprite(int x, int y, IDriverDependantBitmap* bitmap) override;
+    void RenderToBackBuffer() override;
+    void Render() override;
+    void Render(int xoff, int yoff, GlobalFlipType flip) override;
+    bool GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_native_res, GraphicResolution *want_fmt) override;
+    void EnableVsyncBeforeRender(bool enabled) override { }
+    void Vsync() override;
+    void RenderSpritesAtScreenResolution(bool enabled, int supersampling) override;
+    void FadeOut(int speed, int targetColourRed, int targetColourGreen, int targetColourBlue) override;
+    void FadeIn(int speed, PALETTE p, int targetColourRed, int targetColourGreen, int targetColourBlue) override;
+    void BoxOutEffect(bool blackingOut, int speed, int delay) override;
+    bool SupportsGammaControl() override;
+    void SetGamma(int newGamma) override;
+    void UseSmoothScaling(bool enabled) override { _smoothScaling = enabled; }
+    bool RequiresFullRedrawEachFrame() override { return true; }
+    bool HasAcceleratedTransform() override { return true; }
+    void SetScreenFade(int red, int green, int blue) override;
+    void SetScreenTint(int red, int green, int blue) override;
 
-    typedef stdtr1compat::shared_ptr<OGLGfxFilter> POGLFilter;
+    typedef std::shared_ptr<OGLGfxFilter> POGLFilter;
 
     void SetGraphicsFilter(POGLFilter filter);
 
     OGLGraphicsDriver();
-    virtual ~OGLGraphicsDriver();
+    ~OGLGraphicsDriver() override;
 
 private:
     POGLFilter _filter;
 
-#if defined (WINDOWS_VERSION)
+#if AGS_PLATFORM_OS_WINDOWS
     HDC _hDC;
     HGLRC _hRC;
     HWND _hWnd;
@@ -222,9 +225,11 @@ private:
     GLuint _oldPixelFormat;
     PIXELFORMATDESCRIPTOR _oldPixelFormatDesc;
 #endif
-    Version _oglVersion;
+#if AGS_PLATFORM_OS_LINUX
+    bool _have_window;
+    GLXContext _glxContext;
+#endif
     bool _firstTimeInit;
-    int _tint_red, _tint_green, _tint_blue;
     // Position of backbuffer texture in world space
     GLfloat _backbuffer_vertices[8];
     // Relative position of source image on the backbuffer texture,
@@ -234,23 +239,19 @@ private:
     String previousError;
     bool _smoothScaling;
     bool _legacyPixelShader;
-    // shader program and its variable references
+    // Shader program and its variable references;
+    // the variables are rather specific for AGS use (sprite tinting).
     struct ShaderProgram
     {
         GLuint Program;
-        GLuint SamplerVar;
-        GLuint ColorVar;
-        GLuint AuxVar;
+        GLuint SamplerVar;      // texture ID
+        GLuint ColorVar;        // primary operation variable
+        GLuint AuxVar;          // auxiliary variable
 
         ShaderProgram();
     };
     ShaderProgram _tintShader;
     ShaderProgram _lightShader;
-
-    // TODO: find a way to have this tint sprite in the normal sprite list (or use shader instead!)
-    Bitmap *_screenTintLayer;
-    OGLBitmap* _screenTintLayerDDB;
-    OGLDrawListEntry _screenTintSprite;
 
     int device_screen_physical_width;
     int device_screen_physical_height;
@@ -275,14 +276,13 @@ private:
     Size _backTextureSize;
 
     OGLSpriteBatches _spriteBatches;
-    GlobalFlipType flipTypeLastTime;
     // TODO: these draw list backups are needed only for the fade-in/out effects
     // find out if it's possible to reimplement these effects in main drawing routine.
     SpriteBatchDescs _backupBatchDescs;
     OGLSpriteBatches _backupBatches;
 
-    virtual void InitSpriteBatch(size_t index, const SpriteBatchDesc &desc);
-    virtual void ResetAllBatches();
+    void InitSpriteBatch(size_t index, const SpriteBatchDesc &desc) override;
+    void ResetAllBatches() override;
 
     // Sets up GL objects not related to particular display mode
     void FirstTimeInit();
@@ -293,8 +293,6 @@ private:
     // Sets up general rendering parameters
     void InitGlParams(const DisplayMode &mode);
     void SetupDefaultVertices();
-    // Test if swap interval (used for vsync) is supported
-    void TestVSync();
     // Test if rendering to texture is supported
     void TestRenderToTexture();
     // Test if supersampling should be allowed with the current setup
@@ -310,9 +308,9 @@ private:
     // Configure backbuffer texture, that is used in render-to-texture mode
     void SetupBackbufferTexture();
     void DeleteBackbufferTexture();
-#if defined (WINDOWS_VERSION)
+#if AGS_PLATFORM_OS_WINDOWS || AGS_PLATFORM_OS_LINUX
     void CreateDesktopScreen(int width, int height, int depth);
-#elif defined (ANDROID_VERSION) || defined (IOS_VERSION)
+#elif AGS_PLATFORM_OS_ANDROID || AGS_PLATFORM_OS_IOS
     void UpdateDeviceScreen();
 #endif
     // Unset parameters and release resources related to the display mode
@@ -321,8 +319,7 @@ private:
     void UpdateTextureRegion(OGLTextureTile *tile, Bitmap *bitmap, OGLBitmap *target, bool hasAlpha);
     void CreateVirtualScreen();
     void do_fade(bool fadingOut, int speed, int targetColourRed, int targetColourGreen, int targetColourBlue);
-    void create_screen_tint_bitmap();
-    void _renderSprite(const OGLDrawListEntry *entry, const GLMATRIX &matGlobal, bool globalLeftRightFlip, bool globalTopBottomFlip);
+    void _renderSprite(const OGLDrawListEntry *entry, const GLMATRIX &matGlobal);
     void SetupViewport();
     // Converts rectangle in top->down coordinates into OpenGL's native bottom->up coordinates
     Rect ConvertTopDownRect(const Rect &top_down_rect, int surface_height);
@@ -333,9 +330,9 @@ private:
     void RestoreDrawLists();
     // Deletes draw list backups
     void ClearDrawBackups();
-    void _render(GlobalFlipType flip, bool clearDrawListAfterwards);
-    void RenderSpriteBatches(GlobalFlipType flip);
-    void RenderSpriteBatch(const OGLSpriteBatch &batch, GlobalFlipType flip);
+    void _render(bool clearDrawListAfterwards);
+    void RenderSpriteBatches();
+    void RenderSpriteBatch(const OGLSpriteBatch &batch);
     void _reDrawLastFrame();
 };
 
@@ -343,17 +340,17 @@ private:
 class OGLGraphicsFactory : public GfxDriverFactoryBase<OGLGraphicsDriver, OGLGfxFilter>
 {
 public:
-    virtual ~OGLGraphicsFactory();
+    ~OGLGraphicsFactory() override;
 
-    virtual size_t               GetFilterCount() const;
-    virtual const GfxFilterInfo *GetFilterInfo(size_t index) const;
-    virtual String               GetDefaultFilterID() const;
+    size_t               GetFilterCount() const override;
+    const GfxFilterInfo *GetFilterInfo(size_t index) const override;
+    String               GetDefaultFilterID() const override;
 
     static OGLGraphicsFactory   *GetFactory();
 
 private:
-    virtual OGLGraphicsDriver   *EnsureDriverCreated();
-    virtual OGLGfxFilter        *CreateFilter(const String &id);
+    OGLGraphicsDriver   *EnsureDriverCreated() override;
+    OGLGfxFilter        *CreateFilter(const String &id) override;
 
     static OGLGraphicsFactory *_factory;
 };

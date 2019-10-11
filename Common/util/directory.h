@@ -18,14 +18,8 @@
 #ifndef __AGS_CN_UTIL__DIRECTORY_H
 #define __AGS_CN_UTIL__DIRECTORY_H
 
+#include "core/platform.h"
 #include "util/string.h"
-
-#if defined (WINDOWS_VERSION)
-// undef the declarations from winbase.h
-#undef CreateDirectory
-#undef SetCurrentDirectory
-#undef GetCurrentDirectory
-#endif
 
 namespace AGS
 {
@@ -36,6 +30,9 @@ namespace Directory
 {
     // Creates new directory (if it does not exist)
     bool   CreateDirectory(const String &path);
+    // Makes sure all directories in the path are created. Parent path is
+    // not touched, and function must fail if parent path is not accessible.
+    bool   CreateAllDirectories(const String &parent, const String &path);
     // Sets current working directory, returns the resulting path
     String SetCurrentDirectory(const String &path);
     // Gets current working directory

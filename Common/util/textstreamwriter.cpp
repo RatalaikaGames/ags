@@ -14,6 +14,7 @@
 
 #include <stdarg.h>
 #include <stdio.h> // sprintf
+#include "core/platform.h"
 #include "util/textstreamwriter.h"
 #include "util/stream.h"
 
@@ -22,7 +23,7 @@ namespace AGS
 namespace Common
 {
 
-#if defined (WINDOWS_VERSION)
+#if AGS_PLATFORM_OS_WINDOWS
 static const char Endl[2] = {'\r', '\n'};
 #else
 static const char Endl[1] = {'\n'};
@@ -52,7 +53,7 @@ const Stream *TextStreamWriter::GetStream() const
 
 void TextStreamWriter::ReleaseStream()
 {
-    _stream = NULL;
+    _stream = nullptr;
 }
 
 bool TextStreamWriter::EOS() const
@@ -100,7 +101,7 @@ void TextStreamWriter::WriteFormat(const char *fmt, ...)
 
     va_list argptr;
     va_start(argptr, fmt);
-    int need_length = vsnprintf(NULL, 0, fmt, argptr);
+    int need_length = vsnprintf(nullptr, 0, fmt, argptr);
     va_start(argptr, fmt); // Reset argptr
     char *buffer    = new char[need_length + 1];
     vsprintf(buffer, fmt, argptr);

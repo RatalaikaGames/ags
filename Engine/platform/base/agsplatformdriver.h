@@ -55,7 +55,7 @@ struct AGSPlatformDriver
     : public AGS::Common::IOutputHandler
 {
     virtual void AboutToQuitGame();
-    virtual void Delay(int millis) = 0;
+    virtual void Delay(int millis);
     virtual void DisplayAlert(const char*, ...) = 0;
     virtual int  GetLastSystemError() { return errno; }
     // Get root directory for storing per-game shared data
@@ -82,7 +82,7 @@ struct AGSPlatformDriver
     virtual const char* GetAllegroFailUserHint();
     virtual eScriptSystemOSID GetSystemOSID() = 0;
     virtual void GetSystemTime(ScriptDateTime*);
-    virtual void PlayVideo(const char* name, int skip, int flags) = 0;
+    virtual void PlayVideo(const char* name, int skip, int flags);
     virtual void InitialiseAbufAtStartup();
     virtual void PostAllegroInit(bool windowed);
     virtual void PostAllegroExit() = 0;
@@ -92,6 +92,9 @@ struct AGSPlatformDriver
     // Formats message and writes to standard platform's output;
     // Always adds trailing '\n' after formatted string
     virtual void WriteStdOut(const char *fmt, ...);
+    // Formats message and writes to platform's error output;
+    // Always adds trailing '\n' after formatted string
+    virtual void WriteStdErr(const char *fmt, ...);
     virtual void YieldCPU();
     // Called when the game window is being switch out from
     virtual void DisplaySwitchOut();
@@ -122,12 +125,28 @@ struct AGSPlatformDriver
     virtual void UnlockMouse();
 
     static AGSPlatformDriver *GetDriver();
+    // Set whether PrintMessage should output to stdout or stderr
+    static void SetOutputToErr(bool on) { _logToStdErr = on; }
+    // Set whether DisplayAlert is allowed to show modal GUIs on some systems;
+    // it will print to either stdout or stderr otherwise, depending on above flag
+    static void SetGUIMode(bool on) { _guiMode = on; }
 
     //-----------------------------------------------
     // IOutputHandler implementation
     //-----------------------------------------------
     // Writes to the standard platform's output, prepending "AGS: " prefix to the message
-    virtual void PrintMessage(const AGS::Common::DebugMessage &msg);
+    void PrintMessage(const AGS::Common::DebugMessage &msg) override;
+
+protected:
+    // TODO: this is a quick solution for IOutputHandler implementation
+    // logging either to stdout or stderr. Normally there should be
+    // separate implementation, one for each kind of output, but
+    // with both going through PlatformDriver need to figure a better
+    // design first.
+    static bool _logToStdErr;
+    // Defines whether engine is allowed to display important warnings
+    // and errors by showing a message box kind of GUI.
+    static bool _guiMode;
 
 private:
     static AGSPlatformDriver *instance;

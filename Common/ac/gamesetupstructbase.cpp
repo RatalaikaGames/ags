@@ -12,41 +12,106 @@
 //
 //=============================================================================
 
+#include "ac/characterinfo.h"
 #include "ac/gamesetupstructbase.h"
 #include "ac/game_version.h"
+#include "ac/wordsdictionary.h"
+#include "script/cc_script.h"
 #include "util/stream.h"
 
 using AGS::Common::Stream;
 
 GameSetupStructBase::GameSetupStructBase()
-    : dict(NULL)
-    , globalscript(NULL)
-    , chars(NULL)
-    , CompiledScript(NULL)
-    , load_messages(NULL)
+    : numviews(0)
+    , numcharacters(0)
+    , playercharacter(-1)
+    , totalscore(0)
+    , numinvitems(0)
+    , numdialog(0)
+    , numdlgmessage(0)
+    , numfonts(0)
+    , color_depth(0)
+    , target_win(0)
+    , dialog_bullet(0)
+    , hotdot(0)
+    , hotdotouter(0)
+    , uniqueid(0)
+    , numgui(0)
+    , numcursors(0)
+    , default_lipsync_frame(0)
+    , invhotdotsprite(0)
+    , dict(nullptr)
+    , globalscript(nullptr)
+    , chars(nullptr)
+    , CompiledScript(nullptr)
+    , load_messages(nullptr)
     , load_dictionary(false)
     , load_compiled_script(false)
+    , _resolutionType(kGameResolution_Undefined)
 {
+    memset(gamename, 0, sizeof(gamename));
+    memset(options, 0, sizeof(options));
+    memset(paluses, 0, sizeof(paluses));
+    memset(defpal, 0, sizeof(defpal));
+    memset(reserved, 0, sizeof(reserved));
     memset(messages, 0, sizeof(messages));
 }
 
 GameSetupStructBase::~GameSetupStructBase()
 {
-    delete [] load_messages;
+    Free();
 }
 
-void GameSetupStructBase::SetDefaultResolution(GameResolutionType resolution_type)
+void GameSetupStructBase::Free()
 {
-    default_resolution = resolution_type;
-    size = ResolutionTypeToSize(default_resolution, IsLegacyLetterbox());
-    altsize = ResolutionTypeToSize(default_resolution, false);
+    for (int i = 0; i < MAXGLOBALMES; ++i)
+    {
+        delete[] messages[i];
+        messages[i] = nullptr;
+    }
+    delete[] load_messages;
+    load_messages = nullptr;
+    delete dict;
+    dict = nullptr;
+    delete globalscript;
+    globalscript = nullptr;
+    delete CompiledScript;
+    CompiledScript = nullptr;
+    delete[] chars;
+    chars = nullptr;
 }
 
-void GameSetupStructBase::SetCustomResolution(Size game_res)
+void GameSetupStructBase::SetNativeResolution(GameResolutionType type, Size game_res)
 {
-    default_resolution = kGameResolution_Custom;
-    size = game_res;
-    altsize = size;
+    if (type == kGameResolution_Custom)
+    {
+        _resolutionType = kGameResolution_Custom;
+        _gameResolution = game_res;
+        _letterboxSize = _gameResolution;
+    }
+    else
+    {
+        _resolutionType = type;
+        _gameResolution = ResolutionTypeToSize(_resolutionType, IsLegacyLetterbox());
+        _letterboxSize = ResolutionTypeToSize(_resolutionType, false);
+    }
+}
+
+void GameSetupStructBase::SetGameResolution(GameResolutionType type)
+{
+    SetNativeResolution(type, Size());
+    OnResolutionSet();
+}
+
+void GameSetupStructBase::SetGameResolution(Size game_res)
+{
+    SetNativeResolution(kGameResolution_Custom, game_res);
+    OnResolutionSet();
+}
+
+void GameSetupStructBase::OnResolutionSet()
+{
+    _relativeUIMult = 1; // NOTE: this is remains of old logic, currently unused.
 }
 
 void GameSetupStructBase::ReadFromFile(Stream *in)
@@ -80,15 +145,17 @@ void GameSetupStructBase::ReadFromFile(Stream *in)
     numcursors = in->ReadInt32();
     GameResolutionType resolution_type = (GameResolutionType)in->ReadInt32();
     // CLNUP get rid of resolution_type
-    if (resolution_type == kGameResolution_Custom && loaded_game_file_version >= kGameVersion_331)
+    Size game_size;
+    if (resolution_type == kGameResolution_Custom && loaded_game_file_version >= kGameVersion_330)
     {
-        Size game_size;
         game_size.Width = in->ReadInt32();
         game_size.Height = in->ReadInt32();
-        SetCustomResolution(game_size);
+        SetGameResolution(game_size);
     }
     else
-        SetDefaultResolution(resolution_type);
+    {
+        SetGameResolution(resolution_type);
+    }
 
     default_lipsync_frame = in->ReadInt32();
     invhotdotsprite = in->ReadInt32();
@@ -127,11 +194,11 @@ void GameSetupStructBase::WriteToFile(Stream *out)
     out->WriteInt32(uniqueid);
     out->WriteInt32(numgui);
     out->WriteInt32(numcursors);
-    out->WriteInt32(default_resolution);
-    if (default_resolution == kGameResolution_Custom)
+    out->WriteInt32(_resolutionType);
+    if (_resolutionType == kGameResolution_Custom)
     {
-        out->WriteInt32(size.Width);
-        out->WriteInt32(size.Height);
+        out->WriteInt32(_gameResolution.Width);
+        out->WriteInt32(_gameResolution.Height);
     }
     out->WriteInt32(default_lipsync_frame);
     out->WriteInt32(invhotdotsprite);

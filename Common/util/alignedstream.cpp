@@ -14,7 +14,6 @@
 
 #include "debug/assert.h"
 #include "util/alignedstream.h"
-#include "util/stream.h"
 #include "util/math.h"
 
 namespace AGS
@@ -34,7 +33,7 @@ AlignedStream::AlignedStream(Stream *stream, AlignedStreamMode mode, ObjectOwner
 
 AlignedStream::~AlignedStream()
 {
-    Close();
+    AlignedStream::Close();
 }
 
 void AlignedStream::Reset()
@@ -290,12 +289,10 @@ size_t AlignedStream::WriteArrayOfInt64(const int64_t *buffer, size_t count)
     return 0;
 }
 
-soff_t AlignedStream::Seek(soff_t offset, StreamSeek origin)
+bool AlignedStream::Seek(soff_t offset, StreamSeek origin)
 {
     // TODO: split out Seekable Stream interface
-    assert(false); // aligned stream should not be used in cases
-                   // where Seek() is required to be called
-    return GetPosition();
+    return false;
 }
 
 void AlignedStream::ReadPadding(size_t next_type)

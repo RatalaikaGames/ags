@@ -13,39 +13,49 @@
 //=============================================================================
 
 #include <algorithm>
-#include <stdlib.h>
 #include <string.h>
 #include "ac/wordsdictionary.h"
-#include "ac/common.h"
-#include "ac/common_defines.h"
-#include "util/string_utils.h"
 #include "util/stream.h"
+#include "util/string_compat.h"
 
 using AGS::Common::Stream;
+
+WordsDictionary::WordsDictionary()
+    : num_words(0)
+    , word(nullptr)
+    , wordnum(nullptr)
+{
+}
+
+WordsDictionary::~WordsDictionary()
+{
+    free_memory();
+}
 
 void WordsDictionary::allocate_memory(int wordCount)
 {
     num_words = wordCount;
     if (num_words > 0)
     {
-        word = (char**)malloc(wordCount * sizeof(char*));
-        word[0] = (char*)malloc(wordCount * MAX_PARSER_WORD_LENGTH);
-        wordnum = (short*)malloc(wordCount * sizeof(short));
+        word = new char*[wordCount];
+        word[0] = new char[wordCount * MAX_PARSER_WORD_LENGTH];
+        wordnum = new short[wordCount];
         for (int i = 1; i < wordCount; i++)
         {
             word[i] = word[0] + MAX_PARSER_WORD_LENGTH * i;
         }
     }
 }
+
 void WordsDictionary::free_memory()
 {
     if (num_words > 0)
     {
-        free(word[0]);
-        free(word);
-        free(wordnum);
-        word = NULL;
-        wordnum = NULL;
+        delete [] word[0];
+        delete [] word;
+        delete [] wordnum;
+        word = nullptr;
+        wordnum = nullptr;
         num_words = 0;
     }
 }
@@ -54,7 +64,7 @@ void WordsDictionary::sort () {
     int aa, bb;
     for (aa = 0; aa < num_words; aa++) {
         for (bb = aa + 1; bb < num_words; bb++) {
-            if (((wordnum[aa] == wordnum[bb]) && (stricmp(word[aa], word[bb]) > 0))
+            if (((wordnum[aa] == wordnum[bb]) && (ags_stricmp(word[aa], word[bb]) > 0))
                 || (wordnum[aa] > wordnum[bb])) {
                     short temp = wordnum[aa];
                     char tempst[30];
@@ -73,7 +83,7 @@ void WordsDictionary::sort () {
 int WordsDictionary::find_index (const char*wrem) {
     int aa;
     for (aa = 0; aa < num_words; aa++) {
-        if (stricmp (wrem, word[aa]) == 0)
+        if (ags_stricmp (wrem, word[aa]) == 0)
             return aa;
     }
     return -1;
@@ -117,11 +127,14 @@ void read_dictionary (WordsDictionary *dict, Stream *out) {
   }
 }
 
+#if defined (OBSOLETE)
+// TODO: not a part of wordsdictionary, move to obsoletes
 void freadmissout(short *pptr, Stream *in) {
   in->ReadArrayOfInt16(&pptr[0], 5);
   in->ReadArrayOfInt16(&pptr[7], NUM_CONDIT - 7);
   pptr[5] = pptr[6] = 0;
 }
+#endif
 
 void encrypt_text(char *toenc) {
   int adx = 0, tobreak = 0;
@@ -143,7 +156,7 @@ void write_string_encrypt(Stream *out, const char *s) {
   int stlent = (int)strlen(s) + 1;
 
   out->WriteInt32(stlent);
-  char *enc = strdup(s);
+  char *enc = ags_strdup(s);
   encrypt_text(enc);
   out->WriteArray(enc, stlent, 1);
   free(enc);

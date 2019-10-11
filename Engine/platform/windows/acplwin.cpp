@@ -12,9 +12,9 @@
 //
 //=============================================================================
 
-#ifndef WINDOWS_VERSION
-#error This file should only be included on the Windows build
-#endif
+#include "core/platform.h"
+
+#if AGS_PLATFORM_OS_WINDOWS
 
 // ********* WINDOWS *********
 
@@ -32,13 +32,20 @@
 #include "gfx/graphicsdriver.h"
 #include "gfx/bitmap.h"
 #include "main/engine.h"
-#include "media/audio/audio.h"
 #include "platform/base/agsplatformdriver.h"
 #include "platform/windows/setup/winsetup.h"
 #include "plugin/agsplugin.h"
 #include "util/file.h"
 #include "util/stream.h"
-#include "util/string_utils.h"
+#include "util/string_compat.h"
+#include "media/audio/audio_system.h"
+
+#ifndef AGS_NO_VIDEO_PLAYER
+extern void dxmedia_abort_video();
+extern void dxmedia_pause_video();
+extern void dxmedia_resume_video();
+extern char lastError[200];
+#endif
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -48,7 +55,6 @@ extern GameSetup usetup;
 extern int our_eip;
 extern IGraphicsDriver *gfxDriver;
 extern color palette[256];
-extern Bitmap *virtual_screen;
 
 #include <shlobj.h>
 #include <time.h>
@@ -85,17 +91,12 @@ String win32OutputDirectory;
 
 const unsigned int win32TimerPeriod = 1;
 
-extern void dxmedia_abort_video();
-extern void dxmedia_pause_video();
-extern void dxmedia_resume_video();
-extern char lastError[200];
 extern SetupReturnValue acwsetup(const ConfigTree &cfg_in, ConfigTree &cfg_out, const String &game_data_dir, const char*, const char*);
 
 struct AGSWin32 : AGSPlatformDriver {
   AGSWin32();
 
   virtual void AboutToQuitGame() override;
-  virtual void Delay(int millis) override;
   virtual void DisplayAlert(const char*, ...) override;
   virtual int  GetLastSystemError() override;
   virtual const char *GetAllUsersDataDirectory() override;
@@ -110,12 +111,12 @@ struct AGSWin32 : AGSPlatformDriver {
   virtual bool IsMouseControlSupported(bool windowed) override;
   virtual const char* GetAllegroFailUserHint() override;
   virtual eScriptSystemOSID GetSystemOSID() override;
-  virtual void PlayVideo(const char* name, int skip, int flags) override;
   virtual void PostAllegroInit(bool windowed) override;
   virtual void PostAllegroExit() override;
   virtual SetupReturnValue RunSetup(const ConfigTree &cfg_in, ConfigTree &cfg_out) override;
   virtual void SetGameWindowIcon() override;
   virtual void WriteStdOut(const char *fmt, ...) override;
+  virtual void WriteStdErr(const char *fmt, ...) override;
   virtual void DisplaySwitchOut() override;
   virtual void DisplaySwitchIn() override;
   virtual void PauseApplication() override;
@@ -131,6 +132,11 @@ struct AGSWin32 : AGSPlatformDriver {
   virtual void ValidateWindowSize(int &x, int &y, bool borderless) const override;
   virtual bool LockMouseToWindow() override;
   virtual void UnlockMouse() override;
+
+#ifndef AGS_NO_VIDEO_PLAYER
+  virtual void PlayVideo(const char* name, int skip, int flags);
+#endif
+
 
 private:
   void add_game_to_game_explorer(IGameExplorer* pFwGameExplorer, GUID *guid, const char *guidAsText, bool allUsers);
@@ -289,7 +295,7 @@ void AGSWin32::add_tasks_for_game(const char *guidAsText, const char *gameEXE, c
   // Remove any existing "Play.lnk" from a previous version
   char shortcutLocation[MAX_PATH];
   sprintf(shortcutLocation, "%s\\Play.lnk", pathBuffer);
-  unlink(shortcutLocation);
+  ::remove(shortcutLocation);
 
   // Generate the shortcut file name (because it can appear on
   // the start menu's Recent area)
@@ -371,7 +377,7 @@ void delete_files_in_directory(const char *directoryName, const char *fileMask)
   al_ffblk dfb;
   int	dun = al_findfirst(srchBuffer, &dfb, FA_SEARCH);
   while (!dun) {
-    unlink(dfb.name);
+    ::remove(dfb.name);
     dun = al_findnext(&dfb);
   }
   al_findclose(&dfb);
@@ -399,7 +405,7 @@ void AGSWin32::update_game_explorer(bool add)
   }
   else 
   {
-    strupr(game.guid);
+    ags_strupr(game.guid);
     WCHAR wstrTemp[MAX_PATH] = {0};
     GUID guid = GUID_NULL;
     MultiByteToWideChar(CP_ACP, 0, game.guid, MAX_GUID_LENGTH, wstrTemp, MAX_GUID_LENGTH);
@@ -727,12 +733,16 @@ void AGSWin32::DisplaySwitchIn() {
 
 void AGSWin32::PauseApplication()
 {
-    dxmedia_pause_video();
+#ifndef AGS_NO_VIDEO_PLAYER
+  dxmedia_pause_video();
+#endif
 }
 
 void AGSWin32::ResumeApplication()
 {
-    dxmedia_resume_video();
+#ifndef AGS_NO_VIDEO_PLAYER
+  dxmedia_resume_video();
+#endif
 }
 
 void AGSWin32::GetSystemDisplayModes(std::vector<DisplayMode> &dms)
@@ -809,27 +819,17 @@ void AGSWin32::DisplayAlert(const char *text, ...) {
   va_start(ap, text);
   vsprintf(displbuf, text, ap);
   va_end(ap);
-  MessageBox(win_get_window(), displbuf, "Adventure Game Studio", MB_OK | MB_ICONEXCLAMATION);
+  if (_guiMode)
+    MessageBox(win_get_window(), displbuf, "Adventure Game Studio", MB_OK | MB_ICONEXCLAMATION);
+  else if (_logToStdErr)
+    AGSWin32::WriteStdErr("%s", displbuf);
+  else
+    AGSWin32::WriteStdOut("%s", displbuf);
 }
 
 int AGSWin32::GetLastSystemError()
 {
   return ::GetLastError();
-}
-
-void AGSWin32::Delay(int millis) 
-{
-  while (millis >= 5)
-  {
-    Sleep(5);
-    millis -= 5;
-    // don't allow it to check for debug messages, since this Delay()
-    // call might be from within a debugger polling loop
-    update_polled_mp3();
-  }
-
-  if (millis > 0)
-    Sleep(millis);
 }
 
 unsigned long AGSWin32::GetDiskFreeSpaceMB() {
@@ -875,10 +875,12 @@ eScriptSystemOSID AGSWin32::GetSystemOSID() {
   return eOS_Win;
 }
 
+#ifndef AGS_NO_VIDEO_PLAYER
+
 void AGSWin32::PlayVideo(const char *name, int skip, int flags) {
 
   char useloc[250];
-  sprintf(useloc,"%s\\%s",usetup.data_files_dir.GetCStr(), name);
+  sprintf(useloc, "%s\\%s", ResPaths.DataDir.GetCStr(), name);
 
   bool useSound = true;
   if (flags >= 10) {
@@ -913,19 +915,22 @@ void AGSWin32::PlayVideo(const char *name, int skip, int flags) {
 
   if (useSound)
   {
-    if (opts.mod_player)
-      reserve_voices(NUM_DIGI_VOICES, -1);
+    // Restore sound system
     install_sound(usetup.digicard,usetup.midicard,NULL);
-    if (opts.mod_player)
+    if (usetup.mod_player)
       init_mod_player(NUM_MOD_DIGI_VOICES);
   }
 
   set_palette_range(palette, 0, 255, 0);
 }
 
+#endif
+
 void AGSWin32::AboutToQuitGame() 
 {
+#ifndef AGS_NO_VIDEO_PLAYER
   dxmedia_abort_video();
+#endif
 }
 
 void AGSWin32::PostAllegroExit() {
@@ -959,6 +964,26 @@ void AGSWin32::WriteStdOut(const char *fmt, ...) {
   {
     vprintf(fmt, ap);
     printf("\n");
+  }
+  va_end(ap);
+}
+
+void AGSWin32::WriteStdErr(const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  if (_isDebuggerPresent)
+  {
+    // Add "AGS:" prefix when outputting to debugger, to make it clear that this
+    // is a text from the program log
+    char buf[STD_BUFFER_SIZE] = "AGS ERR: ";
+    vsnprintf(buf + 9, STD_BUFFER_SIZE - 9, fmt, ap);
+    OutputDebugString(buf);
+    OutputDebugString("\n");
+  }
+  else
+  {
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
   }
   va_end(ap);
 }
@@ -1038,22 +1063,21 @@ HWND IAGSEngine::GetWindowHandle () {
 }
 LPDIRECTDRAW2 IAGSEngine::GetDirectDraw2 () {
   if (directdraw == NULL)
-    quit("!This plugin is not compatible with the Direct3D driver.");
+    quit("!This plugin requires DirectDraw based graphics driver (software driver).");
 
   return directdraw;
 }
 LPDIRECTDRAWSURFACE2 IAGSEngine::GetBitmapSurface (BITMAP *bmp) 
 {
   if (directdraw == NULL)
-    quit("!This plugin is not compatible with the Direct3D driver.");
+    quit("!This plugin requires DirectDraw based graphics driver (software driver).");
 
   BMP_EXTRA_INFO *bei = (BMP_EXTRA_INFO*)bmp->extra;
 
-  if (bmp == virtual_screen->GetAllegroBitmap())
+  if (bmp == gfxDriver->GetMemoryBackBuffer()->GetAllegroBitmap())
     invalidate_screen();
 
   return bei->surf;
-  //return get_bitmap_surface2 (bmp);
 }
 
 LPDIRECTSOUND IAGSEngine::GetDirectSound() {
@@ -1067,3 +1091,6 @@ LPDIRECTINPUTDEVICE IAGSEngine::GetDirectInputKeyboard() {
 LPDIRECTINPUTDEVICE IAGSEngine::GetDirectInputMouse() {
   return mouse_dinput_device;
 }
+
+
+#endif

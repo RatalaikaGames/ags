@@ -16,8 +16,15 @@
 //
 //=============================================================================
 
+#include "core/platform.h"
+
+#if AGS_PLATFORM_OS_WINDOWS
+
+#include "platform/windows/gfx/ali3dd3d.h"
+
 #include <allegro.h>
 #include <allegro/platform/aintwin.h>
+#include "ac/timer.h"
 #include "debug/assert.h"
 #include "debug/out.h"
 #include "gfx/ali3dexception.h"
@@ -26,13 +33,14 @@
 #include "gfx/gfx_util.h"
 #include "main/main_allegro.h"
 #include "platform/base/agsplatformdriver.h"
-#include "platform/windows/gfx/ali3dd3d.h"
 #include "util/library.h"
 
-using namespace AGS::Common;
-
+#ifndef AGS_NO_VIDEO_PLAYER
 extern int dxmedia_play_video_3d(const char*filename, IDirect3DDevice9 *device, bool useAVISound, int canskip, int stretch);
 extern void dxmedia_shutdown_3d();
+#endif
+
+using namespace AGS::Common;
 
 // Necessary to update textures from 8-bit bitmaps
 extern RGB palette[256];
@@ -87,15 +95,29 @@ void MatrixMultiply(D3DMATRIX &mr, const D3DMATRIX &m1, const D3DMATRIX &m2)
 void MatrixTransform2D(D3DMATRIX &m, float x, float y, float sx, float sy, float anglez)
 {
     D3DMATRIX translate;
-    D3DMATRIX scale;
     D3DMATRIX rotate;
+    D3DMATRIX scale;
     MatrixTranslate(translate, x, y, 0.f);
-    MatrixScale(scale, sx, sy, 1.f);
     MatrixRotateZ(rotate, anglez);
+    MatrixScale(scale, sx, sy, 1.f);
 
     D3DMATRIX tr1;
-    MatrixMultiply(tr1, rotate, scale);
+    MatrixMultiply(tr1, scale, rotate);
     MatrixMultiply(m, tr1, translate);
+}
+// Setup inverse 2D transformation matrix
+void MatrixTransformInverse2D(D3DMATRIX &m, float x, float y, float sx, float sy, float anglez)
+{
+    D3DMATRIX translate;
+    D3DMATRIX rotate;
+    D3DMATRIX scale;
+    MatrixTranslate(translate, x, y, 0.f);
+    MatrixRotateZ(rotate, anglez);
+    MatrixScale(scale, sx, sy, 1.f);
+
+    D3DMATRIX tr1;
+    MatrixMultiply(tr1, translate, rotate);
+    MatrixMultiply(m, tr1, scale);
 }
 
 
@@ -242,14 +264,6 @@ D3DGraphicsDriver::D3DGraphicsDriver(IDirect3D9 *d3d)
   direct3d = d3d;
   direct3ddevice = NULL;
   vertexbuffer = NULL;
-  _tint_red = 0;
-  _tint_green = 0;
-  _tint_blue = 0;
-  _screenTintLayer = NULL;
-  _screenTintLayerDDB = NULL;
-  _screenTintSprite.skip = true;
-  _screenTintSprite.x = 0;
-  _screenTintSprite.y = 0;
   pixelShader = NULL;
   _legacyPixelShader = false;
   set_up_default_vertices();
@@ -259,7 +273,6 @@ D3DGraphicsDriver::D3DGraphicsDriver(IDirect3D9 *d3d)
   _pixelRenderXOffset = 0;
   _pixelRenderYOffset = 0;
   _renderSprAtScreenRes = false;
-  flipTypeLastTime = kFlip_None;
 
   // Shifts comply to D3DFMT_A8R8G8B8
   _vmem_a_shift_32 = 24;
@@ -268,7 +281,7 @@ D3DGraphicsDriver::D3DGraphicsDriver(IDirect3D9 *d3d)
   _vmem_b_shift_32 = 0;
 
   // Initialize default sprite batch, it will be used when no other batch was activated
-  InitSpriteBatch(0, _spriteBatchDesc[0]);
+  D3DGraphicsDriver::InitSpriteBatch(0, _spriteBatchDesc[0]);
 }
 
 void D3DGraphicsDriver::set_up_default_vertices()
@@ -337,20 +350,9 @@ void D3DGraphicsDriver::ReleaseDisplayMode()
     return;
 
   OnModeReleased();
-
   ClearDrawLists();
   ClearDrawBackups();
-  flipTypeLastTime = kFlip_None;
-
-  if (_screenTintLayerDDB != NULL) 
-  {
-    this->DestroyDDB(_screenTintLayerDDB);
-    _screenTintLayerDDB = NULL;
-    _screenTintSprite.bitmap = NULL;
-  }
-  delete _screenTintLayer;
-  _screenTintLayer = NULL;
-
+  DestroyFxPool();
   DestroyAllStageScreens();
 
   gfx_driver = NULL;
@@ -678,9 +680,10 @@ int D3DGraphicsDriver::_initDLLCallback(const DisplayMode &mode)
   d3dpp.Flags = D3DPRESENTFLAG_LOCKABLE_BACKBUFFER; // we need this flag to access the backbuffer with lockrect
   d3dpp.FullScreen_RefreshRateInHz = D3DPRESENT_RATE_DEFAULT;
   if(mode.Vsync)
-    d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_DEFAULT;
+    d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_ONE;
   else
     d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
+
   /* If full screen, specify the refresh rate */
   if ((d3dpp.Windowed == FALSE) && (mode.RefreshRate > 0))
     d3dpp.FullScreen_RefreshRateInHz = mode.RefreshRate;
@@ -798,10 +801,15 @@ void D3DGraphicsDriver::SetupViewport()
   if (!IsModeSet() || !IsRenderFrameValid() || !IsNativeSizeValid())
     return;
 
+  const float src_width = _srcRect.GetWidth();
+  const float src_height = _srcRect.GetHeight();
+  const float disp_width = _mode.Width;
+  const float disp_height = _mode.Height;
+
   // Setup orthographic projection matrix
   D3DMATRIX matOrtho = {
-    (2.0 / (float)_srcRect.GetWidth()), 0.0, 0.0, 0.0,
-    0.0, (2.0 / (float)_srcRect.GetHeight()), 0.0, 0.0,
+    (2.0f / src_width), 0.0, 0.0, 0.0,
+    0.0, (2.0f / src_height), 0.0, 0.0,
     0.0, 0.0, 0.0, 0.0,
     0.0, 0.0, 0.0, 1.0
   };
@@ -819,11 +827,11 @@ void D3DGraphicsDriver::SetupViewport()
 
   // See "Directly Mapping Texels to Pixels" MSDN article for why this is necessary
   // http://msdn.microsoft.com/en-us/library/windows/desktop/bb219690.aspx
-  _pixelRenderXOffset = ((float)_srcRect.GetWidth() / (float)_mode.Width) / 2.0f;
-  _pixelRenderYOffset = ((float)_srcRect.GetHeight() / (float)_mode.Height) / 2.0f;
+  _pixelRenderXOffset = (src_width / disp_width) / 2.0f;
+  _pixelRenderYOffset = (src_height / disp_height) / 2.0f;
 
   // Clear the screen before setting a viewport.
-  ClearRectangle(0, 0, _mode.Width, _mode.Height, 0);
+  ClearScreenRect(RectWH(0, 0, _mode.Width, _mode.Height), nullptr);
 
   // Set Viewport.
   D3DVIEWPORT9 d3dViewport;
@@ -846,9 +854,6 @@ void D3DGraphicsDriver::SetGraphicsFilter(PD3DFilter filter)
 {
   _filter = filter;
   OnSetFilter();
-  // Creating ddbs references filter properties at some point,
-  // so we have to redo this part of initialization here.
-  create_screen_tint_bitmap();
 }
 
 void D3DGraphicsDriver::SetTintMethod(TintMethod method) 
@@ -880,7 +885,6 @@ bool D3DGraphicsDriver::SetDisplayMode(const DisplayMode &mode, volatile int *lo
   OnModeSet(mode);
   InitializeD3DState();
   CreateVirtualScreen();
-  create_screen_tint_bitmap();
   return true;
 }
 
@@ -911,7 +915,8 @@ void D3DGraphicsDriver::CreateVirtualScreen()
 
   // create initial stage screen for plugin raw drawing
   _stageVirtualScreen = CreateStageScreen(0, _srcRect.GetSize());
-  BitmapHelper::SetScreenBitmap(_stageVirtualScreen.get());
+  // we must set Allegro's screen pointer to **something**
+  screen = (BITMAP*)_stageVirtualScreen->GetAllegroBitmap();
 }
 
 HRESULT D3DGraphicsDriver::ResetD3DDevice()
@@ -969,7 +974,9 @@ void D3DGraphicsDriver::UnInit()
   OnUnInit();
   ReleaseDisplayMode();
 
+#ifndef AGS_NO_VIDEO_PLAYER
   dxmedia_shutdown_3d();
+#endif
 
   if (pNativeSurface)
   {
@@ -998,7 +1005,7 @@ void D3DGraphicsDriver::UnInit()
 
 D3DGraphicsDriver::~D3DGraphicsDriver()
 {
-  UnInit();
+  D3DGraphicsDriver::UnInit();
 
   if (direct3d)
     direct3d->Release();
@@ -1007,8 +1014,14 @@ D3DGraphicsDriver::~D3DGraphicsDriver()
 void D3DGraphicsDriver::ClearRectangle(int x1, int y1, int x2, int y2, RGB *colorToUse)
 {
   // NOTE: this function is practically useless at the moment, because D3D redraws whole game frame each time
+  if (!direct3ddevice) return;
   Rect r(x1, y1, x2, y2);
   r = _scaling.ScaleRange(r);
+  ClearScreenRect(r, colorToUse);
+}
+
+void D3DGraphicsDriver::ClearScreenRect(const Rect &r, RGB *colorToUse)
+{
   D3DRECT rectToClear;
   rectToClear.x1 = r.Left;
   rectToClear.y1 = r.Top;
@@ -1017,27 +1030,29 @@ void D3DGraphicsDriver::ClearRectangle(int x1, int y1, int x2, int y2, RGB *colo
   DWORD colorDword = 0;
   if (colorToUse != NULL)
     colorDword = D3DCOLOR_XRGB(colorToUse->r, colorToUse->g, colorToUse->b);
-
   direct3ddevice->Clear(1, &rectToClear, D3DCLEAR_TARGET, colorDword, 0.5f, 0);
 }
 
-void D3DGraphicsDriver::GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_native_res)
+bool D3DGraphicsDriver::GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_native_res, GraphicResolution *want_fmt)
 {
-  D3DDISPLAYMODE displayMode;
-  direct3ddevice->GetDisplayMode(0, &displayMode);
-
+  // Currently don't support copying in screen resolution when we are rendering in native
+  if (!_renderSprAtScreenRes)
+      at_native_res = true;
+  Size need_size = at_native_res ? _srcRect.GetSize() : _dstRect.GetSize();
+  if (destination->GetColorDepth() != _mode.ColorDepth || destination->GetSize() != need_size)
+  {
+    if (want_fmt)
+      *want_fmt = GraphicResolution(need_size.Width, need_size.Height, _mode.ColorDepth);
+    return false;
+  }
   // If we are rendering sprites at the screen resolution, and requested native res,
   // re-render last frame to the native surface
   if (at_native_res && _renderSprAtScreenRes)
   {
     _renderSprAtScreenRes = false;
     _reDrawLastFrame();
-    _render(flipTypeLastTime, true);
+    _render(true);
     _renderSprAtScreenRes = true;
-  }
-  else if (!_renderSprAtScreenRes)
-  {
-    at_native_res = true;
   }
   
   IDirect3DSurface9* surface = NULL;
@@ -1058,24 +1073,13 @@ void D3DGraphicsDriver::GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_n
     if (_pollingCallback)
       _pollingCallback();
 
-    Bitmap *retrieveInto = destination;
-    if (at_native_res)
-    {
-        retrieveInto = BitmapHelper::CreateBitmap(_srcRect.GetWidth(), _srcRect.GetHeight(), d3d_format_to_color_depth(displayMode.Format, false));
-    }
-    else if ((_srcRect.GetWidth() != _dstRect.GetWidth()) ||
-        (_srcRect.GetHeight() != _dstRect.GetHeight()))
-    {
-        retrieveInto = BitmapHelper::CreateBitmap(_dstRect.GetWidth(), _dstRect.GetHeight(), _mode.ColorDepth);
-    }
-
     D3DLOCKED_RECT lockedRect;
     if (surface->LockRect(&lockedRect, (at_native_res ? NULL : &viewport_rect), D3DLOCK_READONLY ) != D3D_OK)
     {
       throw Ali3DException("IDirect3DSurface9::LockRect failed");
     }
 
-    BitmapHelper::ReadPixelsFromMemory(retrieveInto, (uint8_t*)lockedRect.pBits, lockedRect.Pitch);
+    BitmapHelper::ReadPixelsFromMemory(destination, (uint8_t*)lockedRect.pBits, lockedRect.Pitch);
 
     surface->UnlockRect();
     if (!at_native_res) // native surface is released elsewhere
@@ -1083,17 +1087,8 @@ void D3DGraphicsDriver::GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_n
 
     if (_pollingCallback)
       _pollingCallback();
-
-    if (retrieveInto != destination)
-    {
-      destination->StretchBlt(retrieveInto, RectWH(0, 0, retrieveInto->GetWidth(), retrieveInto->GetHeight()),
-                   RectWH(0, 0, destination->GetWidth(), destination->GetHeight()));
-      delete retrieveInto;
-
-      if (_pollingCallback)
-        _pollingCallback();
-    }
   }
+  return true;
 }
 
 void D3DGraphicsDriver::RenderToBackBuffer()
@@ -1103,17 +1098,17 @@ void D3DGraphicsDriver::RenderToBackBuffer()
 
 void D3DGraphicsDriver::Render()
 {
-  Render(kFlip_None);
+  Render(0, 0, kFlip_None);
 }
 
-void D3DGraphicsDriver::Render(GlobalFlipType flip)
+void D3DGraphicsDriver::Render(int /*xoff*/, int /*yoff*/, GlobalFlipType /*flip*/)
 {
   if (wnd_call_proc(wnd_reset_device))
   {
     throw Ali3DFullscreenLostException();
   }
 
-  _renderAndPresent(flip, true);
+  _renderAndPresent(true);
 }
 
 void D3DGraphicsDriver::_reDrawLastFrame()
@@ -1121,7 +1116,7 @@ void D3DGraphicsDriver::_reDrawLastFrame()
   RestoreDrawLists();
 }
 
-void D3DGraphicsDriver::_renderSprite(const D3DDrawListEntry *drawListEntry, const D3DMATRIX &matGlobal, bool globalLeftRightFlip, bool globalTopBottomFlip)
+void D3DGraphicsDriver::_renderSprite(const D3DDrawListEntry *drawListEntry, const D3DMATRIX &matGlobal)
 {
   HRESULT hr;
   D3DBitmap *bmpToDraw = drawListEntry->bitmap;
@@ -1234,10 +1229,8 @@ void D3DGraphicsDriver::_renderSprite(const D3DDrawListEntry *drawListEntry, con
   float height = bmpToDraw->GetHeightToRender();
   float xProportion = width / (float)bmpToDraw->_width;
   float yProportion = height / (float)bmpToDraw->_height;
-
-  bool  flipLeftToRight = globalLeftRightFlip ^ bmpToDraw->_flipped;
-  float drawAtX = drawListEntry->x + _globalViewOff.X;
-  float drawAtY = drawListEntry->y + _globalViewOff.Y;
+  float drawAtX = drawListEntry->x;
+  float drawAtY = drawListEntry->y;
 
   for (int ti = 0; ti < bmpToDraw->_numTiles; ti++)
   {
@@ -1245,44 +1238,25 @@ void D3DGraphicsDriver::_renderSprite(const D3DDrawListEntry *drawListEntry, con
     height = bmpToDraw->_tiles[ti].height * yProportion;
     float xOffs;
     float yOffs = bmpToDraw->_tiles[ti].y * yProportion;
-    if (flipLeftToRight != globalLeftRightFlip)
-    {
+    if (bmpToDraw->_flipped)
       xOffs = (bmpToDraw->_width - (bmpToDraw->_tiles[ti].x + bmpToDraw->_tiles[ti].width)) * xProportion;
-    }
     else
-    {
       xOffs = bmpToDraw->_tiles[ti].x * xProportion;
-    }
     float thisX = drawAtX + xOffs;
     float thisY = drawAtY + yOffs;
-
-    if (globalLeftRightFlip)
-    {
-      thisX = (_srcRect.GetWidth() - thisX) - width;
-    }
-    if (globalTopBottomFlip) 
-    {
-      thisY = (_srcRect.GetHeight() - thisY) - height;
-    }
-
     thisX = (-(_srcRect.GetWidth() / 2)) + thisX;
     thisY = (_srcRect.GetHeight() / 2) - thisY;
 
     //Setup translation and scaling matrices
     float widthToScale = (float)width;
     float heightToScale = (float)height;
-    if (flipLeftToRight)
+    if (bmpToDraw->_flipped)
     {
       // The usual transform changes 0..1 into 0..width
       // So first negate it (which changes 0..w into -w..0)
       widthToScale = -widthToScale;
       // and now shift it over to make it 0..w again
       thisX += width;
-    }
-    if (globalTopBottomFlip) 
-    {
-      heightToScale = -heightToScale;
-      thisY -= height;
     }
 
     // Multiply object's own and global matrixes
@@ -1318,13 +1292,13 @@ void D3DGraphicsDriver::_renderSprite(const D3DDrawListEntry *drawListEntry, con
   }
 }
 
-void D3DGraphicsDriver::_renderAndPresent(GlobalFlipType flip, bool clearDrawListAfterwards)
+void D3DGraphicsDriver::_renderAndPresent(bool clearDrawListAfterwards)
 {
-  _render(flip, clearDrawListAfterwards);
+  _render(clearDrawListAfterwards);
   direct3ddevice->Present(NULL, NULL, NULL, NULL);
 }
 
-void D3DGraphicsDriver::_render(GlobalFlipType flip, bool clearDrawListAfterwards)
+void D3DGraphicsDriver::_render(bool clearDrawListAfterwards)
 {
   IDirect3DSurface9 *pBackBuffer = NULL;
 
@@ -1352,7 +1326,7 @@ void D3DGraphicsDriver::_render(GlobalFlipType flip, bool clearDrawListAfterward
   direct3ddevice->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
   direct3ddevice->SetSamplerState(0, D3DSAMP_ADDRESSW, D3DTADDRESS_CLAMP);
 
-  RenderSpriteBatches(flip);
+  RenderSpriteBatches();
 
   direct3ddevice->EndScene();
 
@@ -1379,17 +1353,17 @@ void D3DGraphicsDriver::_render(GlobalFlipType flip, bool clearDrawListAfterward
   if (clearDrawListAfterwards)
   {
     BackupDrawLists();
-    flipTypeLastTime = flip;
     ClearDrawLists();
   }
+  ResetFxPool();
 }
 
-void D3DGraphicsDriver::RenderSpriteBatches(GlobalFlipType flip)
+void D3DGraphicsDriver::RenderSpriteBatches()
 {
     // Render all the sprite batches with necessary transformations
     for (size_t i = 0; i <= _actSpriteBatch; ++i)
     {
-        const Rect &viewport = _spriteBatchDesc[i].Viewport;
+        const Rect &viewport = _spriteBatches[i].Viewport;
         const D3DSpriteBatch &batch = _spriteBatches[i];
         if (!viewport.IsEmpty())
         {
@@ -1416,21 +1390,15 @@ void D3DGraphicsDriver::RenderSpriteBatches(GlobalFlipType flip)
             direct3ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
         }
         _stageVirtualScreen = GetStageScreen(i);
-        RenderSpriteBatch(batch, flip);
+        RenderSpriteBatch(batch);
     }
 
+    _stageVirtualScreen = GetStageScreen(0);
     direct3ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
-    if (!_screenTintSprite.skip)
-    {
-        this->_renderSprite(&_screenTintSprite, _spriteBatches[_actSpriteBatch].Matrix, false, false);
-    }
 }
 
-void D3DGraphicsDriver::RenderSpriteBatch(const D3DSpriteBatch &batch, GlobalFlipType flip)
+void D3DGraphicsDriver::RenderSpriteBatch(const D3DSpriteBatch &batch)
 {
-  bool globalLeftRightFlip = (flip == kFlip_Vertical) || (flip == kFlip_Both);
-  bool globalTopBottomFlip = (flip == kFlip_Horizontal) || (flip == kFlip_Both);
-
   D3DDrawListEntry stageEntry; // raw-draw plugin support
 
   const std::vector<D3DDrawListEntry> &listToDraw = batch.List;
@@ -1449,7 +1417,7 @@ void D3DGraphicsDriver::RenderSpriteBatch(const D3DSpriteBatch &batch, GlobalFli
       sprite = &stageEntry;
     }
 
-    this->_renderSprite(sprite, batch.Matrix, globalLeftRightFlip, globalTopBottomFlip);
+    this->_renderSprite(sprite, batch.Matrix);
   }
 }
 
@@ -1458,19 +1426,48 @@ void D3DGraphicsDriver::InitSpriteBatch(size_t index, const SpriteBatchDesc &des
     if (_spriteBatches.size() <= index)
         _spriteBatches.resize(index + 1);
     _spriteBatches[index].List.clear();
+
+    Rect viewport = desc.Viewport;
     // Combine both world transform and viewport transform into one matrix for faster perfomance
+    D3DMATRIX matRoomToViewport, matViewport, matViewportFinal;
+    // IMPORTANT: while the sprites are usually transformed in the order of Scale-Rotate-Translate,
+    // the camera's transformation is essentially reverse world transformation. And the operations
+    // are inverse: Translate-Rotate-Scale
+    MatrixTransformInverse2D(matRoomToViewport,
+        desc.Transform.X, -(desc.Transform.Y),
+        desc.Transform.ScaleX, desc.Transform.ScaleY, desc.Transform.Rotate);
+    // Next step is translate to viewport position; remove this if this is
+    // changed to a separate operation at some point
     // TODO: find out if this is an optimal way to translate scaled room into Top-Left screen coordinates
     float scaled_offx = (_srcRect.GetWidth() - desc.Transform.ScaleX * (float)_srcRect.GetWidth()) / 2.f;
     float scaled_offy = (_srcRect.GetHeight() - desc.Transform.ScaleY * (float)_srcRect.GetHeight()) / 2.f;
-    // TODO: correct offsets to have pre-scale (source) and post-scale (dest) offsets!
-    // is it possible to do with matrixes?
-    MatrixTransform2D(_spriteBatches[index].Matrix,
-        desc.Transform.X + desc.Viewport.Left - scaled_offx, -(desc.Transform.Y + desc.Viewport.Top - scaled_offy),
-        desc.Transform.ScaleX, desc.Transform.ScaleY, desc.Transform.Rotate);
+    MatrixTranslate(matViewport, viewport.Left - scaled_offx, -(viewport.Top - scaled_offy), 0.f);
+    MatrixMultiply(matViewportFinal, matRoomToViewport, matViewport);
+
+    // Then apply global node transformation (flip and offset)
+    int node_tx = desc.Offset.X, node_ty = desc.Offset.Y;
+    float node_sx = 1.f, node_sy = 1.f;
+    if ((desc.Flip == kFlip_Vertical) || (desc.Flip == kFlip_Both))
+    {
+        int left = _srcRect.GetWidth() - (viewport.Right + 1);
+        viewport.MoveToX(left);
+        node_sx = -1.f;
+    }
+    if ((desc.Flip == kFlip_Horizontal) || (desc.Flip == kFlip_Both))
+    {
+        int top = _srcRect.GetHeight() - (viewport.Bottom + 1);
+        viewport.MoveToY(top);
+        node_sy = -1.f;
+    }
+    viewport = Rect::MoveBy(viewport, node_tx, node_ty);
+    D3DMATRIX matFlip;
+    MatrixTransform2D(matFlip, node_tx, -(node_ty), node_sx, node_sy, 0.f);
+    MatrixMultiply(_spriteBatches[index].Matrix, matViewportFinal, matFlip);
+    _spriteBatches[index].Viewport = viewport;
 
     // create stage screen for plugin raw drawing
-    int src_w = desc.Viewport.GetWidth() / desc.Transform.ScaleX;
-    int src_h = desc.Viewport.GetHeight() / desc.Transform.ScaleY;
+    int src_w = viewport.GetWidth() / desc.Transform.ScaleX;
+    int src_h = viewport.GetHeight() / desc.Transform.ScaleY;
     CreateStageScreen(index, Size(src_w, src_h));
 }
 
@@ -1542,7 +1539,10 @@ void D3DGraphicsDriver::UpdateTextureRegion(D3DTextureTile *tile, Bitmap *bitmap
   bool usingLinearFiltering = _filter->NeedToColourEdgeLines();
   char *memPtr = (char*)lockedRegion.pBits;
 
-  BitmapToVideoMem(bitmap, hasAlpha, tile, target, memPtr, lockedRegion.Pitch, usingLinearFiltering);
+  if (target->_opaque)
+    BitmapToVideoMemOpaque(bitmap, hasAlpha, tile, target, memPtr, lockedRegion.Pitch);
+  else
+    BitmapToVideoMem(bitmap, hasAlpha, tile, target, memPtr, lockedRegion.Pitch, usingLinearFiltering);
 
   newTexture->UnlockRect(0);
 }
@@ -1685,6 +1685,7 @@ IDriverDependantBitmap* D3DGraphicsDriver::CreateDDBFromBitmap(Bitmap *bitmap, b
 
      if (hr != D3D_OK) 
      {
+        free(tiles);
         char errorMessage[200];
         sprintf(errorMessage, "Direct3DDevice9::CreateVertexBuffer(Length=%d) for texture failed: error code %08X", vertexBufferSize, hr);
         throw Ali3DException(errorMessage);
@@ -1692,6 +1693,7 @@ IDriverDependantBitmap* D3DGraphicsDriver::CreateDDBFromBitmap(Bitmap *bitmap, b
 
      if (ddb->_vertex->Lock(0, 0, (void**)&vertices, D3DLOCK_DISCARD) != D3D_OK)
      {
+       free(tiles);
        throw Ali3DException("Failed to lock vertex buffer");
      }
   }
@@ -1768,22 +1770,25 @@ IDriverDependantBitmap* D3DGraphicsDriver::CreateDDBFromBitmap(Bitmap *bitmap, b
 
 void D3DGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, int targetColourGreen, int targetColourBlue)
 {
+  // Construct scene in order: game screen, fade fx, post game overlay
+  // NOTE: please keep in mind: redrawing last saved frame here instead of constructing new one
+  // is done because of backwards-compatibility issue: originally AGS faded out using frame
+  // drawn before the script that triggers blocking fade (e.g. instigated by ChangeRoom).
+  // Unfortunately some existing games were changing looks of the screen during same function,
+  // but these were not supposed to get on screen until before fade-in.
   if (fadingOut)
-  {
     this->_reDrawLastFrame();
-  }
   else if (_drawScreenCallback != NULL)
     _drawScreenCallback();
-  
   Bitmap *blackSquare = BitmapHelper::CreateBitmap(16, 16, 32);
   blackSquare->Clear(makecol32(targetColourRed, targetColourGreen, targetColourBlue));
-  IDriverDependantBitmap *d3db = this->CreateDDBFromBitmap(blackSquare, false, false);
+  IDriverDependantBitmap *d3db = this->CreateDDBFromBitmap(blackSquare, false, true);
   delete blackSquare;
-
   BeginSpriteBatch(_srcRect, SpriteTransform());
   d3db->SetStretch(_srcRect.GetWidth(), _srcRect.GetHeight(), false);
-  // NOTE: what happens here is that we are trying to prevent global offset to be applied to this sprite :/
-  this->DrawSprite(-_globalViewOff.X, -_globalViewOff.Y, d3db);
+  this->DrawSprite(0, 0, d3db);
+  if (_drawPostScreenCallback != NULL)
+      _drawPostScreenCallback();
 
   if (speed <= 0) speed = 16;
   speed *= 2;  // harmonise speeds with software driver which is faster
@@ -1791,8 +1796,7 @@ void D3DGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, 
   {
     int timerValue = *_loopTimer;
     d3db->SetTransparency(fadingOut ? a : (255 - a));
-    this->_renderAndPresent(flipTypeLastTime, false);
-
+    this->_renderAndPresent(false);
     do
     {
       if (_pollingCallback)
@@ -1800,17 +1804,17 @@ void D3DGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, 
       platform->YieldCPU();
     }
     while (timerValue == *_loopTimer);
-
   }
 
   if (fadingOut)
   {
     d3db->SetTransparency(0);
-    this->_renderAndPresent(flipTypeLastTime, false);
+    this->_renderAndPresent(false);
   }
 
   this->DestroyDDB(d3db);
   this->ClearDrawLists();
+  ResetFxPool();
 }
 
 void D3DGraphicsDriver::FadeOut(int speed, int targetColourRed, int targetColourGreen, int targetColourBlue) 
@@ -1818,29 +1822,26 @@ void D3DGraphicsDriver::FadeOut(int speed, int targetColourRed, int targetColour
   do_fade(true, speed, targetColourRed, targetColourGreen, targetColourBlue);
 }
 
-void D3DGraphicsDriver::FadeIn(int speed, PALLETE p, int targetColourRed, int targetColourGreen, int targetColourBlue) 
+void D3DGraphicsDriver::FadeIn(int speed, PALETTE p, int targetColourRed, int targetColourGreen, int targetColourBlue) 
 {
   do_fade(false, speed, targetColourRed, targetColourGreen, targetColourBlue);
 }
 
 void D3DGraphicsDriver::BoxOutEffect(bool blackingOut, int speed, int delay)
 {
+  // Construct scene in order: game screen, fade fx, post game overlay
   if (blackingOut)
-  {
-    this->_reDrawLastFrame();
-  }
+     this->_reDrawLastFrame();
   else if (_drawScreenCallback != NULL)
     _drawScreenCallback();
-  
   Bitmap *blackSquare = BitmapHelper::CreateBitmap(16, 16, 32);
   blackSquare->Clear();
-  IDriverDependantBitmap *d3db = this->CreateDDBFromBitmap(blackSquare, false, false);
+  IDriverDependantBitmap *d3db = this->CreateDDBFromBitmap(blackSquare, false, true);
   delete blackSquare;
-
   BeginSpriteBatch(_srcRect, SpriteTransform());
+  size_t fx_batch = _actSpriteBatch;
   d3db->SetStretch(_srcRect.GetWidth(), _srcRect.GetHeight(), false);
-  // NOTE: what happens here is that we are trying to prevent global offset to be applied to this sprite :/
-  this->DrawSprite(-_globalViewOff.X, -_globalViewOff.Y, d3db);
+  this->DrawSprite(0, 0, d3db);
   if (!blackingOut)
   {
     // when fading in, draw four black boxes, one
@@ -1849,6 +1850,8 @@ void D3DGraphicsDriver::BoxOutEffect(bool blackingOut, int speed, int delay)
     this->DrawSprite(0, 0, d3db);
     this->DrawSprite(0, 0, d3db);
   }
+  if (_drawPostScreenCallback != NULL)
+    _drawPostScreenCallback();
 
   int yspeed = _srcRect.GetHeight() / (_srcRect.GetWidth() / speed);
   int boxWidth = speed;
@@ -1858,7 +1861,7 @@ void D3DGraphicsDriver::BoxOutEffect(bool blackingOut, int speed, int delay)
   {
     boxWidth += speed;
     boxHeight += yspeed;
-    D3DSpriteBatch &batch = _spriteBatches.back();
+    D3DSpriteBatch &batch = _spriteBatches[fx_batch];
     std::vector<D3DDrawListEntry> &drawList = batch.List;
     const size_t last = drawList.size() - 1;
     if (blackingOut)
@@ -1876,7 +1879,7 @@ void D3DGraphicsDriver::BoxOutEffect(bool blackingOut, int speed, int delay)
       d3db->SetStretch(_srcRect.GetWidth(), _srcRect.GetHeight(), false);
     }
     
-    this->_renderAndPresent(flipTypeLastTime, false);
+    this->_renderAndPresent(false);
 
     if (_pollingCallback)
       _pollingCallback();
@@ -1885,7 +1888,10 @@ void D3DGraphicsDriver::BoxOutEffect(bool blackingOut, int speed, int delay)
 
   this->DestroyDDB(d3db);
   this->ClearDrawLists();
+  ResetFxPool();
 }
+
+#ifndef AGS_NO_VIDEO_PLAYER
 
 bool D3DGraphicsDriver::PlayVideo(const char *filename, bool useAVISound, VideoSkipType skipType, bool stretchToFullScreen)
 {
@@ -1895,33 +1901,25 @@ bool D3DGraphicsDriver::PlayVideo(const char *filename, bool useAVISound, VideoS
   return (result == 0);
 }
 
-void D3DGraphicsDriver::create_screen_tint_bitmap() 
-{
-  // Some work on textures depends on current scaling filter, sadly
-  // TODO: find out if there is a workaround for that
-  if (!IsModeSet() || !_filter)
-    return;
+#endif
 
-  _screenTintLayer = BitmapHelper::CreateBitmap(16, 16, this->_mode.ColorDepth);
-  _screenTintLayerDDB = (D3DBitmap*)this->CreateDDBFromBitmap(_screenTintLayer, false, false);
-  _screenTintSprite.bitmap = _screenTintLayerDDB;
+void D3DGraphicsDriver::SetScreenFade(int red, int green, int blue)
+{
+    D3DBitmap *ddb = static_cast<D3DBitmap*>(MakeFx(red, green, blue));
+    ddb->SetStretch(_spriteBatches[_actSpriteBatch].Viewport.GetWidth(),
+        _spriteBatches[_actSpriteBatch].Viewport.GetHeight(), false);
+    ddb->SetTransparency(0);
+    _spriteBatches[_actSpriteBatch].List.push_back(D3DDrawListEntry(ddb));
 }
 
 void D3DGraphicsDriver::SetScreenTint(int red, int green, int blue)
 { 
-  if ((red != _tint_red) || (green != _tint_green) || (blue != _tint_blue))
-  {
-    _tint_red = red; 
-    _tint_green = green; 
-    _tint_blue = blue;
-
-    _screenTintLayer->Clear(makecol_depth(_screenTintLayer->GetColorDepth(), red, green, blue));
-    this->UpdateDDBFromBitmap(_screenTintLayerDDB, _screenTintLayer, false);
-    _screenTintLayerDDB->SetStretch(_srcRect.GetWidth(), _srcRect.GetHeight(), false);
-    _screenTintLayerDDB->SetTransparency(128);
-
-    _screenTintSprite.skip = ((red == 0) && (green == 0) && (blue == 0));
-  }
+    if (red == 0 && green == 0 && blue == 0) return;
+    D3DBitmap *ddb = static_cast<D3DBitmap*>(MakeFx(red, green, blue));
+    ddb->SetStretch(_spriteBatches[_actSpriteBatch].Viewport.GetWidth(),
+        _spriteBatches[_actSpriteBatch].Viewport.GetHeight(), false);
+    ddb->SetTransparency(128);
+    _spriteBatches[_actSpriteBatch].List.push_back(D3DDrawListEntry(ddb));
 }
 
 
@@ -2041,3 +2039,5 @@ bool D3DGraphicsFactory::Init()
 } // namespace D3D
 } // namespace Engine
 } // namespace AGS
+
+#endif // AGS_PLATFORM_OS_WINDOWS

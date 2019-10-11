@@ -20,6 +20,9 @@
 
 #include "ac/dynobj/scriptmouse.h"
 
+#define DOMOUSE_UPDATE 0
+#define DOMOUSE_ENABLE 1
+#define DOMOUSE_DISABLE 2
 #define DOMOUSE_NOCURSOR 5
 // are these mouse buttons? ;/
 // note: also defined in ac_cscidialog as const ints
@@ -52,6 +55,8 @@ void set_cursor_mode(int newmode);
 void enable_cursor_mode(int modd);
 void disable_cursor_mode(int modd);
 
+// Try to enable or disable mouse speed control by the engine
+void Mouse_EnableControl(bool on);
 
 //=============================================================================
 

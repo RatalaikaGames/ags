@@ -20,7 +20,6 @@
 //=============================================================================
 #ifndef __AGS_CN_GFX__ALLEGROBITMAP_H
 #define __AGS_CN_GFX__ALLEGROBITMAP_H
-#define ALLEGRO_NO_FIX_ALIASES
 
 #include <allegro.h>
 #include "core/types.h"
@@ -65,11 +64,15 @@ public:
         return _alBitmap;
     }
 
-    // TODO: also add generic GetBitmapType returning combination of flags
-	// Is this a "normal" bitmap created by application which data can be directly accessed for reading and writing
+    // Is this a "normal" bitmap created by application which data can be directly accessed for reading and writing
     inline bool IsMemoryBitmap() const
     {
         return is_memory_bitmap(_alBitmap) != 0;
+    }
+    // Is this a video bitmap
+    inline bool IsVideoBitmap() const
+    {
+        return is_video_bitmap(_alBitmap) != 0;
     }
     // Is this a linear bitmap, the one that can be accessed linearly within each scanline 
 	inline bool IsLinearBitmap() const
@@ -131,7 +134,7 @@ public:
     // Get scanline for direct reading
 	inline const unsigned char *GetScanLine(int index) const
     {
-        return (index >= 0 && index < GetHeight()) ? _alBitmap->line[index] : NULL;
+        return (index >= 0 && index < GetHeight()) ? _alBitmap->line[index] : nullptr;
     }
 
     void    SetMaskColor(color_t color);
@@ -145,6 +148,10 @@ public:
     void    Acquire();
 	void	Release();
 
+    // Converts AGS color-index into RGB color according to the bitmap format.
+    // TODO: this method was added to the Bitmap class during large refactoring,
+    // but that's a mistake, because in retrospect is has nothing to do with
+    // bitmap itself and should rather be a part of the game data logic.
     color_t GetCompatibleColor(color_t color);
 
     //=========================================================================
@@ -157,7 +164,7 @@ public:
     // Blitting operations (drawing one bitmap over another)
     //=========================================================================
     // Draw other bitmap over current one
-    void    Blit(Bitmap *src, int dst_x, int dst_y, BitmapMaskOption mask = kBitmap_Copy);
+    void    Blit(Bitmap *src, int dst_x = 0, int dst_y = 0, BitmapMaskOption mask = kBitmap_Copy);
     void    Blit(Bitmap *src, int src_x, int src_y, int dst_x, int dst_y, int width, int height, BitmapMaskOption mask = kBitmap_Copy);
     // Copy other bitmap, stretching or shrinking its size to given values
     void    StretchBlt(Bitmap *src, const Rect &dst_rc, BitmapMaskOption mask = kBitmap_Copy);
@@ -209,7 +216,7 @@ public:
 	// Gets scanline for directly writing into it
     inline unsigned char *GetScanLineForWriting(int index)
     {
-        return (index >= 0 && index < GetHeight()) ? _alBitmap->line[index] : NULL;
+        return (index >= 0 && index < GetHeight()) ? _alBitmap->line[index] : nullptr;
     }
     inline unsigned char *GetDataForWriting()
     {

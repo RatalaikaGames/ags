@@ -10,13 +10,14 @@
 
 #include "util/wgt2allg.h"
 #include "ac/common_defines.h"
+#include "ac/gamestructdefines.h"
 #include "ac/spritecache.h"
 
 //=============================================================================
 // AGS.Native-specific implementation split out of sprcache.cpp
 //=============================================================================
 
-void SpriteCache::initFile_initNullSpriteParams(sprkey_t index)
+void SpriteCache::InitNullSpriteParams(sprkey_t index)
 {
     // no sprite ... blank it out
     _sprInfos[index] = SpriteInfo();

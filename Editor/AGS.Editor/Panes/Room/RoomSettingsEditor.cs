@@ -17,6 +17,7 @@ namespace AGS.Editor
     public partial class RoomSettingsEditor : EditorContentPanel
     {
         private const int SCROLLBAR_WIDTH_BUFFER = 40;
+        private const string MENU_ITEM_COPY_COORDS = "CopyCoordinatesToClipboard";
 
         // NOTE: the reason we need to pass editor reference to the SaveRoom hander is that
         // currently design-time properties of room items are stored inside editor filter classes.
@@ -28,11 +29,14 @@ namespace AGS.Editor
         private Room _room;
         private IRoomEditorFilter _layer;
         private RoomEditNode _layersRoot;
+        private IRoomEditorFilter _emptyLayer;
         private List<IRoomEditorFilter> _layers = new List<IRoomEditorFilter>();
         private CharactersEditorFilter _characterLayer; // need to store the reference for special processing
         private bool _editorConstructed = false;
         private int _lastX, _lastY;
         private bool _mouseIsDown = false;
+        private int _menuClickX;
+        private int _menuClickY;
 
         private int ZOOM_STEP_VALUE = 25;
         private int ZOOM_MAX_VALUE = 600;
@@ -71,15 +75,12 @@ namespace AGS.Editor
             _room = room;
             sldZoomLevel.Maximum = ZOOM_MAX_VALUE / ZOOM_STEP_VALUE;
             sldZoomLevel.Value = 100 / ZOOM_STEP_VALUE;
-            // If the room is very small, we will display it with x2 zoom by default
-            // TODO: implement some option in preferences, and/or relative to the desktop size?
-            if (_room.Width < 640 || _room.Height < 400)
-                SetZoomSliderToMultiplier(2);
-            else
-                SetZoomSliderToMultiplier(1);
+            // TODO: choose default zoom based on the room size vs window size?
+            SetZoomSliderToMultiplier(_room.Width <= 320 ? 2 : 1);
 
+            _emptyLayer = new EmptyEditorFilter(bufferedPanel1, _room);
             _layers.Add(new EdgesEditorFilter(bufferedPanel1, _room));
-            _characterLayer = new CharactersEditorFilter(bufferedPanel1, _room, Factory.AGSEditor.CurrentGame);
+            _characterLayer = new CharactersEditorFilter(bufferedPanel1, this, _room, Factory.AGSEditor.CurrentGame);
             _layers.Add(_characterLayer);
             _layers.Add(new ObjectsEditorFilter(bufferedPanel1, _room));
             _layers.Add(new HotspotsEditorFilter(bufferedPanel1, _room));
@@ -202,9 +203,9 @@ namespace AGS.Editor
         private void layer_OnSelectedItemChanged(object sender, SelectedRoomItemEventArgs e)
         {
             IRoomEditorFilter layer = sender as IRoomEditorFilter;
-            if (layer == null) return;
+            if (layer == null) { SelectLayer(null); return; }
             IAddressNode node = _editAddressBar.RootNode.GetChild(GetLayerItemUniqueID(layer, e.Item), true);
-            if (node == null) return;
+            if (node == null) { SelectLayer(null); return; }
             _editAddressBar.CurrentNode = node;
             SelectLayer(layer);
             //selecting hotspot from designer Panel, then cant Draw more hotspots...
@@ -289,11 +290,11 @@ namespace AGS.Editor
                 int drawOffsX = _state.RoomXToWindow(0);
                 int drawOffsY = _state.RoomYToWindow(0);
                 IRoomEditorFilter maskFilter = GetCurrentMaskFilter();
-				lock (_room)
+                lock (_room)
 				{
 					Factory.NativeProxy.DrawRoomBackground(hdc, _room, drawOffsX, drawOffsY, backgroundNumber, _state.Scale * scaleFactor,
                         maskFilter == null ? RoomAreaMaskType.None : maskFilter.MaskToDraw, 
-                        maskFilter == null ? 0 : maskFilter.SelectedArea, sldTransparency.Value);
+                        (maskFilter == null || !maskFilter.Enabled) ? 0 : maskFilter.SelectedArea, sldTransparency.Value);
 				}
                 foreach (IRoomEditorFilter layer in _layers)
                 {                    
@@ -487,13 +488,9 @@ namespace AGS.Editor
                             }
                         }
 
-                        // If the room is very small, we will display it with x2 zoom by default
-                        // TODO: implement some option in preferences, and/or relative to the desktop size?
-                        if (_room.Width < 640 || _room.Height < 400)
-                            SetZoomSliderToMultiplier(2);
-                        else
-                            SetZoomSliderToMultiplier(1);
-                        sldZoomLevel_Scroll(null, null);
+                        // TODO: choose default zoom based on the room size vs window size?
+                        SetZoomSliderToMultiplier(_room.Width <= 320 ? 2 : 1);
+						sldZoomLevel_Scroll(null, null);
 						UpdateScrollableWindowSize();
                     }
                 }
@@ -541,16 +538,8 @@ namespace AGS.Editor
 
         private void bufferedPanel1_MouseDown(object sender, MouseEventArgs e)
         {
-            foreach (IRoomEditorFilter layer in _layers)
-            {
-                if (IsLocked(layer)) continue;
-                layer.MouseDownAlways(e, _state);
-            }
-            foreach (IRoomEditorFilter layer in _layers)
-            {
-                if (IsLocked(layer)) continue;
-                if (layer.MouseDown(e, _state)) break;
-            }
+            if (_layer != null && !IsLocked(_layer))
+                _layer.MouseDown(e, _state);
             _mouseIsDown = true;
 		}
 
@@ -558,10 +547,17 @@ namespace AGS.Editor
         {
             if (_mouseIsDown)
             {
-                foreach (IRoomEditorFilter layer in _layers)
+                bool handled = false;
+                if (_layer != null && !IsLocked(_layer))
                 {
-                    if (IsLocked(layer)) continue;
-                    if (layer.MouseUp(e, _state)) break;
+                    handled = _layer.MouseUp(e, _state);
+                }
+                if (!handled)
+                {
+                    if (e.Button == MouseButtons.Middle)
+                    {
+                        ShowCoordMenu(e);
+                    }
                 }
                 Factory.GUIController.RefreshPropertyGrid();
                 bufferedPanel1.Invalidate();
@@ -576,12 +572,9 @@ namespace AGS.Editor
 		}
 
 		private void bufferedPanel1_DoubleClick(object sender, EventArgs e)
-		{            
-            foreach (IRoomEditorFilter layer in _layers)
-            {
-                if (IsLocked(layer)) continue;
-                if (layer.DoubleClick(_state)) break;
-            }
+		{
+            if (_layer != null && !IsLocked(_layer))
+                _layer.DoubleClick(_state);
 			Factory.GUIController.RefreshPropertyGrid();
 			bufferedPanel1.Invalidate();
 		}
@@ -611,34 +604,18 @@ namespace AGS.Editor
             lblMousePos.Text = "Mouse Position: " + xPosText + ", " + yPosText;
 
             SelectCursor(e.X, e.Y, _state);
-            foreach (IRoomEditorFilter layer in _layers)
+            if (_layer != null && !IsLocked(_layer))
             {
-                if (IsLocked(layer)) continue;
-                if (layer.MouseMove(e.X, e.Y, _state))
+                if (_layer.MouseMove(e.X, e.Y, _state))
                 {
-                    bufferedPanel1.Invalidate();                    
-                    break;
+                    bufferedPanel1.Invalidate();
                 }
-            }            
+            }
         }
 
         private void SelectCursor(int x, int y, RoomEditorState state)
         {
-            state.CurrentCursor = Cursors.Default;            
-            if (_layer != null) state.CurrentCursor = _layer.GetCursor(x, y, state);
-            else state.CurrentCursor = null;   
-            if (state.CurrentCursor != null)
-            {
-                bufferedPanel1.Cursor = state.CurrentCursor;
-                return;
-            }            
-            for (int layerIndex = _layers.Count - 1; layerIndex >= 0; layerIndex--)
-            {
-                IRoomEditorFilter layer = _layers[layerIndex];
-                if (IsLocked(layer)) continue;
-                Cursor tmpCursor = layer.GetCursor(x, y, state);
-                if (tmpCursor != null) state.CurrentCursor = tmpCursor;
-            }            
+            state.CurrentCursor = _layer != null ? _layer.GetCursor(x, y, state) : Cursors.Default;
             bufferedPanel1.Cursor = state.CurrentCursor ?? Cursors.Default;
         }
 
@@ -647,21 +624,28 @@ namespace AGS.Editor
             if (_layersRoot.UniqueID.Equals(e.OUniqueID))
             {
                 Factory.GUIController.SetPropertyGridObject(_room);
+                SelectLayer(null);
                 return;
             }
 
             RoomEditNode node = _layersRoot.GetChild(e.OUniqueID, true) as RoomEditNode;
-            if (node == null) return;
+            if (node == null) { SelectLayer(null); return; }
             RoomEditNode layerNode = node;
             while (layerNode != null && layerNode.Layer == null)
             {
                 layerNode = layerNode.Parent as RoomEditNode;
             }
-            if (layerNode == null) return;
+            if (layerNode == null) { SelectLayer(null); return; }
 
             layerNode.IsVisible = true;
             SelectLayer(layerNode.Layer);
-            layerNode.Layer.SelectItem(node == layerNode ? null : node.RoomItemID);
+
+            // only select the item if the room editor is the active tab; this could
+            // be a refresh from another tab e.g. changing a character's starting room
+            if (Factory.GUIController.ActivePane.Control == this)
+            {
+                layerNode.Layer.SelectItem(node == layerNode ? null : node.RoomItemID);
+            }
         }
 
         private void SelectLayer(IRoomEditorFilter layer)
@@ -670,7 +654,7 @@ namespace AGS.Editor
             if (layer == _layer) return;
 
             if (_layer != null) _layer.FilterOff();
-            _layer = layer;
+            _layer = layer ?? _emptyLayer;
 
             SetDefaultPropertyGridList();
             Factory.GUIController.SetPropertyGridObject(_room);
@@ -755,7 +739,7 @@ namespace AGS.Editor
             {
                 return false;
             }
-            if (_layer != null && _layer.KeyPressed(keyData))
+            if (_layer != null && !IsLocked(_layer) && _layer.KeyPressed(keyData))
             {
                 bufferedPanel1.Invalidate();
                 Factory.GUIController.RefreshPropertyGrid();
@@ -767,7 +751,27 @@ namespace AGS.Editor
 			return returnHandled;
 		}
 
-		protected override void OnPanelClosing(bool canCancel, ref bool cancelClose)
+        private void ShowCoordMenu(MouseEventArgs e)
+        {
+            EventHandler onClick = new EventHandler(CoordMenuEventHandler);
+            ContextMenuStrip menu = new ContextMenuStrip();
+            menu.Items.Add(new ToolStripMenuItem("Copy mouse coordinates to clipboard", null, onClick, MENU_ITEM_COPY_COORDS));
+
+            _menuClickX = _state.WindowXToRoom(e.X);
+            _menuClickY = _state.WindowYToRoom(e.Y);
+
+            menu.Show(bufferedPanel1, e.X, e.Y);
+        }
+
+        private void CoordMenuEventHandler(object sender, EventArgs e)
+        {
+            int tempx = _menuClickX;
+            int tempy = _menuClickY;
+            string textToCopy = tempx.ToString() + ", " + tempy.ToString();
+            Utilities.CopyTextToClipboard(textToCopy);
+        }
+
+        protected override void OnPanelClosing(bool canCancel, ref bool cancelClose)
         {
             if ((canCancel) && (_room.Modified || DesignModified))
             {
@@ -953,7 +957,7 @@ namespace AGS.Editor
         /// <summary>
         /// Scale of the Room image on screen.
         /// </summary>
-        public float Scale
+        internal float Scale
         {
             get { return _scale; }
             set

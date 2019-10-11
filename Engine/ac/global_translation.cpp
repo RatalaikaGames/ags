@@ -14,6 +14,7 @@
 
 #include <string.h>
 #include "ac/common.h"
+#include "ac/display.h"
 #include "ac/gamestate.h"
 #include "ac/global_translation.h"
 #include "ac/string.h"
@@ -21,43 +22,35 @@
 #include "platform/base/agsplatformdriver.h"
 #include "plugin/agsplugin.h"
 #include "plugin/plugin_engine.h"
+#include "util/memory.h"
+#include "core/types.h"
+
+using namespace AGS::Common::Memory;
 
 extern GameState play;
 extern AGSPlatformDriver *platform;
-extern int source_text_length;
 extern TreeMap *transtree;
 extern char transFileName[MAX_PATH];
 
 const char *get_translation (const char *text) {
-    if (text == NULL)
+    if (text == nullptr)
         quit("!Null string supplied to CheckForTranslations");
 
-    source_text_length = strlen(text);
-    if ((text[0] == '&') && (play.unfactor_speech_from_textlength != 0)) {
-        // if there's an "&12 text" type line, remove "&12 " from the source
-        // length
-        int j = 0;
-        while ((text[j] != ' ') && (text[j] != 0))
-            j++;
-        j++;
-        source_text_length -= j;
-    }
+    source_text_length = GetTextDisplayLength(text);
 
+#if AGS_PLATFORM_64BIT
     // check if a plugin wants to translate it - if so, return that
-    char *plResult = (char*)pl_run_plugin_hooks(AGSE_TRANSLATETEXT, (long)text);
+    // TODO: plugin API is currently strictly 32-bit, so this may break on 64-bit systems
+    char *plResult = Int32ToPtr<char>(pl_run_plugin_hooks(AGSE_TRANSLATETEXT, PtrToInt32(text)));
     if (plResult) {
-
-//  64bit: This is a wonky way to detect a valid pointer
-//  if (((int)plResult >= -1) && ((int)plResult < 10000))
-//    quit("!Plugin did not return a string for text translation");
-
         return plResult;
     }
+#endif
 
-    if (transtree != NULL) {
+    if (transtree != nullptr) {
         // translate the text using the translation file
         char * transl = transtree->findValue (text);
-        if (transl != NULL)
+        if (transl != nullptr)
             return transl;
     }
     // return the original text
@@ -65,7 +58,7 @@ const char *get_translation (const char *text) {
 }
 
 int IsTranslationAvailable () {
-    if (transtree != NULL)
+    if (transtree != nullptr)
         return 1;
     return 0;
 }
@@ -74,18 +67,18 @@ int GetTranslationName (char* buffer) {
     VALIDATE_STRING (buffer);
     const char *copyFrom = transFileName;
 
-    while (strchr(copyFrom, '\\') != NULL)
+    while (strchr(copyFrom, '\\') != nullptr)
     {
         copyFrom = strchr(copyFrom, '\\') + 1;
     }
-    while (strchr(copyFrom, '/') != NULL)
+    while (strchr(copyFrom, '/') != nullptr)
     {
         copyFrom = strchr(copyFrom, '/') + 1;
     }
 
     strcpy (buffer, copyFrom);
     // remove the ".tra" from the end of the filename
-    if (strstr (buffer, ".tra") != NULL)
+    if (strstr (buffer, ".tra") != nullptr)
         strstr (buffer, ".tra")[0] = 0;
 
     return IsTranslationAvailable();

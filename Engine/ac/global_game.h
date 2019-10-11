@@ -53,6 +53,8 @@ void EndSkippingUntilCharStops();
 // 5 = right click or ESC only
 void StartCutscene (int skipwith);
 int EndCutscene ();
+// Tell the game to skip current cutscene
+void SkipCutscene();
 
 void sc_inputbox(const char*msg,char*bufr);
 
@@ -65,7 +67,7 @@ int IsKeyPressed (int keycode);
 int SaveScreenShot(const char*namm);
 void SetMultitasking (int mode);
 
-void ProcessClick(int xx,int yy,int mood);
+void RoomProcessClick(int xx,int yy,int mood);
 int IsInteractionAvailable (int xx,int yy,int mood);
 
 //void GetMessageText (int msg, char *buffer);// [DEPRECATED]

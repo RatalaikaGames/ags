@@ -28,11 +28,11 @@ namespace Engine
 
 GraphicsDriverBase::GraphicsDriverBase()
     : _loopTimer(NULL)
-    , _pollingCallback(NULL)
-    , _drawScreenCallback(NULL)
-    , _nullSpriteCallback(NULL)
-    , _initGfxCallback(NULL)
-    , _initSurfaceUpdateCallback(NULL)
+    , _pollingCallback(nullptr)
+    , _drawScreenCallback(nullptr)
+    , _nullSpriteCallback(nullptr)
+    , _initGfxCallback(nullptr)
+    , _initSurfaceUpdateCallback(nullptr)
 {
     // Initialize default sprite batch, it will be used when no other batch was activated
     _actSpriteBatch = 0;
@@ -69,15 +69,11 @@ Rect GraphicsDriverBase::GetRenderDestination() const
     return _dstRect;
 }
 
-void GraphicsDriverBase::SetNativeRenderOffset(int x, int y)
-{
-    _globalViewOff = Point(x, y);
-}
-
-void GraphicsDriverBase::BeginSpriteBatch(const Rect &viewport, const SpriteTransform &transform, PBitmap surface)
+void GraphicsDriverBase::BeginSpriteBatch(const Rect &viewport, const SpriteTransform &transform,
+    const Point offset, GlobalFlipType flip, PBitmap surface)
 {
     _actSpriteBatch++;
-    _spriteBatchDesc.push_back(SpriteBatchDesc(viewport, transform, surface));
+    _spriteBatchDesc.push_back(SpriteBatchDesc(viewport, transform, offset, flip, surface));
     InitSpriteBatch(_actSpriteBatch, _spriteBatchDesc[_actSpriteBatch]);
 }
 
@@ -141,8 +137,9 @@ void GraphicsDriverBase::OnSetFilter()
 
 
 VideoMemoryGraphicsDriver::VideoMemoryGraphicsDriver()
-    : _stageVirtualScreenDDB(NULL)
+    : _stageVirtualScreenDDB(nullptr)
     , _stageScreenDirty(false)
+    , _fxIndex(0)
 {
     // Only to have something meaningful as default
     _vmem_a_shift_32 = 24;
@@ -166,12 +163,17 @@ bool VideoMemoryGraphicsDriver::UsesMemoryBackBuffer()
 
 Bitmap *VideoMemoryGraphicsDriver::GetMemoryBackBuffer()
 {
-    _stageScreenDirty = true;
-    return _stageVirtualScreen.get();
+    return nullptr;
 }
 
-void VideoMemoryGraphicsDriver::SetMemoryBackBuffer(Bitmap *backBuffer, int offx, int offy)
+void VideoMemoryGraphicsDriver::SetMemoryBackBuffer(Bitmap *backBuffer)
 { // do nothing, video-memory drivers don't use main back buffer, only stage bitmaps they pass to plugins
+}
+
+Bitmap *VideoMemoryGraphicsDriver::GetStageBackBuffer()
+{
+    _stageScreenDirty = true;
+    return _stageVirtualScreen.get();
 }
 
 PBitmap VideoMemoryGraphicsDriver::CreateStageScreen(size_t index, const Size &sz)
@@ -180,7 +182,7 @@ PBitmap VideoMemoryGraphicsDriver::CreateStageScreen(size_t index, const Size &s
         _stageScreens.resize(index + 1);
     if (sz.IsNull())
         _stageScreens[index].reset();
-    else if (_stageScreens[index] == NULL || _stageScreens[index]->GetSize() != sz)
+    else if (_stageScreens[index] == nullptr || _stageScreens[index]->GetSize() != sz)
         _stageScreens[index].reset(new Bitmap(sz.Width, sz.Height, _mode.ColorDepth));
     return _stageScreens[index];
 }
@@ -189,19 +191,18 @@ PBitmap VideoMemoryGraphicsDriver::GetStageScreen(size_t index)
 {
     if (index < _stageScreens.size())
         return _stageScreens[index];
-    return NULL;
+    return nullptr;
 }
 
 void VideoMemoryGraphicsDriver::DestroyAllStageScreens()
 {
     if (_stageVirtualScreenDDB)
         this->DestroyDDB(_stageVirtualScreenDDB);
-    _stageVirtualScreenDDB = NULL;
+    _stageVirtualScreenDDB = nullptr;
 
     for (size_t i = 0; i < _stageScreens.size(); ++i)
         _stageScreens[i].reset();
     _stageVirtualScreen.reset();
-    BitmapHelper::SetScreenBitmap(NULL);
 }
 
 bool VideoMemoryGraphicsDriver::DoNullSpriteCallback(int x, int y)
@@ -223,6 +224,44 @@ bool VideoMemoryGraphicsDriver::DoNullSpriteCallback(int x, int y)
         return true;
     }
     return false;
+}
+
+IDriverDependantBitmap *VideoMemoryGraphicsDriver::MakeFx(int r, int g, int b)
+{
+    if (_fxIndex == _fxPool.size()) _fxPool.push_back(ScreenFx());
+    ScreenFx &fx = _fxPool[_fxIndex];
+    if (fx.DDB == nullptr)
+    {
+        fx.Raw = BitmapHelper::CreateBitmap(16, 16, _mode.ColorDepth);
+        fx.DDB = CreateDDBFromBitmap(fx.Raw, false, true);
+    }
+    if (r != fx.Red || g != fx.Green || b != fx.Blue)
+    {
+        fx.Raw->Clear(makecol_depth(fx.Raw->GetColorDepth(), r, g, b));
+        this->UpdateDDBFromBitmap(fx.DDB, fx.Raw, false);
+        fx.Red = r;
+        fx.Green = g;
+        fx.Blue = b;
+    }
+    _fxIndex++;
+    return fx.DDB;
+}
+
+void VideoMemoryGraphicsDriver::ResetFxPool()
+{
+    _fxIndex = 0;
+}
+
+void VideoMemoryGraphicsDriver::DestroyFxPool()
+{
+    for (auto &fx : _fxPool)
+    {
+        if (fx.DDB)
+            DestroyDDB(fx.DDB);
+        delete fx.Raw;
+    }
+    _fxPool.clear();
+    _fxIndex = 0;
 }
 
 
@@ -296,11 +335,9 @@ void VideoMemoryGraphicsDriver::BitmapToVideoMem(const Bitmap *bitmap, const boo
       if (src_depth == 8)
       {
         unsigned char* srcData = (unsigned char*)&scanline_at[(x + tile->x) * sizeof(char)];
-        if (*srcData == MASK_COLOR_8) 
+        if (*srcData == MASK_COLOR_8)
         {
-          if (target->_opaque)  // set to black if opaque
-            memPtrLong[x] = 0xFF000000;
-          else if (!usingLinearFiltering)
+          if (!usingLinearFiltering)
             memPtrLong[x] = 0;
           // set to transparent, but use the colour from the neighbouring 
           // pixel to stop the linear filter doing black outlines
@@ -339,9 +376,7 @@ void VideoMemoryGraphicsDriver::BitmapToVideoMem(const Bitmap *bitmap, const boo
         unsigned short* srcData = (unsigned short*)&scanline_at[(x + tile->x) * sizeof(short)];
         if (*srcData == MASK_COLOR_16) 
         {
-          if (target->_opaque)  // set to black if opaque
-            memPtrLong[x] = 0xFF000000;
-          else if (!usingLinearFiltering)
+          if (!usingLinearFiltering)
             memPtrLong[x] = 0;
           // set to transparent, but use the colour from the neighbouring 
           // pixel to stop the linear filter doing black outlines
@@ -381,9 +416,7 @@ void VideoMemoryGraphicsDriver::BitmapToVideoMem(const Bitmap *bitmap, const boo
         unsigned int* srcData = (unsigned int*)&scanline_at[(x + tile->x) * sizeof(int)];
         if (*srcData == MASK_COLOR_32)
         {
-          if (target->_opaque)  // set to black if opaque
-            memPtrLong[x] = 0xFF000000;
-          else if (!usingLinearFiltering)
+          if (!usingLinearFiltering)
             memPtrLong[x] = 0;
           // set to transparent, but use the colour from the neighbouring 
           // pixel to stop the linear filter doing black outlines
@@ -420,6 +453,42 @@ void VideoMemoryGraphicsDriver::BitmapToVideoMem(const Bitmap *bitmap, const boo
             lastPixelWasTransparent = false;
           }
         }
+      }
+    }
+
+    dst_ptr += dst_pitch;
+  }
+}
+
+void VideoMemoryGraphicsDriver::BitmapToVideoMemOpaque(const Bitmap *bitmap, const bool has_alpha, const TextureTile *tile, const VideoMemDDB *target,
+    char *dst_ptr, const int dst_pitch)
+{
+  const int src_depth = bitmap->GetColorDepth();
+  for (int y = 0; y < tile->height; y++)
+  {
+    const uint8_t *scanline_at = bitmap->GetScanLine(y + tile->y);
+    unsigned int* memPtrLong = (unsigned int*)dst_ptr;
+
+    for (int x = 0; x < tile->width; x++)
+    {
+      if (src_depth == 8)
+      {
+        unsigned char* srcData = (unsigned char*)&scanline_at[(x + tile->x) * sizeof(char)];
+        memPtrLong[x] = VMEMCOLOR_RGBA(algetr8(*srcData), algetg8(*srcData), algetb8(*srcData), 0xFF);
+      }
+      else if (src_depth == 16)
+      {
+        unsigned short* srcData = (unsigned short*)&scanline_at[(x + tile->x) * sizeof(short)];
+        memPtrLong[x] = VMEMCOLOR_RGBA(algetr16(*srcData), algetg16(*srcData), algetb16(*srcData), 0xFF);
+      }
+      else if (src_depth == 32)
+      {
+        unsigned int* memPtrLong = (unsigned int*)dst_ptr;
+        unsigned int* srcData = (unsigned int*)&scanline_at[(x + tile->x) * sizeof(int)];
+        if (has_alpha)
+          memPtrLong[x] = VMEMCOLOR_RGBA(algetr32(*srcData), algetg32(*srcData), algetb32(*srcData), algeta32(*srcData));
+        else
+          memPtrLong[x] = VMEMCOLOR_RGBA(algetr32(*srcData), algetg32(*srcData), algetb32(*srcData), 0xFF);
       }
     }
 

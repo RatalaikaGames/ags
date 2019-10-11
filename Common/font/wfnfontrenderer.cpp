@@ -12,20 +12,13 @@
 //
 //=============================================================================
 
-#ifndef USE_ALFONT
-#define USE_ALFONT
-#endif
-
-#include "alfont.h"
-#include "ac/common.h"
+#include "ac/common.h" // our_eip
 #include "core/assetmanager.h"
 #include "debug/out.h"
-#include "font/fonts.h"
+#include "font/wfnfont.h"
 #include "font/wfnfontrenderer.h"
-#include "gfx/allegrobitmap.h"
-#include "util/file.h"
+#include "gfx/bitmap.h"
 #include "util/stream.h"
-#include "util/string.h"
 
 using namespace AGS::Common;
 
@@ -34,7 +27,7 @@ static unsigned char GetCharCode(unsigned char wanted_code, const WFNFont* font)
     return wanted_code < font->GetCharCount() ? wanted_code : '?';
 }
 
-static int RenderChar(Common::Bitmap *ds, const int at_x, const int at_y, const WFNChar &wfn_char, const color_t text_color);
+static int RenderChar(Bitmap *ds, const int at_x, const int at_y, const WFNChar &wfn_char, const int scale, const color_t text_color);
 
 void WFNFontRenderer::AdjustYCoordinateForFont(int *ycoord, int fontNumber)
 {
@@ -57,6 +50,7 @@ void WFNFontRenderer::EnsureTextValidForFont(char *text, int fontNumber)
 int WFNFontRenderer::GetTextWidth(const char *text, int fontNumber)
 {
   const WFNFont* font = _fontData[fontNumber].Font;
+  const FontRenderParams &params = _fontData[fontNumber].Params;
   int text_width = 0;
 
   for (; *text; ++text)
@@ -64,12 +58,13 @@ int WFNFontRenderer::GetTextWidth(const char *text, int fontNumber)
     const WFNChar &wfn_char = font->GetChar(GetCharCode(*text, font));
     text_width += wfn_char.Width;
   }
-  return text_width * wtext_multiply;
+  return text_width * params.SizeMultiplier;
 }
 
 int WFNFontRenderer::GetTextHeight(const char *text, int fontNumber)
 {
   const WFNFont* font = _fontData[fontNumber].Font;
+  const FontRenderParams &params = _fontData[fontNumber].Params;
   int max_height = 0;
 
   for (; *text; ++text) 
@@ -79,25 +74,26 @@ int WFNFontRenderer::GetTextHeight(const char *text, int fontNumber)
     if (height > max_height)
       max_height = height;
   }
-  return max_height * wtext_multiply;
+  return max_height * params.SizeMultiplier;
 }
 
-Common::Bitmap render_wrapper;
+Bitmap render_wrapper;
 void WFNFontRenderer::RenderText(const char *text, int fontNumber, BITMAP *destination, int x, int y, int colour)
 {
   int oldeip = get_our_eip();
   set_our_eip(415);
 
   const WFNFont* font = _fontData[fontNumber].Font;
+  const FontRenderParams &params = _fontData[fontNumber].Params;
   render_wrapper.WrapAllegroBitmap(destination, true);
 
   for (; *text; ++text)
-    x += RenderChar(&render_wrapper, x, y, font->GetChar(GetCharCode(*text, font)), colour);
+    x += RenderChar(&render_wrapper, x, y, font->GetChar(GetCharCode(*text, font)), params.SizeMultiplier, colour);
 
   set_our_eip(oldeip);
 }
 
-int RenderChar(Common::Bitmap *ds, const int at_x, const int at_y, const WFNChar &wfn_char, const color_t text_color)
+int RenderChar(Bitmap *ds, const int at_x, const int at_y, const WFNChar &wfn_char, const int scale, const color_t text_color)
 {
   const int width = wfn_char.Width;
   const int height = wfn_char.Height;
@@ -111,10 +107,10 @@ int RenderChar(Common::Bitmap *ds, const int at_x, const int at_y, const WFNChar
     for (int w = 0; w < width; ++w)
     {
       if (((actdata[h * bytewid + (w / 8)] & (0x80 >> (w % 8))) != 0)) {
-        if (wtext_multiply > 1)
+        if (scale > 1)
         {
-          ds->FillRect(Rect(x + w, y + h, x + w + (wtext_multiply - 1),
-              y + h + (wtext_multiply - 1)), text_color);
+          ds->FillRect(Rect(x + w, y + h, x + w + (scale - 1),
+              y + h + (scale - 1)), text_color);
         } 
         else
         {
@@ -122,32 +118,37 @@ int RenderChar(Common::Bitmap *ds, const int at_x, const int at_y, const WFNChar
         }
       }
 
-      x += wtext_multiply - 1;
+      x += scale - 1;
     }
-    y += wtext_multiply - 1;
+    y += scale - 1;
     x = at_x;
   }
-  return width * wtext_multiply;
+  return width * scale;
 }
 
 bool WFNFontRenderer::LoadFromDisk(int fontNumber, int fontSize)
 {
-  return LoadFromDiskEx(fontNumber, fontSize, NULL);
+  return LoadFromDiskEx(fontNumber, fontSize, nullptr);
+}
+
+bool WFNFontRenderer::IsBitmapFont()
+{
+    return true;
 }
 
 bool WFNFontRenderer::LoadFromDiskEx(int fontNumber, int fontSize, const FontRenderParams *params)
 {
   String file_name;
-  Stream *ffi = NULL;
+  Stream *ffi = nullptr;
 
   file_name.Format("agsfnt%d.wfn", fontNumber);
   ffi = AssetManager::OpenAsset(file_name);
-  if (ffi == NULL)
+  if (ffi == nullptr)
   {
     // actual font not found, try font 0 instead
     file_name = "agsfnt0.wfn";
     ffi = AssetManager::OpenAsset(file_name);
-    if (ffi == NULL)
+    if (ffi == nullptr)
       return false;
   }
 

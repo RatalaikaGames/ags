@@ -17,14 +17,15 @@
 #include "ac/common.h"
 #include "ac/gamesetup.h"
 #include "font/fonts.h"
-#include "gui/mylistbox.h"
-#include "gui/guidialoginternaldefs.h"
 #include "gfx/bitmap.h"
+#include "gui/guidialog.h"
+#include "gui/guidialoginternaldefs.h"
+#include "gui/mylistbox.h"
 
 using AGS::Common::Bitmap;
 
 extern GameSetup usetup;
-extern int mousex, mousey, numcurso, hotx, hoty;
+extern int numcurso, hotx, hoty;
 
 extern int windowbackgroundcolor;
 extern int cbuttfont;
@@ -41,6 +42,7 @@ extern int smcode;
     items = 0;
     topitem = 0;
     selected = -1;
+    memset(itemnames, 0, sizeof(itemnames));
   }
 
   void MyListBox::clearlist()
@@ -102,7 +104,7 @@ extern int smcode;
     wid = widwas;
   }
 
-  int MyListBox::pressedon()
+  int MyListBox::pressedon(int mousex, int mousey)
   {
     if (mousex > x + wid - ARROWWIDTH) {
       if ((mousey - y < hit / 2) & (topitem > 0))
@@ -117,9 +119,9 @@ extern int smcode;
 
     }
 
-//    domouse(2);
-    draw(GetVirtualScreen());
-  //  domouse(1);
+//    ags_domouse(DOMOUSE_DISABLE);
+    draw(get_gui_screen());
+  //  ags_domouse(DOMOUSE_ENABLE);
     smcode = CM_SELCHANGE;
     return 0;
   }

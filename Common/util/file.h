@@ -18,7 +18,7 @@
 #ifndef __AGS_CN_UTIL__FILE_H
 #define __AGS_CN_UTIL__FILE_H
 
-#include "api/stream_api.h"
+#include "core/platform.h"
 #include "util/string.h"
 
 namespace AGS

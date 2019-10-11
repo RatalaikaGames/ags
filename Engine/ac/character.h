@@ -159,7 +159,7 @@ struct MoveList;
 namespace AGS { namespace Common { class Bitmap; } }
 using namespace AGS; // FIXME later
 
-void animate_character(CharacterInfo *chap, int loopn,int sppd,int rept, int noidleoverride, int direction);
+void animate_character(CharacterInfo *chap, int loopn,int sppd,int rept, int noidleoverride = 0, int direction = 0, int sframe = 0);
 void walk_character(int chac,int tox,int toy,int ignwal, bool autoWalkAnims);
 int  find_looporder_index (int curloop);
 // returns 0 to use diagonal, 1 to not
@@ -179,10 +179,10 @@ void walk_or_move_character(CharacterInfo *chaa, int x, int y, int blocking, int
 int  is_valid_character(int newchar);
 int  wantMoveNow (CharacterInfo *chi, CharacterExtras *chex);
 void setup_player_character(int charid);
-void animate_character(CharacterInfo *chap, int loopn,int sppd,int rept, int noidleoverride=0, int direction=0);
 void CheckViewFrameForCharacter(CharacterInfo *chi);
 Common::Bitmap *GetCharacterImage(int charid, int *isFlipped);
-CharacterInfo *GetCharacterAtLocation(int xx, int yy);
+CharacterInfo *GetCharacterAtScreen(int xx, int yy);
+// Get character ID at the given room coordinates
 int is_pos_on_character(int xx,int yy);
 void get_char_blocking_rect(int charid, int *x1, int *y1, int *width, int *y2);
 // Check whether the source char has walked onto character ww

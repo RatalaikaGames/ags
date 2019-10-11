@@ -44,13 +44,13 @@ class GUIObject
 {
 public:
     GUIObject();
-    virtual ~GUIObject(){}
+    virtual ~GUIObject() = default;
     
     String          GetEventArgs(int event) const;
     int             GetEventCount() const;
     String          GetEventName(int event) const;
     bool            IsDeleted() const;
-    // checks both control flag and global variable
+    // tells if control itself is enabled
     bool            IsEnabled() const;
     // overridable routine to determine whether the mouse is over the control
     virtual bool    IsOverControl(int x, int y, int leeway) const;
@@ -117,5 +117,10 @@ HorAlignment ConvertLegacyGUIAlignment(LegacyGUIAlignment align);
 
 } // namespace Common
 } // namespace AGS
+
+// Tells if all controls are disabled
+extern int all_buttons_disabled;
+// Tells if the given control is considered enabled, taking global flag into account
+inline bool IsGUIEnabled(AGS::Common::GUIObject *g) { return !all_buttons_disabled && g->IsEnabled(); }
 
 #endif // __AC_GUIOBJECT_H

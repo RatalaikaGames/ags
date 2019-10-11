@@ -31,7 +31,7 @@ MyTextBox::MyTextBox(int xx, int yy, int wii, const char *tee)
     x = xx;
     y = yy;
     wid = wii;
-    if (tee != NULL)
+    if (tee != nullptr)
         strcpy(text, tee);
     else
         text[0] = 0;
@@ -52,7 +52,7 @@ void MyTextBox::draw(Bitmap *ds)
     wouttextxy(ds, x + 2 + wgettextwidth(text, cbuttfont), y + 1, cbuttfont, text_color, tbu);
 }
 
-int MyTextBox::pressedon()
+int MyTextBox::pressedon(int mousex, int mousey)
 {
     return 0;
 }

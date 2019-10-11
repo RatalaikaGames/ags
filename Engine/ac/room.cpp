@@ -12,10 +12,11 @@
 //
 //=============================================================================
 
-#define USE_CLIB
+#include <ctype.h> // for toupper
+
+#include "core/platform.h"
 #include "util/string_utils.h" //strlwr()
 #include "ac/common.h"
-#include "media/audio/audiodefines.h"
 #include "ac/charactercache.h"
 #include "ac/characterextras.h"
 #include "ac/draw.h"
@@ -29,12 +30,13 @@
 #include "ac/global_game.h"
 #include "ac/global_object.h"
 #include "ac/global_translation.h"
+#include "ac/movelist.h"
 #include "ac/mouse.h"
 #include "ac/objectcache.h"
 #include "ac/overlay.h"
 #include "ac/properties.h"
 #include "ac/region.h"
-#include "ac/record.h"
+#include "ac/sys_events.h"
 #include "ac/room.h"
 #include "ac/roomobject.h"
 #include "ac/roomstatus.h"
@@ -51,10 +53,10 @@
 #include "debug/debugger.h"
 #include "debug/out.h"
 #include "game/room_version.h"
-#include "media/audio/audio.h"
 #include "platform/base/agsplatformdriver.h"
 #include "plugin/agsplugin.h"
 #include "plugin/plugin_engine.h"
+#include "script/cc_error.h"
 #include "script/script.h"
 #include "script/script_runtime.h"
 #include "ac/spritecache.h"
@@ -65,15 +67,10 @@
 #include "gfx/bitmap.h"
 #include "gfx/gfxfilter.h"
 #include "util/math.h"
-#include "ac/dynobj/scriptcamera.h"
+#include "media/audio/audio_system.h"
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
-
-#if !defined (WINDOWS_VERSION)
-// for toupper
-#include <ctype.h>
-#endif
 
 extern GameSetup usetup;
 extern GameSetupStruct game;
@@ -98,9 +95,7 @@ extern ScriptHotspot scrHotspot[MAX_ROOM_HOTSPOTS];
 extern int in_leaves_screen;
 extern CharacterInfo*playerchar;
 extern int starting_room;
-extern unsigned int loopcounter,lastcounter;
-extern int ccError;
-extern char ccErrorString[400];
+extern unsigned int loopcounter;
 extern IDriverDependantBitmap* roomBackgroundBmp;
 extern IGraphicsDriver *gfxDriver;
 extern Bitmap *raw_saved_screen;
@@ -111,7 +106,6 @@ extern Bitmap **actspswb;
 extern IDriverDependantBitmap* *actspswbbmp;
 extern CachedActSpsData* actspswbcache;
 extern color palette[256];
-extern Bitmap *virtual_screen;
 extern int mouse_z_was;
 
 extern Bitmap **guibg;
@@ -203,19 +197,12 @@ bool Room_SetTextProperty(const char *property, const char *value)
 
 const char* Room_GetMessages(int index) {
     if ((index < 0) || ((size_t)index >= thisroom.MessageCount)) {
-        return NULL;
+        return nullptr;
     }
     char buffer[STD_BUFFER_SIZE];
     buffer[0]=0;
     replace_tokens(get_translation(thisroom.Messages[index]), buffer, STD_BUFFER_SIZE);
     return CreateNewScriptString(buffer);
-}
-
-ScriptCamera* Room_GetCamera()
-{
-    ScriptCamera *camera = new ScriptCamera();
-    ccRegisterManagedObject(camera, camera);
-    return camera;
 }
 
 
@@ -256,28 +243,28 @@ void unload_old_room() {
     cancel_all_scripts();
     numevents = 0;  // cancel any pending room events
 
-    if (roomBackgroundBmp != NULL)
+    if (roomBackgroundBmp != nullptr)
     {
         gfxDriver->DestroyDDB(roomBackgroundBmp);
-        roomBackgroundBmp = NULL;
+        roomBackgroundBmp = nullptr;
     }
 
-    if (croom==NULL) ;
-    else if (roominst!=NULL) {
+    if (croom==nullptr) ;
+    else if (roominst!=nullptr) {
         save_room_data_segment();
         delete roominstFork;
         delete roominst;
-        roominstFork = NULL;
-        roominst=NULL;
+        roominstFork = nullptr;
+        roominst=nullptr;
     }
     else croom->tsdatasize=0;
     memset(&play.walkable_areas_on[0],1,MAX_WALK_AREAS+1);
     play.bg_frame=0;
     play.bg_frame_locked=0;
-    play.ReleaseRoomCamera();
+    play.GetRoomCamera(0)->Release();
     remove_screen_overlay(-1);
     delete raw_saved_screen;
-    raw_saved_screen = NULL;
+    raw_saved_screen = nullptr;
     for (ff = 0; ff < MAX_ROOM_BGFRAMES; ff++)
         play.raw_modified[ff] = 0;
 
@@ -285,7 +272,7 @@ void unload_old_room() {
     for (ff = 0; ff < game.numcharacters; ff++) {
         if (charcache[ff].inUse) {
             delete charcache[ff].image;
-            charcache[ff].image = NULL;
+            charcache[ff].image = nullptr;
             charcache[ff].inUse = 0;
         }
         // ensure that any half-moves (eg. with scaled movement) are stopped
@@ -315,25 +302,25 @@ void unload_old_room() {
     // clear the object cache
     for (ff = 0; ff < MAX_ROOM_OBJECTS; ff++) {
         delete objcache[ff].image;
-        objcache[ff].image = NULL;
+        objcache[ff].image = nullptr;
     }
     // clear the actsps buffers to save memory, since the
     // objects/characters involved probably aren't on the
     // new screen. this also ensures all cached data is flushed
     for (ff = 0; ff < MAX_ROOM_OBJECTS + game.numcharacters; ff++) {
         delete actsps[ff];
-        actsps[ff] = NULL;
+        actsps[ff] = nullptr;
 
-        if (actspsbmp[ff] != NULL)
+        if (actspsbmp[ff] != nullptr)
             gfxDriver->DestroyDDB(actspsbmp[ff]);
-        actspsbmp[ff] = NULL;
+        actspsbmp[ff] = nullptr;
 
         delete actspswb[ff];
-        actspswb[ff] = NULL;
+        actspswb[ff] = nullptr;
 
-        if (actspswbbmp[ff] != NULL)
+        if (actspswbbmp[ff] != nullptr)
             gfxDriver->DestroyDDB(actspswbbmp[ff]);
-        actspswbbmp[ff] = NULL;
+        actspswbbmp[ff] = nullptr;
 
         actspswbcache[ff].valid = 0;
     }
@@ -351,30 +338,45 @@ extern int convert_16bit_bgr;
 void update_letterbox_mode()
 {
     const Size real_room_sz = Size(thisroom.Width, thisroom.Height);
-    const Rect game_frame = RectWH(game.size);
+    const Rect game_frame = RectWH(game.GetGameRes());
     Rect new_main_view = game_frame;
     // In the original engine the letterbox feature only allowed viewports of
     // either 200 or 240 (400 and 480) pixels, if the room height was equal or greater than 200 (400).
     // Also, the UI viewport should be matching room viewport in that case.
     // NOTE: if "OPT_LETTERBOX" is false, altsize.Height = size.Height always.
     const int viewport_height =
-        real_room_sz.Height < game.altsize.Height ? real_room_sz.Height :
-        (real_room_sz.Height >= game.altsize.Height && real_room_sz.Height < game.size.Height) ? game.altsize.Height :
-        game.size.Height;
+        real_room_sz.Height < game.GetLetterboxSize().Height ? real_room_sz.Height :
+        (real_room_sz.Height >= game.GetLetterboxSize().Height && real_room_sz.Height < game.GetGameRes().Height) ? game.GetLetterboxSize().Height :
+        game.GetGameRes().Height;
     new_main_view.SetHeight(viewport_height);
 
     play.SetMainViewport(CenterInRect(game_frame, new_main_view));
     play.SetUIViewport(new_main_view);
 }
 
-void adjust_viewport_to_room()
+// Automatically reset primary room viewport and camera to match the new room size
+static void adjust_viewport_to_room()
 {
     const Size real_room_sz = Size(thisroom.Width, thisroom.Height);
     const Rect main_view = play.GetMainViewport();
     Rect new_room_view = RectWH(Size::Clamp(real_room_sz, Size(1, 1), main_view.GetSize()));
 
-    play.SetRoomViewport(new_room_view);
-    play.SetRoomCameraSize(new_room_view.GetSize());
+    play.GetRoomViewport(0)->SetRect(new_room_view);
+    auto cam = play.GetRoomCamera(0);
+    cam->SetSize(new_room_view.GetSize());
+    cam->SetAt(0, 0);
+}
+
+// Run through all viewports and cameras to make sure they can work in new room's bounds
+static void update_all_viewcams_with_newroom()
+{
+    for (int i = 0; i < play.GetRoomCameraCount(); ++i)
+    {
+        auto cam = play.GetRoomCamera(i);
+        const Rect old_pos = cam->GetRect();
+        cam->SetSize(old_pos.GetSize());
+        cam->SetAt(old_pos.Left, old_pos.Top);
+    }
 }
 
 // forchar = playerchar on NewRoom, or NULL if restore saved game
@@ -386,6 +388,10 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
     int cc;
     done_es_error = 0;
     play.room_changes ++;
+    // TODO: find out why do we need to temporarily lower color depth to 8-bit.
+    // Or do we? There's a serious usability problem in this: if any bitmap is
+    // created meanwhile it will have this color depth by default, which may
+    // lead to unexpected errors.
     set_color_depth(8);
     displayed_room=newnum;
 
@@ -438,9 +444,6 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
     // Update game viewports
     if (game.IsLegacyLetterbox())
         update_letterbox_mode();
-    if (play.IsAutoRoomViewport())
-        adjust_viewport_to_room();
-
     SetMouseBounds(0, 0, 0, 0);
 
     our_eip=203;
@@ -463,12 +466,12 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
     update_polled_stuff_if_runtime();
 
     set_color_depth(game.GetColorDepth());
-
     recache_walk_behinds();
+    update_polled_stuff_if_runtime();
 
     our_eip=205;
     // setup objects
-    if (forchar != NULL) {
+    if (forchar != nullptr) {
         // if not restoring a game, always reset this room
         troom.beenhere=0;  
         troom.FreeScriptData();
@@ -486,10 +489,6 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
         for (cc=0;cc<croom->numobj;cc++) {
             croom->obj[cc].x=thisroom.Objects[cc].X;
             croom->obj[cc].y=thisroom.Objects[cc].Y;
-
-            if (thisroom.DataVersion <= kRoomVersion_300a)
-                croom->obj[cc].y += game.SpriteInfos[thisroom.Objects[cc].Sprite].Height;
-
             croom->obj[cc].num=thisroom.Objects[cc].Sprite;
             croom->obj[cc].on=thisroom.Objects[cc].IsOn;
             croom->obj[cc].view=-1;
@@ -545,19 +544,7 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
         // export the object's script object
         if (thisroom.Objects[cc].ScriptName.IsEmpty())
             continue;
-
-        if (thisroom.DataVersion >= kRoomVersion_300a) 
-        {
-            objectScriptObjNames[cc] = thisroom.Objects[cc].ScriptName;
-        }
-        else
-        {
-            objectScriptObjNames[cc].Format("o%s", thisroom.Objects[cc].ScriptName.GetCStr());
-            objectScriptObjNames[cc].MakeLower();
-            if (objectScriptObjNames[cc].GetLength() >= 2)
-                objectScriptObjNames[cc].SetAt(1, toupper(objectScriptObjNames[cc].GetAt(1)));
-        }
-
+        objectScriptObjNames[cc] = thisroom.Objects[cc].ScriptName;
         ccAddExternalDynamicObject(objectScriptObjNames[cc], &scrObj[cc], &ccDynamicObject);
     }
 
@@ -596,11 +583,11 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
             if (palette[ff].b > 63)
                 palette[ff].b = 63;
         }
-        create_rgb_table (&rgb_table, palette, NULL);
+        create_rgb_table (&rgb_table, palette, nullptr);
         rgb_map = &rgb_table;
     }
     our_eip = 211;
-    if (forchar!=NULL) {
+    if (forchar!=nullptr) {
         // if it's not a Restore Game
 
         // if a following character is still waiting to come into the
@@ -617,7 +604,6 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
             }
         }
 
-        play.SetRoomCameraAt(0, 0);
         forchar->prevroom=forchar->room;
         forchar->room=newnum;
         // only stop moving if it's a new room, not a restore game
@@ -628,9 +614,9 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
 
     update_polled_stuff_if_runtime();
 
-    roominst=NULL;
+    roominst=nullptr;
     if (debug_flags & DBG_NOSCRIPT) ;
-    else if (thisroom.CompiledScript!=NULL) {
+    else if (thisroom.CompiledScript!=nullptr) {
         compile_room_script();
         if (croom->tsdatasize>0) {
             if (croom->tsdatasize != roominst->globaldatasize)
@@ -641,7 +627,7 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
     our_eip=207;
     play.entered_edge = -1;
 
-    if ((new_room_x != SCR_NO_VALUE) && (forchar != NULL))
+    if ((new_room_x != SCR_NO_VALUE) && (forchar != nullptr))
     {
         forchar->x = new_room_x;
         forchar->y = new_room_y;
@@ -652,7 +638,7 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
     new_room_x = SCR_NO_VALUE;
 	new_room_loop = SCR_NO_VALUE;
 
-    if ((new_room_pos>0) & (forchar!=NULL)) {
+    if ((new_room_pos>0) & (forchar!=nullptr)) {
         if (new_room_pos>=4000) {
             play.entered_edge = 3;
             forchar->y = thisroom.Edges.Top + 1;
@@ -728,7 +714,7 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
         }
         new_room_pos=0;
     }
-    if (forchar!=NULL) {
+    if (forchar!=nullptr) {
         play.entered_at_x=forchar->x;
         play.entered_at_y=forchar->y;
         if (forchar->x >= thisroom.Edges.Right)
@@ -744,7 +730,7 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
         PlayMusicResetQueue(thisroom.Options.StartupMusic);
 
     our_eip=208;
-    if (forchar!=NULL) {
+    if (forchar!=nullptr) {
         if (thisroom.Options.PlayerCharOff==0) { forchar->on=1;
         enable_cursor_mode(0); }
         else {
@@ -760,13 +746,24 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
         else forchar->view=thisroom.Options.PlayerView-1;
         forchar->frame=0;   // make him standing
     }
-    color_map = NULL;
+    color_map = nullptr;
 
     our_eip = 209;
     update_polled_stuff_if_runtime();
     generate_light_table();
     update_music_volume();
-    play.UpdateRoomCamera();
+
+    // If we are not restoring a save, update cameras to accomodate for this
+    // new room; otherwise this is done later when cameras are recreated.
+    if (forchar != nullptr)
+    {
+        if (play.IsAutoRoomViewport())
+            adjust_viewport_to_room();
+        update_all_viewcams_with_newroom();
+        play.UpdateRoomCameras(); // update auto tracking
+    }
+    init_room_drawdata();
+
     our_eip = 212;
     invalidate_screen();
     for (cc=0;cc<croom->numobj;cc++) {
@@ -777,7 +774,7 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
     play.gscript_timer=-1;  // avoid screw-ups with changing screens
     play.player_on_region = 0;
     // trash any input which they might have done while it was loading
-    clear_input_buffer();
+    ags_clear_input_buffer();
     // no fade in, so set the palette immediately in case of 256-col sprites
     if (game.color_depth > 1)
         setpal();
@@ -829,17 +826,17 @@ void new_room(int newnum,CharacterInfo*forchar) {
     if (psp_clear_cache_on_room_change)
     {
         // Delete all cached sprites
-        spriteset.RemoveAll();
+        spriteset.DisposeAll();
 
         // Delete all gui background images
         for (int i = 0; i < game.numgui; i++)
         {
             delete guibg[i];
-            guibg[i] = NULL;
+            guibg[i] = nullptr;
 
             if (guibgbmp[i])
                 gfxDriver->DestroyDDB(guibgbmp[i]);
-            guibgbmp[i] = NULL;
+            guibgbmp[i] = nullptr;
         }
         guis_need_update = 1;
     }
@@ -860,13 +857,9 @@ int find_highest_room_entered() {
     return fndas;
 }
 
-extern long t1;  // defined in ac_main
-
 void first_room_initialization() {
     starting_room = displayed_room;
-    t1 = time(NULL);
-    lastcounter=0;
-    loopcounter=0;
+    set_loop_counter(0);
     mouse_z_was = mouse_z;
 }
 
@@ -895,13 +888,13 @@ void compile_room_script() {
 
     roominst = ccInstance::CreateFromScript(thisroom.CompiledScript);
 
-    if ((ccError!=0) || (roominst==NULL)) {
-        quitprintf("Unable to create local script: %s", ccErrorString);
+    if ((ccError!=0) || (roominst==nullptr)) {
+        quitprintf("Unable to create local script: %s", ccErrorString.GetCStr());
     }
 
     roominstFork = roominst->Fork();
-    if (roominstFork == NULL)
-        quitprintf("Unable to create forked room instance: %s", ccErrorString);
+    if (roominstFork == nullptr)
+        quitprintf("Unable to create forked room instance: %s", ccErrorString.GetCStr());
 
     repExecAlways.roomHasFunction = true;
     lateRepExecAlways.roomHasFunction = true;
@@ -939,8 +932,40 @@ void on_background_frame_change () {
 
 void croom_ptr_clear()
 {
-    croom = NULL;
-    objs = NULL;
+    croom = nullptr;
+    objs = nullptr;
+}
+
+
+AGS_INLINE int room_to_mask_coord(int coord)
+{
+    return coord / thisroom.MaskResolution;
+}
+
+AGS_INLINE int mask_to_room_coord(int coord)
+{
+    return coord * thisroom.MaskResolution;
+}
+
+void convert_move_path_to_room_resolution(MoveList *ml)
+{
+    if (thisroom.MaskResolution <= 1)
+        return;
+
+    ml->fromx = mask_to_room_coord(ml->fromx);
+    ml->fromy = mask_to_room_coord(ml->fromy);
+    ml->lastx = mask_to_room_coord(ml->lastx);
+    ml->lasty = mask_to_room_coord(ml->lasty);
+
+    for (int i = 0; i < ml->numstage; i++)
+    {
+        uint16_t lowPart = mask_to_room_coord(ml->pos[i] & 0x0000ffff);
+        uint16_t highPart = mask_to_room_coord((ml->pos[i] >> 16) & 0x0000ffff);
+        ml->pos[i] = ((int)highPart << 16) | (lowPart & 0x0000ffff);
+
+        ml->xpermove[i] = mask_to_room_coord(ml->xpermove[i]);
+        ml->ypermove[i] = mask_to_room_coord(ml->ypermove[i]);
+    }
 }
 
 //=============================================================================
@@ -1046,14 +1071,9 @@ RuntimeScriptValue Sc_Room_GetWidth(const RuntimeScriptValue *params, int32_t pa
 }
 
 // void (int xx,int yy,int mood)
-RuntimeScriptValue Sc_ProcessClick(const RuntimeScriptValue *params, int32_t param_count)
+RuntimeScriptValue Sc_RoomProcessClick(const RuntimeScriptValue *params, int32_t param_count)
 {
-    API_SCALL_VOID_PINT3(ProcessClick);
-}
-
-RuntimeScriptValue Sc_Room_GetCamera(const RuntimeScriptValue *params, int32_t param_count)
-{
-    API_SCALL_OBJAUTO(ScriptCamera, Room_GetCamera);
+    API_SCALL_VOID_PINT3(RoomProcessClick);
 }
 
 
@@ -1064,8 +1084,8 @@ void RegisterRoomAPI()
     ccAddExternalStaticFunction("Room::GetTextProperty^1",                  Sc_Room_GetTextProperty);
     ccAddExternalStaticFunction("Room::SetProperty^2",                      Sc_Room_SetProperty);
     ccAddExternalStaticFunction("Room::SetTextProperty^2",                  Sc_Room_SetTextProperty);
-    ccAddExternalStaticFunction("Room::ProcessClick^3",                     Sc_ProcessClick);
-    ccAddExternalStaticFunction("ProcessClick",                             Sc_ProcessClick);
+    ccAddExternalStaticFunction("Room::ProcessClick^3",                     Sc_RoomProcessClick);
+    ccAddExternalStaticFunction("ProcessClick",                             Sc_RoomProcessClick);
     ccAddExternalStaticFunction("Room::get_BottomEdge",                     Sc_Room_GetBottomEdge);
     ccAddExternalStaticFunction("Room::get_ColorDepth",                     Sc_Room_GetColorDepth);
     ccAddExternalStaticFunction("Room::get_Height",                         Sc_Room_GetHeight);
@@ -1076,7 +1096,6 @@ void RegisterRoomAPI()
     ccAddExternalStaticFunction("Room::get_RightEdge",                      Sc_Room_GetRightEdge);
     ccAddExternalStaticFunction("Room::get_TopEdge",                        Sc_Room_GetTopEdge);
     ccAddExternalStaticFunction("Room::get_Width",                          Sc_Room_GetWidth);
-    ccAddExternalStaticFunction("Room::get_Camera",                         Sc_Room_GetCamera);
 
     /* ----------------------- Registering unsafe exports for plugins -----------------------*/
 

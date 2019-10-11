@@ -24,13 +24,12 @@ namespace Engine
 class BaseMutex
 {
 public:
-  BaseMutex()
-  {
-  };
+  BaseMutex() = default;
 
-  virtual ~BaseMutex()
-  {
-  };
+  virtual ~BaseMutex() = default;
+
+  BaseMutex &operator=(const BaseMutex &) = delete;
+  BaseMutex(const BaseMutex &) = delete;
 
   virtual void Lock() = 0;
 
@@ -42,22 +41,10 @@ public:
 } // namespace AGS
 
 
-#if defined(WINDOWS_VERSION)
-#include "mutex_windows.h"
-
-#elif defined(PSP_VERSION)
-#include "mutex_psp.h"
-
-#elif defined(WII_VERSION)
-#include "mutex_wii.h"
-
-#elif defined(LINUX_VERSION) \
-   || defined(MAC_VERSION) \
-   || defined(IOS_VERSION) \
-   || defined(ANDROID_VERSION)
-#include "mutex_pthread.h"
-
+#if 0
+  // insert platforms here
+#else
+#include "mutex_std.h"
 #endif
-
 
 #endif // __AGS_EE_UTIL__MUTEX_H

@@ -1,52 +1,113 @@
 REVISION HISTORY
 ================
-VERSION 3.5.0 - Alpha
+VERSION 3.5.0 - RC
 
 Common features:
+ - Now using Allegro v4.4.3 library (previously v4.4.2).
  - Support for large files: compiled game, sprite set, room files now may exceed 2 GB.
+ - Deprecated relative assets resolutions: now sprites, rooms and fonts are considered to
+   match game's resolution by default and not resized, unless running in backwards-compatibility
+   mode.
+ - Allow room size to be smaller than the game's resolution.
  - Removed fonts count limit.
  - Raised imported sprites count limit to 90000 and removed total sprite count limit
    (this means you may have around 2 billions of dynamic sprites).
- - Removed length limit on the Button and TextBox text.
+ - Removed length limit on the Button and TextBox text (was 50 and 200 respectively).
+ - Removed limit on ListBox item count (was 200).
 
 Editor:
  - Editor requires .NET Framework 4.5 to run. Dropped Windows XP support.
  - Editor preferences are now stored using .NET configuration model, instead of the
    Windows registry.
  - Added support for custom UI color themes.
+ - Added "Window" - "Layout" submenu with commands for saving and loading panel layout.
  - Game and room templates are now by default saved in AppData/Local/AGS folder.
    Editor finds them in both program folder and AppData.
+ - Allow to change IDs of most of the game items in the project tree by swapping two
+   existing items. This is done by calling a context menu and choosing "Change ID".
+ - Added "Game file name" option to let users easily set compiled game file's name.
+ - Added "Allow relative asset resolutions" option to "Backwards Compatibility" section.
+   Disabled by default, it makes game treat all sprites and rooms resolution as real one.
+ - Added "Custom Say/Narrate function in dialog scripts" options which determine what
+   functions are used when converting character lines in dialog scripts to real script.
  - New revamped sprite import window.
  - Sprites that were created using tiled import can now be properly reimported from source.
+ - Added context menu command to open sprite's source file location.
+ - Using Magick.NET library as a GIF loader. This should fix faulty GIF imports.
+ - New sprite export dialog that lets you configure some export preferences, including
+   remapping sprite source paths.
+ - Sprites have "Real" resolution type by default. "Low" and "High resolution" are kept
+   for backwards compatibility only. When importing older games resolution type will be
+   promoted to "Real" whenever it matches the game.
  - New navigation bar in the room editor, which allows to select any room object
    or region for editing, show/hide and lock room objects and regions in any combination.
    These settings are saved in the special roomXXX.crm.user files.
- - Allow room size to be smaller than the game's resolution.
+ - Improved how Room zoom slider works, now supports downscale.
+ - Added "Export mask to file" tool button to the Room Editor.
+ - Added MaskResolution property to Rooms. It ranges from 1:1 to 1:4 and lets you define
+   the precision of Hotspot, Regions and Walkable Areas relative to room background.
+ - Added "Default room mask resolution" to General Settings, which value will be applied
+   to any room opened for editing in this game for the first time.
  - Removed Locked property from the Room Object, objects are now locked by the navbar.
  - Split GUI's Visibility property into PopupStyle and Visible properties.
  - Added Clickable, Enabled and Visible properties to GUI Controls.
- - Improved how Room zoom slider works, now supports downscale.
- - Added "Export mask to file" tool button to the Room Editor.
- - Added "Always"choice to "Popup message on compile" preference. Successful compilation
+ - "Import over font" command now supports importing WFN fonts too.
+ - Removed "Fonts designed for high resolution" option from General Settings. Instead added
+   individual SizeMultiplier property to Fonts.
+ - Alphabetically sort audio clips in the drop lists.
+ - Display audio clip length on the preview pane without starting playback.
+ - Sync variable type selector in Global Variables pane with the actual list of supported
+   script types.
+ - In preferences added an option telling whether to automatically reload scripts changed
+   externally.
+ - Added "Always" choice to "Popup message on compile" preference. Successful compilation
    popup will only be displayed if "Always" choice is selected.
  - Added shortcut key combination (Shift + F5) for stopping a game's debug run.
  - Don't display missing games in the "recent games" list.
  - Build autocomplete table a little faster.
- - Don't modify filesystem permissions in Compiled directory when compiling the game.
-   Editor no longer requires non-standard "takeown.exe" utility.
+ - Disabled sending crash reports and anonymous statistics, because of the AGS server issues.
  - Corrected .NET version query for the anonymous statistics report.
+ - Fixed crash and corruption of project data when writing to full disk.
+ - Fixed saving sprite file to not cancel completely if only an optional step has failed
+   (such as copying a backup file).
+ - Fixed changing character's starting room did not update list of characters on property
+   pane of a room editor until user switches editing mode or reloads the room.
+ - Fixed room editor kept displaying selection box over character after its starting room
+   has changed.
+ - Fixed room editor not suggesting user to save the room after changing object's sprite
+   by double-clicking on it.
  - Fixed sprite folders collapsing after assigning sprite to a View frame or an object.
  - Fixed view loops displayed with offset if the view panel area was scrolled
    horizontally prior to their creation.
- - Fixed TextWindow GUI's elements could be deleted or moved in the editor with key controls.
- - Fixed GUI or Room editors sometimes allowed to scroll beyond necessary limits.
- - Fixed rooms not being rebuilt when running game just created from a template.
- - Fixed translations were not available for the test run if game was not fully rebuilt yet.
- - Fixed Windows Explorer was sometimes locking the game files during compilation.
+ - Fixed MIDI audio preview was resetting all instruments to default (piano) after pausing
+   and resuming playback.
+ - Fixed MIDI audio preview had wrong control states set when pausing a playback.
+ - Fixed autocomplete not showing up correctly if user has multiple monitors.
+ - Fixed script compiler could leave extra padding inside the compiled scripts filled with
+   random garbage if script strings contained escaped sequences like "\n" (this was not good
+   for source control).
+
+Scripting:
+ - Fixed compiler was not allowing to access regular properties after type's static properties
+   in a sequence (for example: DateTime.Now.Hour).
 
 Script API:
+ - Introduced new managed struct Point describing (x,y) coordinates.
+ - Introduced StringCompareStyle enum and replaced "caseSensitive" argument in String functions
+   with argument of StringCompareStyle type.
+ - Implemented Dictionary and Set script classes supporting storage and lookup of strings and
+   key/value pairs in sorted or unsorted way. Added SortStyle enum for use with them.
  - Implemented Viewport and Camera script classes which control how room is displayed on screen.
- - Added properties Game.AutoSizeViewportOnRoomLoad, Game.Viewport, Room.Camera.
+ - Implemented Screen struct with a number of static functions and properties, which notably
+   features references to the existing Viewports. Deprecated System's ScreenWidth, ScreenHeight,
+   ViewportWidth and ViewportHeight in favor of Screen's properties.
+ - Added Game.Camera, Game.Cameras and Game.CameraCount properties.
+ - All functions that find room objects under screen coordinates are now being clipped by the
+   viewport (fail if there's no room viewport at these coordinates). This refers to:
+   GetLocationName, GetLocationType, IsInteractionAvailable, Room.ProcessClick, GetWalkableAreaAt
+   and all of the GetAtScreenXY functions (and corresponding deprecated functions).
+ - Added Character.GetAtRoomXY, Hotspot.GetAtRoomXY, Object.GetAtRoomXY, Region.GetAtScreenXY,
+   replaced GetWalkableAreaAt with GetWalkableAreaAtScreen and added GetWalkableAreaAtRoom.
  - Replaced Alignment enum with a new one which has eight values from TopLeft to BottomRight.
  - Renamed old Alignment enum to HorizontalAlignment, intended for parameters that are
    only allowed to be Left, Center or Right.
@@ -59,33 +120,171 @@ Script API:
    TextColor.
  - Replaced ListBox.HideBorder and HideArrows with ShowBorder and ShowArrows.
  - Added TextBox.ShowBorder.
+ - Added AudioClip.ID which corresponds to clip's position in Game.AudioClips array.
+ - Added Game.PlayVoiceClip() for playing non-blocking voice.
+ - Added SkipCutscene() and eSkipScriptOnly cutscene mode.
+ - Allowed to change Mouse.ControlEnabled property value at runtime.
+ - Added Game.SimulateKeyPress().
+ - Added optional "frame" parameter to Character.Animate and Object.Animate, letting you begin
+   animation from any frame in the loop.
+ - Deprecated Character.IgnoreWalkbehinds and Object.IgnoreWalkbehinds.
+ - Deprecated DrawingSurface.UseHighResCoordinates. Also, assigning it will be ignored if game's
+   "Allow relative asset resolutions" option is disabled.
 
 Engine:
  - New pathfinder based on the A* jump point search.
  - Implemented new savegame format. Much cleaner than the old one, and easier to
    extend, it should also reduce the size of the save files.
    The engine is still capable of loading older saves, temporarily.
- - Prevent game from crashing if there was an attempt to draw text with a non-existing font.
- - Removed restriction preventing GUIs to be larger than the game's screen.
+ - Implemented support for sprite batch transformations.
+ - Implemented custom room viewport and camera.
+ - Removed limits on built-in text wrapping (was 50 lines of 200 chars max each).
+ - Removed 200 chars limit for DoOnceOnly token length.
+ - Try to create all subdirectories when calling File.Open() for writing,
+   DynamicSprite.SaveToFile() and Game.SetSaveGameDirectory().
+ - Reimplemented threaded audio, should now work correctly on all platforms.
+ - Made debug overlay (console and fps counter) display above any game effects (tint, fade, etc)
+ - Made fps display more stable and timing correct when framerate is maxed out for test purposes.
+ - Print debug overlay text using Game.NormalFont (was hard-coded to default speech font).
+ - Improved performance of hardware-accelerated renderers by not preparing a stage bitmap
+   for plugins unless any plugin hooked for the particular drawing events.
+ - Reimplemented FRead and FWrite plugin API functions, should now work in 64-bit mode too.
+ - Support "--gfxdriver" command line argument that overrides graphics driver in config.
+ - Implemented "--tell" set of commands that print certain engine and/or game data to stdout.
+ - Use "digiid" and "midiid" config options to be used on all platforms alike and allow these to
+   represent driver ID as a plain string and encoded as an integer value (for compatibility).
+ - Completely removed old and unsupported record/replay functionality.
  - Replaced number of fatal errors reported for incorrectly called script functions with
    a warning to the warnings.log instead. This is done either when arguments may be fixed
    automatically, or script command simply cannot be executed under current circumstances.
  - Expanded some of the error messages providing more information to end-user and developers.
- - On Linux improved CPU yield function, this supposedly may reduce CPU usage.
- - Made engine fallback to defaults if config contains invalid game scaling setting.
- - Fixed old-style string functions like StrCopy could crash the game if user managed object's
-   member is passed as an argument into them.
- - Fixed 'warnings.log' could never be created (was broken in earlier versions).
- - Fixed crash in the Software renderer which was occuring when any other renderers are tried
-   prior to Software one but failed to initialize for any reason.
+ - Fixed engine could not locate game data if relative path was passed in command line.
+ - Fixed potential bug which could cause DoOnceOnly tokens to be read incorrectly from a savedgame.
+ - Fixed old walk-behind cut-outs could be displayed on first update in a room if the room's
+   background was modified using raw drawing commands before fade-in. This happened only when
+   running Direct3D or OpenGL renderer. Note that this bug was probably never noticed by players
+   for a certain barely related reason.
+ - Fixed BlackBox-in transition done by software renderer could have wrong aspect ratio.
+ - Fixed Direct3D and OpenGL displayed pink (255, 0, 255) fade as transparent.
+ - Fixed potential crash that could happen when switching between fullscreen and windowed mode,
+   or switching back into game window (only observed on Linux for some reason).
+ - Fixed a bug in mp3/ogg decoder where it assumed creating an audiostream succeeded without
+   actually testing one.
+
+Linux:
+ - Use same FreeType library sources as Windows version, which suppose to fix TTF font glitches.
+ - Re-enabled threaded audio setting.
+ - $APPDATADIR$ script paths are now mapped to "$XDG_DATA_HOME/ags-common", making sure it is a
+   writeable location.
+
+Windows:
+ - Windows version of AGS is now built with MSVS 2015 and higher.
+ - Engine is marked as a DPI-aware application that supposed to prevent window scaling by system.
+
+
+VERSION 3.4.4 - Patch 1, September 2019
+
+Engine:
+ - Fixed increased CPU load when displaying built-in dialogs (save, restore etc).
+
+
+VERSION 3.4.4, July 2019
+
+Editor:
+ - Disabled screenshot made when sending a crash report, for security reasons.
+ - Fixed Audio folders were displaying internal "AllItemsFlat" property on property grid.
+ - Fixed crash when editor was updating file version in compiled EXE but failed and tried to
+   report about that.
+
+Engine:
+ - Fixed Character.DestinationY telling incorrect values beyond Y = 255.
+ - Fixed DynamicSprite.SaveToFile() not appending ".bmp" if no extension was specified.
+ - Fixed IsMusicVoxAvailable() not working correctly in old games which use 'music.vox'.
+ - Restored support for running games made with experimental 3.3.0 CR version.
+ - Fixed character's blinking frames drawn incorrectly when legacy sprite blending mode was on.
+ - Restored legacy InventoryScreen() behavior which picked sprites 0, 1, 2 for inventory dialog
+   buttons when predefined 2041, 2042 and 2043 were not available.
+ - Fixed negative "cachemax" value in config could lock the engine at startup.
+ - Added Scavenger's palgorithms plugin to the list of builtins, for ports that use ones.
+ - Added stubs for monkey0506's Steam and GoG plugins to let run games on systems that do not have
+   Steam/GoG installed (all related functionality will be disabled though).
+ - Added stubs for SpriteFont plugin.
+ - Added missing stubs for agswadjetutil plugin.
+
+Linux:
+ - Support for OpenGL renderer.
+
+
+VERSION 3.4.3 - Patch 1, February 2019
+
+Engine:
+ - Fixed serious mistake that would cause crashes in plugins which export their own
+   managed types for game script.
+
+Linux:
+ - Fixed compilation against recent Allegro 4.4.3 release.
+ - Updated prebuilt binaries to be compatible with Debian 8 (jessie) and higher.
+
+
+VERSION 3.4.3, February 2019
+
+Common features:
+ - Removed restriction preventing GUIs to be larger than the game's screen.
+
+Editor:
+ - Added missing audio options to Default Setup.
+ - Fixed GUI and Room editors sometimes having larger scrollable area than necessary.
+ - Fixed editable area was not resized when GUI size changed.
+ - Fixed TextWindow GUI's elements could be deleted or moved in the editor with key
+   controls with no means to restore them.
+ - Don't modify filesystem permissions in Compiled directory when compiling the game.
+   Editor no longer requires non-standard "takeown.exe" utility.
+ - Fixed Windows Explorer was sometimes locking the game files during compilation.
+ - Fixed rooms not being rebuilt when running game just created from a template.
+ - Fixed translations were not updated or available at all for the test run unless the
+   game was fully rebuilt.
+
+Engine:
+ - Allowed engine to return integer of "0" value from script functions that are "void"
+   by nature, for compatibility reasons. This may fix running particular old games.
+ - Fixed const-sized char[] arrays in managed structs did not work correctly and could
+   even cause engine to crash.
+ - Fixed some compilers could instigate a crash in the on_event callback if it was called
+   before the first room is loaded.
+ - Prevent game from crashing if there was an attempt to use a non-existant font index.
+ - Fixed crash when calling DisplayTopBar with a title longer than 200 characters.
+ - Fixed DisplayTopBar() was displayed on screen for the time calculated from the length
+   of it's title rather than it's message text (regression).
+ - Fixed built-in inventory screen could crash the game again (regression).
+ - Made engine fallback to defaults if config contains invalid graphic scaling setting.
+ - Fixed crash in the Software renderer which was occuring if it failed anytime after
+   setting display mode but prior to initializing scaling filter.
+ - Fixed graphic artifacts looking like thin vertical lines around sprites when running
+   OpenGL renderer (aka "texel leaking").
+ - Fixed OpenGL not displaying tinted sprites at all if tinting shader does not work
+   (now will display sprites without tint).
  - Fixed 8-bit sprites could have broken colours if game is run using Direct3D or OpenGL.
  - Fixed broken colours during fade-in and fade-out in 16-bit games.
+ - Fixed possible crash occuring when switching in and out the game window while game is
+   being shut down.
+ - Improved a warning message displayed when sound driver was not initialized, and added
+   a hint for players on how to supress it.
+ - Fixed double error message displayed if the game has an unsupported data format.
 
 Linux:
  - Fixes Linux game launch script (fixes issues with itch.io client).
 
-Windows:
- - Windows version of AGS is now built with MSVS 2015 and higher.
+Android:
+ - Long press on "Back" button now calls in-game menu (was displaying exit confirmation).
+   This change was made to counter removal of "Menu" button on many modern devices.
+ - Fixed long press on "Back" and "Menu" buttons not handled correctly on some devices.
+
+WinSetup:
+ - Always provide at least two standard fullscreen modes for selection, even if graphics
+   driver failed to return a list of supported modes.
+
+
+NOTE: VERSION 3.4.2 was cancelled and never released: the WIP build was renamed to 3.5.0.
 
 
 VERSION 3.4.1 - Patch 4, September 2018

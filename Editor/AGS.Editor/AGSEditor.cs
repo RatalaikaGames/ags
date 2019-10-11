@@ -12,6 +12,7 @@ using AGS.Types;
 using AGS.Types.Interfaces;
 using AGS.Editor.Preferences;
 using AGS.Editor.Utils;
+using System.Net;
 
 namespace AGS.Editor
 {
@@ -41,7 +42,7 @@ namespace AGS.Editor
         public const string DEBUG_OUTPUT_DIRECTORY = "_Debug";
         //public const string DEBUG_EXE_FILE_NAME = "_debug.exe";
         public const string GAME_FILE_NAME = "Game.agf";
-		public const string BACKUP_GAME_FILE_NAME = "Game.agf.bak";
+		public const string BACKUP_EXTENSION = "bak";
         public const string OLD_GAME_FILE_NAME = "ac2game.dta";
         public const string TEMPLATES_DIRECTORY_NAME = "Templates";
         public const string AGS_REGISTRY_KEY = @"SOFTWARE\Adventure Game Studio\AGS Editor";
@@ -73,9 +74,16 @@ namespace AGS.Editor
          * 13: 3.4.0.9    - Settings.ScriptCompatLevel
          * 14: 3.4.1      - Settings.RenderAtScreenResolution
          * 15: 3.4.1.2    - DefaultSetup node
+         *     3.4.3      - Added missing audio properties to DefaultSetup [ forgot to change version index!! ]
          * 16: 3.5.0      - Unlimited fonts (need separate version to prevent crashes in older editors)
+         * 17: 3.5.0.4    - Extended sprite source properties
+         * 18: 3.5.0.8    - Disallow relative asset resolutions by default, added flag for compatibility;
+         *                  Real sprite resolution; Individual font scaling; Default room mask resolution
+         * 19: 3.5.0.11   - Custom Say and Narrate functions for dialog scripts. GameFileName.
+         * 20: 3.5.0.14   - Sprite.ImportAlphaChannel.
+         * 21: 3.5.0.15   - AudioClip ID.
         */
-        public const int    LATEST_XML_VERSION_INDEX = 17;
+        public const int    LATEST_XML_VERSION_INDEX = 21;
         /*
          * LATEST_USER_DATA_VERSION is the last version of the user data file that used a
          * 4-point-4-number string to identify the version of AGS that saved the file.
@@ -85,8 +93,9 @@ namespace AGS.Editor
         /*
          * 1: 3.0.2.1
          * 2: 3.4.0.1    - WorkspaceState section
+         * 3: 3.5.0.11
         */
-        public const int LATEST_USER_DATA_XML_VERSION_INDEX = 2;
+        public const int LATEST_USER_DATA_XML_VERSION_INDEX = 3;
         public const string AUDIO_VOX_FILE_NAME = "audio.vox";
 
         private const string USER_DATA_FILE_NAME = GAME_FILE_NAME + USER_DATA_FILE_SUFFIX;
@@ -105,8 +114,6 @@ namespace AGS.Editor
         public const string SETUP_PROGRAM_SOURCE_FILE = "setup.dat";
         public const string COMPILED_SETUP_FILE_NAME = "winsetup.exe";
 		public const string GAME_EXPLORER_THUMBNAIL_FILE_NAME = "GameExplorer.png";
-		private const long MINIMUM_BYTES_FREE_TO_SAVE = 15000000;
-		private const long MINIMUM_BYTES_FREE_TO_COMPILE = 50000000;
 
         private Game _game;
         private string _editorExePath;
@@ -202,7 +209,11 @@ namespace AGS.Editor
 
         public string BaseGameFileName
         {
-            get { return Path.GetFileName(this.GameDirectory); }
+            get
+            {
+                return string.IsNullOrWhiteSpace(_game.Settings.GameFileName) ?
+                    Path.GetFileName(this.GameDirectory) : _game.Settings.GameFileName;
+            }
         }
 
         public Script BuiltInScriptHeader
@@ -247,6 +258,9 @@ namespace AGS.Editor
 
         public void DoEditorInitialization()
         {
+            // disable SSL v3
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
+
             try
             {
                 Directory.CreateDirectory(UserTemplatesDirectory);
@@ -265,7 +279,22 @@ namespace AGS.Editor
             _builtInScriptHeader = new Script(BUILT_IN_HEADER_FILE_NAME, Resources.ResourceManager.GetResourceAsString("agsdefns.sh"), true);
             AutoComplete.ConstructCache(_builtInScriptHeader);
 
-            Factory.NativeProxy.NewGameLoaded(Factory.AGSEditor.CurrentGame);
+            List<string> errors = new List<string>();
+            Factory.NativeProxy.NewGameLoaded(Factory.AGSEditor.CurrentGame, errors);
+            ReportGameLoad(errors);
+        }
+
+        public void ReportGameLoad(List<string> errors)
+        {
+            if (errors.Count == 1)
+            {
+                Factory.GUIController.ShowMessage(errors[0], MessageBoxIcon.Warning);
+            }
+            else if (errors.Count > 1)
+            {
+                Factory.GUIController.ShowOutputPanel(errors.ToArray(), "SpriteIcon");
+                Factory.GUIController.ShowMessage("Game was loaded, but there were errors", MessageBoxIcon.Warning);
+            }
         }
 
         public void Dispose()
@@ -755,13 +784,13 @@ namespace AGS.Editor
             Factory.Events.OnGameLoad(doc.DocumentElement);
         }
 
-        public void RefreshEditorAfterGameLoad(Game newGame)
+        public void RefreshEditorAfterGameLoad(Game newGame, List<string> errors)
         {
             _game = newGame;
 
             Factory.Events.OnRefreshAllComponentsFromGame();
             Factory.GUIController.GameNameUpdated();
-            Factory.NativeProxy.NewGameLoaded(Factory.AGSEditor.CurrentGame);
+            Factory.NativeProxy.NewGameLoaded(Factory.AGSEditor.CurrentGame, errors);
 
             RegenerateScriptHeader(null);
             
@@ -1005,6 +1034,19 @@ namespace AGS.Editor
             CompileScriptsParameters parameters = (CompileScriptsParameters)parameter;
             CompileMessages errors = parameters.Errors;
             bool forceRebuild = parameters.RebuildAll;
+
+            // TODO: This is also awkward, we call Cleanup for active targets to make sure
+            // that in case they changed the game binary name an old one gets removed.
+            // Also please see the comment about build steps below.
+            var buildNames = Factory.AGSEditor.CurrentGame.WorkspaceState.GetLastBuildGameFiles();
+            foreach (IBuildTarget target in BuildTargetsInfo.GetSelectedBuildTargets())
+            {
+                string oldName;
+                if (!buildNames.TryGetValue(target.Name, out oldName)) continue;
+                if (!string.IsNullOrWhiteSpace(oldName) && oldName != Factory.AGSEditor.BaseGameFileName)
+                    target.DeleteMainGameData(oldName);
+            }
+
             IBuildTarget targetDataFile = BuildTargetsInfo.FindBuildTargetByName(BuildTargetsInfo.DATAFILE_TARGET_NAME);
             targetDataFile.Build(errors, forceRebuild); // ensure that data file is built first
             if (ExtraOutputCreationStep != null)
@@ -1023,7 +1065,9 @@ namespace AGS.Editor
             foreach (IBuildTarget target in BuildTargetsInfo.GetSelectedBuildTargets())
             {
                 if (target != targetDataFile) target.Build(errors, forceRebuild);
+                buildNames[target.Name] = Factory.AGSEditor.BaseGameFileName;
             }
+            Factory.AGSEditor.CurrentGame.WorkspaceState.SetLastBuildGameFiles(buildNames);
             return null;
         }
 
@@ -1114,11 +1158,6 @@ namespace AGS.Editor
                     errors.Add(new CompileError("Audio file missing for " + clip.ScriptName + ": " + clip.CacheFileName));
                 }
             }
-
-			if (!IsEnoughSpaceFreeOnDisk(MINIMUM_BYTES_FREE_TO_COMPILE))
-			{
-				errors.Add(new CompileError("There is not enough space on the disk."));
-			}
         }
 
 		private void EnsureViewHasAtLeast4LoopsAndAFrameInLeftRightLoops(AGS.Types.View view)
@@ -1165,28 +1204,6 @@ namespace AGS.Editor
 					}
 				}
 			}
-		}
-
-		private bool IsEnoughSpaceFreeOnDisk(long spaceRequired)
-		{
-			string gameRoot = Path.GetPathRoot(_game.DirectoryPath).ToUpper();
-            if (gameRoot.StartsWith(@"\\"))
-            {                
-                // network share, we can't check free space
-                return true;
-            }
-			foreach (DriveInfo drive in DriveInfo.GetDrives())
-			{
-				if (drive.RootDirectory.Name.ToUpper() == gameRoot)
-				{
-					if (drive.AvailableFreeSpace < spaceRequired)
-					{
-						return false;
-					}
-					return true;
-				}
-			}
-			throw new AGSEditorException("Unable to find drive for game path: " + _game.DirectoryPath);
 		}
 
 		public bool NeedsRebuildForDebugMode()
@@ -1265,11 +1282,23 @@ namespace AGS.Editor
         private void CreateMiniEXEForDebugging(CompileMessages errors)
         {
             IBuildTarget target = BuildTargetsInfo.FindBuildTargetByName(BuildTargetDebug.DEBUG_TARGET_NAME);
+
+            var buildNames = Factory.AGSEditor.CurrentGame.WorkspaceState.GetLastBuildGameFiles();
+            string oldName;
+            if (buildNames.TryGetValue(target.Name, out oldName))
+            {
+                if (!string.IsNullOrWhiteSpace(oldName) && oldName != Factory.AGSEditor.BaseGameFileName)
+                    target.DeleteMainGameData(oldName);
+            }
+
             target.Build(errors, false);
             if (ExtraOutputCreationStep != null)
             {
                 ExtraOutputCreationStep(true);
             }
+
+            buildNames[target.Name] = Factory.AGSEditor.BaseGameFileName;
+            Factory.AGSEditor.CurrentGame.WorkspaceState.SetLastBuildGameFiles(buildNames);
         }
 
         private void CreateCompiledFiles(CompileMessages errors, bool forceRebuild)
@@ -1400,11 +1429,6 @@ namespace AGS.Editor
             {
                 return false;
             }
-			if (!IsEnoughSpaceFreeOnDisk(MINIMUM_BYTES_FREE_TO_SAVE))
-			{
-				Factory.GUIController.ShowMessage("The disk is full. Please clear some space then try again", MessageBoxIcon.Warning);
-				return false;
-			}
 
             // Make sure the game's name in the Recent list is updated, in
             // case the user has just changed it
@@ -1416,7 +1440,16 @@ namespace AGS.Editor
             Settings.RecentGames.Insert(0, recentGame);
             Settings.Save();
 
-            bool result = (bool)BusyDialog.Show("Please wait while your files are saved...", new BusyDialog.ProcessingHandler(SaveGameFilesProcess), null);
+            bool result;
+            try
+            {
+                result = (bool)BusyDialog.Show("Please wait while your files are saved...", new BusyDialog.ProcessingHandler(SaveGameFilesProcess), null);
+            }
+            catch (Exception ex)
+            { // CHECKME: rethrown exception from other thread duplicates original exception as inner one for some reason
+                InteractiveTasks.ReportTaskException("An error occurred whilst trying to save your game.", ex.InnerException);
+                result = false;
+            }
 
 			if (!evArgs.SaveSucceeded)
 			{
@@ -1471,19 +1504,6 @@ namespace AGS.Editor
 		{
             string configFilePath = Path.Combine(outputDir, CONFIG_FILE_NAME);
 
-			if (!File.Exists(configFilePath))
-			{
-				// Write default values for sound drivers
-				NativeProxy.WritePrivateProfileString("sound", "digiid", "-1", configFilePath);
-				NativeProxy.WritePrivateProfileString("sound", "midiid", "-1", configFilePath);
-				NativeProxy.WritePrivateProfileString("sound", "digiwin", "-1", configFilePath);
-				NativeProxy.WritePrivateProfileString("sound", "midiwin", "-1", configFilePath);
-				NativeProxy.WritePrivateProfileString("sound", "digiindx", "0", configFilePath);
-				NativeProxy.WritePrivateProfileString("sound", "midiindx", "0", configFilePath);
-				NativeProxy.WritePrivateProfileString("sound", "digiwinindx", "0", configFilePath);
-				NativeProxy.WritePrivateProfileString("sound", "midiwinindx", "0", configFilePath);
-			}
-
             if (_game.Settings.LetterboxMode)
             {
                 NativeProxy.WritePrivateProfileString("misc", "defaultres", ((int)_game.Settings.LegacyLetterboxResolution).ToString(), configFilePath);
@@ -1514,6 +1534,13 @@ namespace AGS.Editor
             bool render_at_screenres = _game.Settings.RenderAtScreenResolution == RenderAtScreenResolution.UserDefined ?
                 _game.DefaultSetup.RenderAtScreenResolution : _game.Settings.RenderAtScreenResolution == RenderAtScreenResolution.True;
             NativeProxy.WritePrivateProfileString("graphics", "render_at_screenres", render_at_screenres ? "1" : "0", configFilePath);
+
+            bool use_default_digi = _game.DefaultSetup.DigitalSound == RuntimeAudioDriver.Default;
+            bool use_default_midi = _game.DefaultSetup.MidiSound == RuntimeAudioDriver.Default;
+            NativeProxy.WritePrivateProfileString("sound", "digiid", use_default_digi ? "-1" : "0", configFilePath);
+            NativeProxy.WritePrivateProfileString("sound", "midiid", use_default_midi ? "-1" : "0", configFilePath);
+            NativeProxy.WritePrivateProfileString("sound", "usespeech", _game.DefaultSetup.UseVoicePack ? "1" : "0", configFilePath);
+
             NativeProxy.WritePrivateProfileString("language", "translation", _game.DefaultSetup.Translation, configFilePath);
             NativeProxy.WritePrivateProfileString("mouse", "auto_lock", _game.DefaultSetup.AutoLockMouse ? "1" : "0", configFilePath);
             NativeProxy.WritePrivateProfileString("mouse", "speed", _game.DefaultSetup.MouseSpeed.ToString(CultureInfo.InvariantCulture), configFilePath);
@@ -1523,26 +1550,6 @@ namespace AGS.Editor
             WriteCustomPathToConfig("misc", "shared_data_dir", configFilePath, _game.DefaultSetup.UseCustomAppDataPath, _game.DefaultSetup.CustomAppDataPath);
             NativeProxy.WritePrivateProfileString("misc", "titletext", _game.DefaultSetup.TitleText, configFilePath);
         }
-
-		private void BackupCurrentGameFile()
-		{
-			try
-			{
-				if (File.Exists(BACKUP_GAME_FILE_NAME))
-				{
-					File.Delete(BACKUP_GAME_FILE_NAME);
-				}
-
-				if (File.Exists(GAME_FILE_NAME))
-				{
-					File.Copy(GAME_FILE_NAME, BACKUP_GAME_FILE_NAME);
-				}
-			}
-			catch (Exception ex)
-			{
-				Factory.GUIController.ShowMessage("Error creating backup of game file: " + ex.Message, MessageBoxIcon.Warning);
-			}
-		}
 
         private void SaveUserDataFile()
         {
@@ -1605,8 +1612,6 @@ namespace AGS.Editor
             writer.WriteEndElement();
             writer.Flush();
 
-			BackupCurrentGameFile();
-
             string gameXml = sw.ToString();
             writer.Close();
 
@@ -1627,18 +1632,50 @@ namespace AGS.Editor
 
         private bool WriteMainGameFile(string fileContents)
         {
+            string tempFile = Path.GetTempFileName();
+
+            using (StreamWriter fileOutput = new StreamWriter(tempFile, false, Encoding.Default))
+            {
+                try
+                {
+                    fileOutput.Write(fileContents);
+                    fileOutput.Flush();
+                }
+                catch (Exception ex)
+                {
+                    Factory.GUIController.ShowMessage($"Unable to save new game data to '{tempFile}'. The error was: {ex.Message}", MessageBoxIcon.Warning);
+                    return false;
+                }
+            }
+
+            string gameFile = Utilities.ResolveSourcePath(GAME_FILE_NAME);
+            string backupFile = $"{gameFile}.{BACKUP_EXTENSION}";
+
             try
             {
-                StreamWriter fileOutput = new StreamWriter(GAME_FILE_NAME, false, Encoding.Default);
-                fileOutput.Write(fileContents);
-                fileOutput.Close();
-                return true;
+                if (File.Exists(gameFile))
+                {
+                    File.Delete(backupFile);
+                    File.Move(gameFile, backupFile);
+                }
             }
-            catch (UnauthorizedAccessException e)
+            catch (Exception ex)
             {
-                Factory.GUIController.ShowMessage("Unable to save the game file. Make sure the file " + GAME_FILE_NAME + " is not set as read-only. The error was: " + e.Message, MessageBoxIcon.Warning);
+                Factory.GUIController.ShowMessage($"Unable to create the backup file '{backupFile}'. The error was: {ex.Message}", MessageBoxIcon.Warning);
                 return false;
             }
+
+            try
+            {
+                File.Move(tempFile, gameFile);
+            }
+            catch (Exception ex)
+            {
+                Factory.GUIController.ShowMessage($"Unable to create the game file '{gameFile}'. The error was: {ex.Message}", MessageBoxIcon.Warning);
+                return false;
+            }
+
+            return true;
         }
 
         private void DeleteObsoleteFilesFrom272()

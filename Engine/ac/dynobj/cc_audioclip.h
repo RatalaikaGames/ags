@@ -20,10 +20,10 @@
 
 #include "ac/dynobj/cc_agsdynamicobject.h"
 
-struct CCAudioClip : AGSCCDynamicObject {
-    virtual const char *GetType();
-    virtual int Serialize(const char *address, char *buffer, int bufsize);
-    virtual void Unserialize(int index, const char *serializedData, int dataSize);
+struct CCAudioClip final : AGSCCDynamicObject {
+    const char *GetType() override;
+    int Serialize(const char *address, char *buffer, int bufsize) override;
+    void Unserialize(int index, const char *serializedData, int dataSize) override;
 };
 
 #endif // __AGS_EE_DYNOBJ__CCAUDIOCLIP_H

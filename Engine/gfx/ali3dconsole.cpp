@@ -33,6 +33,7 @@
 #include "gfx/gfx_util.h"
 #include "gfx/ali3dconsole.h"
 #include "util/library.h"
+#include "media/audio/audio.h"
 
 using namespace AGS::Common;
 
@@ -1223,6 +1224,7 @@ namespace AGS
 
 					ddb->SetTransparency(fadingOut ? a : (255 - a));
 					this->_renderAndPresent(flipTypeLastTime, false);
+					update_polled_mp3();
 				}
 
 				if (fadingOut)

@@ -21,6 +21,7 @@
 #include "core/platform.h"
 #include "util/wgt2allg.h"
 #include "ac/file.h"
+#include "platform/base/agsplatformdriver.h"
 #include "media/audio/audiodefines.h"
 #include "media/audio/sound.h"
 #include "media/audio/audiointernaldefs.h"
@@ -242,13 +243,15 @@ SOUNDCLIP *my_load_ogg(const AssetPath &asset_name, int voll)
     thisogg->last_ms_offs = 0;
     thisogg->last_but_one_but_one = 0;
 
-    if (thisogg->chunksize > mp3in->normal.todo)
-        thisogg->chunksize = mp3in->normal.todo;
+    int length = AGSPlatformDriver::GetDriver()->allegro_flength(pack_get_userdata(mp3in));
+    
+    if (thisogg->chunksize > length)
+        thisogg->chunksize = length;
 
     pack_fread(tmpbuffer, thisogg->chunksize, mp3in);
 
     thisogg->buffer = (char *)tmpbuffer;
-    thisogg->stream = alogg_create_oggstream(tmpbuffer, thisogg->chunksize, (mp3in->normal.todo < 1));
+    thisogg->stream = alogg_create_oggstream(tmpbuffer, thisogg->chunksize, (thisogg->chunksize >= length));
 
     if (thisogg->stream == nullptr) {
         free(tmpbuffer);

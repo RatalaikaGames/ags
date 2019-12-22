@@ -31,21 +31,13 @@ void MYOGG::poll()
 {
     if (state_ != SoundClipPlaying) { return; }
 
-    if (in->normal.todo > 0)
+    // update the buffer
+    char *tempbuf = (char *)alogg_get_oggstream_buffer(stream);
+    if (tempbuf != nullptr)
     {
-        // update the buffer
-        char *tempbuf = (char *)alogg_get_oggstream_buffer(stream);
-        if (tempbuf != nullptr)
-        {
-            int free_val = -1;
-            if (chunksize >= in->normal.todo)
-            {
-                chunksize = in->normal.todo;
-                free_val = chunksize;
-            }
-            pack_fread(tempbuf, chunksize, in);
-            alogg_free_oggstream_buffer(stream, free_val);
-        }
+        int read = pack_fread(tempbuf, chunksize, in);
+				if(read == chunksize) read = -1; //don't ask.
+        alogg_free_oggstream_buffer(stream, read);
     }
 
     int ret = alogg_poll_oggstream(stream);
@@ -150,9 +142,11 @@ case 1:
 
     if (end_of_stream == 1) {
 
+			//Kore::log(Kore::info,"return %d",offs + last_but_one);
         return offs + last_but_one;
     }
 
+		//Kore::log(Kore::info,"return %d",offs + last_but_one_but_one);
     return offs + last_but_one_but_one;
 }
 

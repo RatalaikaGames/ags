@@ -465,7 +465,7 @@ void VideoMemoryGraphicsDriver::BitmapToVideoMemFast(const Bitmap *bitmap,const 
     bool lastPixelWasTransparent = false;
 
     const uint8_t *srcPtr8 = bitmap->GetScanLine(tile->y);
-    srcPtr8 += tile->x * tile->width * 4;
+    srcPtr8 += tile->x * 4;
     unsigned int* memPtrLong = (unsigned int*)dst_ptr;
     uint8_t* dstPtr8 = (uint8_t*)dst_ptr;
     for(int y = 0; y < tile->height; y++)

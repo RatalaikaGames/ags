@@ -386,6 +386,9 @@ ScriptDynamicSprite* DynamicSprite_Create(int width, int height, int alphaChanne
     if (gotSlot <= 0)
         return nullptr;
 
+    if(game.GetColorDepth() == 32)
+      alphaChannel = 1;
+
     Bitmap *newPic = BitmapHelper::CreateTransparentBitmap(width, height, game.GetColorDepth());
     if (newPic == nullptr)
         return nullptr;

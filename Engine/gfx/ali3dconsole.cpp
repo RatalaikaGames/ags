@@ -553,11 +553,18 @@ namespace AGS
 
 				if (bmpToDraw->_tintSaturation > 0)
 				{
-					//TODO - set shader
+					// RATA: HACK!! For some reason this does the trick, using the HSV shader doesn't seems to work?!
+					_legacyPixelShader = false;
+
+					if (_legacyPixelShader)
+						selectedProgram = &AGSCON::Graphics::shaders.tintLegacy;
+					else
+						selectedProgram = &AGSCON::Graphics::shaders.tint;
 					AGSCON::Graphics::BindProgram(selectedProgram->program);
 
 					// Use custom pixel shader
-					float vector[8];
+					float vector[] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+
 					if (_legacyPixelShader)
 					{
 						rgb_to_hsv(bmpToDraw->_red, bmpToDraw->_green, bmpToDraw->_blue, &vector[0], &vector[1], &vector[2]);
@@ -565,26 +572,33 @@ namespace AGS
 					}
 					else
 					{
-						vector[0] = (float)bmpToDraw->_red / 256.0;
-						vector[1] = (float)bmpToDraw->_green / 256.0;
-						vector[2] = (float)bmpToDraw->_blue / 256.0;
+						vector[0] = (float)bmpToDraw->_red / 255.0f;
+						vector[1] = (float)bmpToDraw->_green / 255.0f;
+						vector[2] = (float)bmpToDraw->_blue / 255.0f;
 					}
 
-					vector[3] = (float)bmpToDraw->_tintSaturation / 256.0;
+					vector[3] = (float)bmpToDraw->_tintSaturation / 255.0f;
 
 					if (bmpToDraw->_transparency > 0)
-						vector[4] = (float)bmpToDraw->_transparency / 256.0;
+						vector[4] = (float)bmpToDraw->_transparency / 255.0f;
 					else
 						vector[4] = 1.0f;
 
 					if (bmpToDraw->_lightLevel > 0)
-						vector[5] = (float)bmpToDraw->_lightLevel / 256.0;
+						vector[5] = (float)bmpToDraw->_lightLevel / 255.0f;
 					else
 						vector[5] = 1.0f;
 
-					//direct3ddevice->SetPixelShaderConstantF(0, &vector[0], 2);
-					//direct3ddevice->SetPixelShader(pixelShader);
-
+					if (_legacyPixelShader)
+					{
+						AGSCON::Graphics::UniformFloat4(AGSCON::Graphics::shaders.tintLegacy.tintRGB, &vector[0]);
+						AGSCON::Graphics::UniformFloat4(AGSCON::Graphics::shaders.tintLegacy.transparency, &vector[4]);
+					}
+					else
+					{
+						AGSCON::Graphics::UniformFloat4(AGSCON::Graphics::shaders.tint.tintRGB, &vector[0]);
+						AGSCON::Graphics::UniformFloat4(AGSCON::Graphics::shaders.tint.transparency, &vector[4]);
+					}
 				}
 				else
 				{

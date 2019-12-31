@@ -259,9 +259,13 @@ namespace AGSCON
 			} standard;
 
 			struct TINT : public StandardProgram {
+				AGSCON::Graphics::UniformLocation* tintRGB;
+				AGSCON::Graphics::UniformLocation* transparency;
 			} tint;
 
 			struct TINTLEGACY : public StandardProgram {
+				AGSCON::Graphics::UniformLocation* tintRGB;
+				AGSCON::Graphics::UniformLocation* transparency;
 			} tintLegacy;
 
 			VertexLayout* standardVertexLayout;

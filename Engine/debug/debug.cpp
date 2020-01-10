@@ -215,6 +215,9 @@ void debug_script_print(const String &msg, MessageType mt)
 
 void debug_script_warn(const char *msg, ...)
 {
+    #ifdef AGS_DISABLE_SCRIPT_LOG
+    return;
+    #endif
     va_list ap;
     va_start(ap, msg);
     String full_msg = String::FromFormatV(msg, ap);
@@ -224,6 +227,9 @@ void debug_script_warn(const char *msg, ...)
 
 void debug_script_log(const char *msg, ...)
 {
+    #ifdef AGS_DISABLE_SCRIPT_LOG
+    return;
+    #endif
     va_list ap;
     va_start(ap, msg);
     String full_msg = String::FromFormatV(msg, ap);

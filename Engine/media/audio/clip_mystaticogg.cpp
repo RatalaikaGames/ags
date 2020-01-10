@@ -167,11 +167,11 @@ int MYSTATICOGG::play_from(int position)
     if (tune == nullptr) { return 0; }
 
     if (use_extra_sound_offset) 
-        extraOffset = ((16384 / (alogg_get_wave_is_stereo_ogg(tune) ? 2 : 1)) * 1000) / alogg_get_wave_freq_ogg(tune);
+        extraOffset = ((MP3CHUNKSIZE / (alogg_get_wave_is_stereo_ogg(tune) ? 2 : 1)) * 1000) / alogg_get_wave_freq_ogg(tune);
     else
         extraOffset = 0;
 
-    if (alogg_play_ex_ogg(tune, 16384, vol, panning, 1000, repeat) != ALOGG_OK) {
+    if (alogg_play_ex_ogg(tune, MP3CHUNKSIZE, vol, panning, 1000, repeat) != ALOGG_OK) {
         return 0;
     }
 

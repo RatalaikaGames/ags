@@ -222,6 +222,8 @@ SOUNDCLIP *my_load_static_ogg(const AssetPath &asset_name, int voll, bool loop)
     return thissogg;
 }
 
+void MYOGG_bad_feedcb(void* param, ALOGG_OGGSTREAM* ogg);
+
 MYOGG *thisogg;
 SOUNDCLIP *my_load_ogg(const AssetPath &asset_name, int voll)
 {
@@ -251,7 +253,7 @@ SOUNDCLIP *my_load_ogg(const AssetPath &asset_name, int voll)
     pack_fread(tmpbuffer, thisogg->chunksize, mp3in);
 
     thisogg->buffer = (char *)tmpbuffer;
-    thisogg->stream = alogg_create_oggstream(tmpbuffer, thisogg->chunksize, (thisogg->chunksize >= length));
+    thisogg->stream = alogg_create_oggstream(tmpbuffer, thisogg->chunksize, (thisogg->chunksize >= length), &MYOGG_bad_feedcb, thisogg);
 
     if (thisogg->stream == nullptr) {
         free(tmpbuffer);

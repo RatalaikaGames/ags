@@ -98,9 +98,10 @@ ALOGG_DLL_DECLSPEC AUDIOSTREAM *alogg_get_audiostream_ogg(ALOGG_OGG *ogg);
 /* API - OGGSTREAM */
 
 typedef struct ALOGG_OGGSTREAM ALOGG_OGGSTREAM;
+typedef void (*alogg_feedcb)(void* param, ALOGG_OGGSTREAM* ogg);
 
 
-ALOGG_DLL_DECLSPEC ALOGG_OGGSTREAM *alogg_create_oggstream(void *first_data_buffer, int data_buffer_len, int last_block);
+ALOGG_DLL_DECLSPEC ALOGG_OGGSTREAM *alogg_create_oggstream(void *first_data_buffer, int data_buffer_len, int last_block, alogg_feedcb feedcb, void* param);
 ALOGG_DLL_DECLSPEC ALOGG_OGGSTREAM *alogg_create_oggstream_ex(void *first_data_buffer, int data_buffer_len, int last_block, int downsample, int downmix);
 ALOGG_DLL_DECLSPEC void alogg_destroy_oggstream(ALOGG_OGGSTREAM *ogg);
 

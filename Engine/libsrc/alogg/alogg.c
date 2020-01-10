@@ -63,6 +63,10 @@ struct ALOGG_OGGSTREAM {
                                    /* is free and needs to be filled */
   int bytes_used;                  /* number of bytes to use from the buffer */
                                    /* or -1 if the full buffer */
+
+	alogg_feedcb feedcb;
+	void* feedcb_param;
+
   /* decoder info */
   OggVorbis_File vf;
   int current_section;
@@ -277,8 +281,8 @@ int alogg_play_ex_ogg(ALOGG_OGG *ogg, int buffer_len, int vol, int pan, int spee
     return ALOGG_OK;
 
   /* check the buffer is big enough*/
-  if (buffer_len < 4096)
-    return ALOGG_PLAY_BUFFERTOOSMALL;
+  //if (buffer_len < 4096)
+  //  return ALOGG_PLAY_BUFFERTOOSMALL;
    
   /* create a new audiostream and play it */
   samples = buffer_len / (ogg->stereo ? 2 : 1) / 2; /* / 2 = 16 bits samples */
@@ -759,6 +763,18 @@ size_t _alogg_oggstream_read(void *ptr, size_t size, size_t nmemb, void *datasou
   /* get the data left */
   data_left = temp_buf_size - ogg->data_cursor;
 
+	//WTF? WE COUNT ON BEING POLLED SOON ENOUGH TO KEEP THE BUFFERS FULL ENOUGH FOR THE STREAM STARTUP NOT TO FAIL?
+	//UGH. THIS CODE DEPENDS ON LUCKY VALUES FOR THE BUFFER SIZES VS THE VORBIS READ SIZE
+	//ITS SO BAD
+	if(data_left == 0 && !last_block)
+	{
+		if(ogg->feedcb)
+		{
+			ogg->feedcb(ogg->feedcb_param, ogg);
+			return _alogg_oggstream_read(ptr,size,nmemb,datasource);
+		}
+	}
+
   /* check how much we can copy */
   if (bytes_asked <= data_left) {
     /* we can copy it all */
@@ -827,7 +843,8 @@ END_OF_FUNCTION(alogg_autopoll_oggstream);
 
 /* API functions */
 
-ALOGG_OGGSTREAM *alogg_create_oggstream(void *first_data_buffer, int data_buffer_len, int last_block) {
+ALOGG_OGGSTREAM *alogg_create_oggstream(void *first_data_buffer, int data_buffer_len, int last_block, alogg_feedcb feedcb, void* param)
+{
   ALOGG_OGGSTREAM *ogg;
   vorbis_info *vi;
   int ret;
@@ -865,6 +882,8 @@ ALOGG_OGGSTREAM *alogg_create_oggstream(void *first_data_buffer, int data_buffer
   ogg->databuf1 = databuf1;
   ogg->databuf2 = databuf2;
   ogg->full_databuf = (char *)full_databuf;
+	ogg->feedcb = feedcb;
+	ogg->feedcb_param = param;
   ogg->data_cursor = 0;
   ogg->databuf_selector = 1;
   ogg->databuf_len = data_buffer_len;
@@ -927,8 +946,8 @@ int alogg_play_ex_oggstream(ALOGG_OGGSTREAM *ogg, int buffer_len, int vol, int p
     return ALOGG_OK;
 
   /* check the buffer is big enough*/
-  if (buffer_len < 4096)
-    return ALOGG_PLAY_BUFFERTOOSMALL;
+  //if (buffer_len < 4096)
+  //  return ALOGG_PLAY_BUFFERTOOSMALL;
    
   /* create a new audiostream and play it */
   samples = buffer_len / (ogg->stereo ? 2 : 1) / 2; /* / 2 = 16 bits samples */

@@ -27,6 +27,19 @@ extern "C" {
     extern int alogg_get_ogg_stereo(ALOGG_OGG *ogg);
 }
 
+void MYOGG_bad_feedcb(void* param, ALOGG_OGGSTREAM* ogg)
+{
+	MYOGG* myogg = (MYOGG*)param;
+	// update the buffer
+	char *tempbuf = (char *)alogg_get_oggstream_buffer(ogg);
+	if (tempbuf != nullptr)
+	{
+		int read = pack_fread(tempbuf, myogg->chunksize, myogg->in);
+		if(read == myogg->chunksize) read = -1; //don't ask.
+		alogg_free_oggstream_buffer(ogg, read);
+	}
+}
+
 void MYOGG::poll()
 {
     if (state_ != SoundClipPlaying) { return; }

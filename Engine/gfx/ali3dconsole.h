@@ -209,6 +209,8 @@ namespace AGS
 				ConsoleGraphicsDriver();
 				virtual ~ConsoleGraphicsDriver();
 
+				//sets the next frame to be skipped
+				void SetSkipFrame() { _skipFrame = true; }
 
 			private:
 
@@ -225,6 +227,7 @@ namespace AGS
 				int _tint_red, _tint_green, _tint_blue;
 				COOLCUSTOMVERTEX defaultVertices[4];
 				String previousError;
+				bool _skipFrame = false;
 
 				bool _smoothScaling;
 				bool _legacyPixelShader;

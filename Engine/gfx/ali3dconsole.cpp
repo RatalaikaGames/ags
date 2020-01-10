@@ -746,6 +746,12 @@ namespace AGS
 
 			void ConsoleGraphicsDriver::_renderAndPresent(GlobalFlipType flip, bool clearDrawListAfterwards)
 			{
+				if(_skipFrame)
+				{
+					_skipFrame = false;
+					return;
+				}
+
 				//TODO - begin and end semantics mixed up. not sure about this yet.
 				AGSCON::Graphics::BeginFrame();
 				_render(flip, clearDrawListAfterwards);

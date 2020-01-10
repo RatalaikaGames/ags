@@ -499,7 +499,10 @@ void apply_config(const ConfigTree &cfg)
             usetup.midicard = MIDI_NONE;
         }
 
+        //somehow we started getting a threaded=0 in our acsetup.cfg. until someone tells me how that's happening, I have to keep it from getting clobbered here
+        #ifndef CONSOLE_VERSION
         psp_audio_multithreaded = INIreadint(cfg, "sound", "threaded", psp_audio_multithreaded);
+        #endif
 
         // Legacy graphics settings has to be translated into new options;
         // they must be read first, to let newer options override them, if ones are present

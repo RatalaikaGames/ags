@@ -719,8 +719,8 @@ namespace AGS
 					MatrixTransform2D(matSelfTransform, (float)thisX - _pixelRenderXOffset, (float)thisY + _pixelRenderYOffset, widthToScale, heightToScale, 0.f);
 					MatrixMultiply(matTransform, matSelfTransform, matGlobal);
 
-					AGSCON::Graphics::UniformMatrix44(AGSCON::Graphics::shaders.standard.um44Projection, (float*)&currentProjection);
-					AGSCON::Graphics::UniformMatrix44(AGSCON::Graphics::shaders.standard.um44Modelview, (float*)&matTransform);
+					AGSCON::Graphics::UniformMatrix44(selectedProgram->um44Projection, (float*)&currentProjection);
+					AGSCON::Graphics::UniformMatrix44(selectedProgram->um44Modelview, (float*)&matTransform);
 
 					AGSCON::Graphics::Sampler* sampler;
 					if ((_smoothScaling) && bmpToDraw->_useResampler && (bmpToDraw->_stretchToHeight > 0) &&

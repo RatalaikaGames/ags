@@ -748,6 +748,7 @@ namespace AGS
 			{
 				if(_skipFrame)
 				{
+					AGSCON::Graphics::SkipFrame();
 					_skipFrame = false;
 					return;
 				}

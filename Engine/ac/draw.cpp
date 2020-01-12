@@ -2523,6 +2523,12 @@ void construct_virtual_screen(bool fullRedraw)
 // Draw everything 
 void render_graphics(IDriverDependantBitmap *extraBitmap, int extraX, int extraY) {
 
+	if(gfxDriver->ShouldSkipSoftFrame())
+	{
+		update_screen();
+			return;
+	}
+
     construct_virtual_screen(false);
     our_eip=5;
 

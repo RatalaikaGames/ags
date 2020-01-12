@@ -16,6 +16,14 @@
 #include "gfx/allegrobitmap.h"
 #include "debug/assert.h"
 
+
+#ifdef ALLEGRO_RATA_HACKS
+void _linear_draw_trans_sprite32_WITH_argb2argb_blender(BITMAP *dst, BITMAP *src, int dx, int dy);
+extern "C" BLENDER_FUNC _blender_func32;
+FORCEINLINE unsigned long _argb2argb_blender(unsigned long src_col, unsigned long dst_col, unsigned long src_alpha);
+#endif
+
+
 extern void __my_setcolor(int *ctset, int newcol, int wantColDep);
 
 namespace AGS
@@ -276,11 +284,33 @@ void Bitmap::AAStretchBlt(Bitmap *src, const Rect &src_rc, const Rect &dst_rc, B
 	}
 }
 
+#ifdef ALLEGRO_RATA_HACKS
+
+void Bitmap::TransBlendBlt(Bitmap *src, int dst_x, int dst_y)
+{
+	BITMAP *al_src_bmp = src->_alBitmap;
+
+	if (al_src_bmp->vtable->color_depth == 32)
+	{
+		if(_blender_func32 == &_argb2argb_blender)
+		{
+			_linear_draw_trans_sprite32_WITH_argb2argb_blender(_alBitmap,al_src_bmp,dst_x,dst_y);
+			return;
+		}
+	}
+
+	draw_trans_sprite(_alBitmap, al_src_bmp, dst_x, dst_y);
+}
+
+#else
+
 void Bitmap::TransBlendBlt(Bitmap *src, int dst_x, int dst_y)
 {
 	BITMAP *al_src_bmp = src->_alBitmap;
 	draw_trans_sprite(_alBitmap, al_src_bmp, dst_x, dst_y);
 }
+
+#endif //ALLEGRO_RATA_HACKS
 
 void Bitmap::LitBlendBlt(Bitmap *src, int dst_x, int dst_y, int light_amount)
 {

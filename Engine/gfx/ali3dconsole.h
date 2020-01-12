@@ -201,6 +201,9 @@ namespace AGS
 				virtual bool RequiresFullRedrawEachFrame() { return true; }
 				virtual bool HasAcceleratedTransform() { return true; }
 				virtual void SetScreenTint(int red, int green, int blue);
+				virtual bool ShouldSkipSoftFrame() { 
+					return _skipFrame;
+				}
 
 				typedef std::shared_ptr<ConsoleGfxFilter> PConsoleFilter;
 

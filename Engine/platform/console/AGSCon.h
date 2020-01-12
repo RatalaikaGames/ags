@@ -164,6 +164,7 @@ namespace AGSCON
 		void BeginRender();
 		void EndRender();
 		void EndFrame();
+		void SkipFrame();
 
 		Texture* Texture_Create(int w, int h);
 		void Texture_Lock(Texture* texture, TextureLock* lockData);

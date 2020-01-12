@@ -120,6 +120,8 @@ public:
   virtual IDriverDependantBitmap* CreateDDBFromBitmap(Common::Bitmap *bitmap, bool hasAlpha, bool opaque = false) = 0;
   virtual void UpdateDDBFromBitmap(IDriverDependantBitmap* bitmapToUpdate, Common::Bitmap *bitmap, bool hasAlpha) = 0;
   virtual void DestroyDDB(IDriverDependantBitmap* bitmap) = 0;
+  // Returns true if the driver is okay with skipping soft rendering (construct_virtual_screen)
+  virtual bool ShouldSkipSoftFrame() { return false; }
 
   // Prepares next sprite batch, a list of sprites with defined viewport and optional
   // global model transformation; all subsequent calls to DrawSprite will be adding

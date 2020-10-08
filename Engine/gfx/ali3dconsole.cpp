@@ -513,10 +513,10 @@ namespace AGS
 
 			void ConsoleGraphicsDriver::Render()
 			{
-				Render(kFlip_None);
+				Render(0,0, kFlip_None);
 			}
 
-			void ConsoleGraphicsDriver::Render()
+			void ConsoleGraphicsDriver::Render(int /*xoff*/, int /*yoff*/, GlobalFlipType /*flip*/)
 			{
 				_renderAndPresent(true);
 			}
@@ -651,8 +651,8 @@ namespace AGS
 				float xProportion = width / (float)bmpToDraw->_width;
 				float yProportion = height / (float)bmpToDraw->_height;
 
-				float drawAtX = drawListEntry->x + _globalViewOff.X;
-				float drawAtY = drawListEntry->y + _globalViewOff.Y;
+				float drawAtX = drawListEntry->x;
+				float drawAtY = drawListEntry->y;
 
 				for (int ti = 0; ti < bmpToDraw->_numTiles; ti++)
 				{
@@ -1216,8 +1216,7 @@ namespace AGS
 
 				BeginSpriteBatch(_srcRect, SpriteTransform());
 				ddb->SetStretch(_srcRect.GetWidth(), _srcRect.GetHeight(), false);
-				// NOTE: what happens here is that we are trying to prevent global offset to be applied to this sprite :/
-				this->DrawSprite(-_globalViewOff.X, -_globalViewOff.Y, ddb);
+				this->DrawSprite(0, 0, ddb);
 
 				if (speed <= 0) speed = 16;
 				speed *= 2;  // harmonise speeds with software driver which is faster
@@ -1273,8 +1272,7 @@ namespace AGS
 
 				BeginSpriteBatch(_srcRect, SpriteTransform());
 				d3db->SetStretch(_srcRect.GetWidth(), _srcRect.GetHeight(), false);
-				// NOTE: what happens here is that we are trying to prevent global offset to be applied to this sprite :/
-				this->DrawSprite(-_globalViewOff.X, -_globalViewOff.Y, d3db);
+				this->DrawSprite(0, 0, d3db);
 				if (!blackingOut)
 				{
 					// when fading in, draw four black boxes, one

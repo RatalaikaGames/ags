@@ -189,7 +189,7 @@ namespace AGS
 				virtual void SetScreenTint(int red, int green, int blue) override;
 				virtual void RenderToBackBuffer();
 				virtual void Render();
-				virtual void Render(GlobalFlipType flip);
+				virtual void Render(int xoff, int yoff, GlobalFlipType flip);
 				virtual bool GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_native_res, GraphicResolution *want_fmt);
 				virtual void EnableVsyncBeforeRender(bool enabled) { }
 				virtual void Vsync();

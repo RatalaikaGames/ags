@@ -1,6 +1,6 @@
 REVISION HISTORY
 ================
-VERSION 3.5.0 - RC
+VERSION 3.5.0, December 2019
 
 Common features:
  - Now using Allegro v4.4.3 library (previously v4.4.2).
@@ -59,6 +59,7 @@ Editor:
  - Display audio clip length on the preview pane without starting playback.
  - Sync variable type selector in Global Variables pane with the actual list of supported
    script types.
+ - Added ThreadedAudio property to Default Setup.
  - In preferences added an option telling whether to automatically reload scripts changed
    externally.
  - Added "Always" choice to "Popup message on compile" preference. Successful compilation
@@ -68,8 +69,7 @@ Editor:
  - Build autocomplete table a little faster.
  - Disabled sending crash reports and anonymous statistics, because of the AGS server issues.
  - Corrected .NET version query for the anonymous statistics report.
- - Fixed "Script Compatibility Level" was not correctly set when importing projects made
-   in AGS 3.4.* versions.
+ - Fixed Default Setup was not assigned a proper Title derived of a new game name.
  - Fixed crash and corruption of project data when writing to full disk.
  - Fixed saving sprite file to not cancel completely if only an optional step has failed
    (such as copying a backup file).
@@ -191,6 +191,9 @@ Linux:
 Windows:
  - Windows version of AGS is now built with MSVS 2015 and higher.
  - Engine is marked as a DPI-aware application that supposed to prevent window scaling by system.
+
+WinSetup:
+ - Added "Enable threaded audio" checkbox.
 
 
 VERSION 3.4.4 - Patch 1, September 2019

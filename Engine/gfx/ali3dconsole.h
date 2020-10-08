@@ -186,6 +186,7 @@ namespace AGS
 				virtual void UpdateDDBFromBitmap(IDriverDependantBitmap* bitmapToUpdate, Bitmap *bitmap, bool hasAlpha);
 				virtual void DestroyDDB(IDriverDependantBitmap* bitmap);
 				virtual void DrawSprite(int x, int y, IDriverDependantBitmap* bitmap);
+				virtual void SetScreenFade(int red, int green, int blue) override;
 				virtual void SetScreenTint(int red, int green, int blue) override;
 				virtual void RenderToBackBuffer();
 				virtual void Render();

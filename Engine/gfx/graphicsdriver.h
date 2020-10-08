@@ -129,7 +129,7 @@ public:
   // sprites to this batch's list.
   virtual void BeginSpriteBatch(const Rect &viewport, const SpriteTransform &transform,
       const Point offset = Point(), GlobalFlipType flip = kFlip_None, PBitmap surface = nullptr) = 0;
-	virtual void SetScreenFade(int red, int green, int blue) override;
+  // Adds sprite to the active batch
   virtual void DrawSprite(int x, int y, IDriverDependantBitmap* bitmap) = 0;
   // Adds fade overlay fx to the active batch
   virtual void SetScreenFade(int red, int green, int blue) = 0;

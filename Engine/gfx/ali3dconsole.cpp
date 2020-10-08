@@ -851,7 +851,7 @@ namespace AGS
 				// Render all the sprite batches with necessary transformations
 				for (size_t i = 0; i <= _actSpriteBatch; ++i)
 				{
-					const Rect &viewport = _spriteBatchDesc[i].Viewport;
+					const Rect &viewport = _spriteBatches[i].Viewport;
 					const DDSpriteBatch &batch = _spriteBatches[i];
 					if (!viewport.IsEmpty())
 					{
@@ -919,19 +919,39 @@ namespace AGS
 				if (_spriteBatches.size() <= index)
 					_spriteBatches.resize(index + 1);
 				_spriteBatches[index].List.clear();
-				// Combine both world transform and viewport transform into one matrix for faster perfomance
-				// TODO: find out if this is an optimal way to translate scaled room into Top-Left screen coordinates
+
+				Rect viewport = desc.Viewport;
 				float scaled_offx = (_srcRect.GetWidth() - desc.Transform.ScaleX * (float)_srcRect.GetWidth()) / 2.f;
 				float scaled_offy = (_srcRect.GetHeight() - desc.Transform.ScaleY * (float)_srcRect.GetHeight()) / 2.f;
-				// TODO: correct offsets to have pre-scale (source) and post-scale (dest) offsets!
-				// is it possible to do with matrixes?
 				MatrixTransform2D(_spriteBatches[index].Matrix,
-					desc.Transform.X + desc.Viewport.Left - scaled_offx, -(desc.Transform.Y + desc.Viewport.Top - scaled_offy),
+					desc.Transform.X + viewport.Left - scaled_offx, -(desc.Transform.Y + viewport.Top - scaled_offy),
 					desc.Transform.ScaleX, desc.Transform.ScaleY, desc.Transform.Rotate);
 
+				//TODO RATA - crap.
+				//// Then apply global node transformation (flip and offset)
+				//int node_tx = desc.Offset.X, node_ty = desc.Offset.Y;
+				//float node_sx = 1.f, node_sy = 1.f;
+				//if ((desc.Flip == kFlip_Vertical) || (desc.Flip == kFlip_Both))
+				//{
+				//	int left = _srcRect.GetWidth() - (viewport.Right + 1);
+				//	viewport.MoveToX(left);
+				//	node_sx = -1.f;
+				//}
+				//if ((desc.Flip == kFlip_Horizontal) || (desc.Flip == kFlip_Both))
+				//{
+				//	int top = _srcRect.GetHeight() - (viewport.Bottom + 1);
+				//	viewport.MoveToY(top);
+				//	node_sy = -1.f;
+				//}
+				//viewport = Rect::MoveBy(viewport, node_tx, node_ty);
+				//D3DMATRIX matFlip;
+				//MatrixTransform2D(matFlip, node_tx, -(node_ty), node_sx, node_sy, 0.f);
+				//MatrixMultiply(_spriteBatches[index].Matrix, matViewportFinal, matFlip);
+				//_spriteBatches[index].Viewport = viewport;
+
 				// create stage screen for plugin raw drawing
-				int src_w = desc.Viewport.GetWidth() / desc.Transform.ScaleX;
-				int src_h = desc.Viewport.GetHeight() / desc.Transform.ScaleY;
+				int src_w = viewport.GetWidth() / desc.Transform.ScaleX;
+				int src_h = viewport.GetHeight() / desc.Transform.ScaleY;
 				CreateStageScreen(index, Size(src_w, src_h));
 			}
 
@@ -1336,8 +1356,8 @@ namespace AGS
 			{
 				//TODO RATA
 				//D3DBitmap *ddb = static_cast<D3DBitmap*>(MakeFx(red, green, blue));
-				//ddb->SetStretch(_spriteBatchDesc[_actSpriteBatch].Viewport.GetWidth(),
-				//	_spriteBatchDesc[_actSpriteBatch].Viewport.GetHeight(), false);
+				//ddb->SetStretch(_spriteBatches[_actSpriteBatch].Viewport.GetWidth(),
+				//	_spriteBatches[_actSpriteBatch].Viewport.GetHeight(), false);
 				//ddb->SetTransparency(0);
 				//_spriteBatches[_actSpriteBatch].List.push_back(D3DDrawListEntry(ddb));
 			}
@@ -1347,8 +1367,8 @@ namespace AGS
 				//TODO RATA
 				//if (red == 0 && green == 0 && blue == 0) return;
 				//D3DBitmap *ddb = static_cast<D3DBitmap*>(MakeFx(red, green, blue));
-				//ddb->SetStretch(_spriteBatchDesc[_actSpriteBatch].Viewport.GetWidth(),
-				//	_spriteBatchDesc[_actSpriteBatch].Viewport.GetHeight(), false);
+				//ddb->SetStretch(_spriteBatches[_actSpriteBatch].Viewport.GetWidth(),
+				//	_spriteBatches[_actSpriteBatch].Viewport.GetHeight(), false);
 				//ddb->SetTransparency(128);
 				//_spriteBatches[_actSpriteBatch].List.push_back(D3DDrawListEntry(ddb));
 			}

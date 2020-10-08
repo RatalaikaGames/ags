@@ -156,6 +156,8 @@ namespace AGS
 			{
 				// List of sprites to render
 				std::vector<DDDrawListEntry> List;
+				// Clipping viewport
+				Rect Viewport;
 				// Transformation matrix, built from the batch description
 				Matrix44 Matrix;
 			};

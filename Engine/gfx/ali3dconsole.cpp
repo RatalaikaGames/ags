@@ -1326,17 +1326,25 @@ namespace AGS
 				return false;
 			}
 
+			void ConsoleGraphicsDriver::SetScreenFade(int red, int green, int blue)
+			{
+				//TODO RATA
+				//D3DBitmap *ddb = static_cast<D3DBitmap*>(MakeFx(red, green, blue));
+				//ddb->SetStretch(_spriteBatchDesc[_actSpriteBatch].Viewport.GetWidth(),
+				//	_spriteBatchDesc[_actSpriteBatch].Viewport.GetHeight(), false);
+				//ddb->SetTransparency(0);
+				//_spriteBatches[_actSpriteBatch].List.push_back(D3DDrawListEntry(ddb));
+			}
+
 			void ConsoleGraphicsDriver::SetScreenTint(int red, int green, int blue)
 			{ 
-				if (red != 0 || green != 0 || blue != 0)
-				{
-					//TODO RATA
-				/*	D3DBitmap *ddb = static_cast<D3DBitmap*>(MakeFx(red, green, blue));
-					ddb->SetStretch(_spriteBatchDesc[_actSpriteBatch].Viewport.GetWidth(),
-						_spriteBatchDesc[_actSpriteBatch].Viewport.GetHeight(), false);
-					ddb->SetTransparency(128);
-					_spriteBatches[_actSpriteBatch].List.push_back(D3DDrawListEntry(ddb));*/
-				}
+				//TODO RATA
+				//if (red == 0 && green == 0 && blue == 0) return;
+				//D3DBitmap *ddb = static_cast<D3DBitmap*>(MakeFx(red, green, blue));
+				//ddb->SetStretch(_spriteBatchDesc[_actSpriteBatch].Viewport.GetWidth(),
+				//	_spriteBatchDesc[_actSpriteBatch].Viewport.GetHeight(), false);
+				//ddb->SetTransparency(128);
+				//_spriteBatches[_actSpriteBatch].List.push_back(D3DDrawListEntry(ddb));
 			}
 
 			static class ConsoleGraphicsFactory : public GfxDriverFactoryBase<ConsoleGraphicsDriver, ConsoleGfxFilter>

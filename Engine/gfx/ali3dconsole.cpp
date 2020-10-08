@@ -1216,7 +1216,7 @@ namespace AGS
 
 				Bitmap *blackSquare = BitmapHelper::CreateBitmap(16, 16, 32);
 				blackSquare->Clear(makecol32(targetColourRed, targetColourGreen, targetColourBlue));
-				IDriverDependantBitmap *ddb = this->CreateDDBFromBitmap(blackSquare, false, false);
+				IDriverDependantBitmap *ddb = this->CreateDDBFromBitmap(blackSquare, false, true);
 				delete blackSquare;
 
 				BeginSpriteBatch(_srcRect, SpriteTransform());
@@ -1273,7 +1273,7 @@ namespace AGS
 
 				Bitmap *blackSquare = BitmapHelper::CreateBitmap(16, 16, 32);
 				blackSquare->Clear();
-				IDriverDependantBitmap *d3db = this->CreateDDBFromBitmap(blackSquare, false, false);
+				IDriverDependantBitmap *d3db = this->CreateDDBFromBitmap(blackSquare, false, true);
 				delete blackSquare;
 
 				BeginSpriteBatch(_srcRect, SpriteTransform());

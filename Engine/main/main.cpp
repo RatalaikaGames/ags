@@ -402,15 +402,8 @@ int ags_entry_point(int argc, char *argv[]) {
 #ifdef AGS_RUN_TESTS
     Test_DoAllTests();
 #endif
-
-    int res;
-    main_init();
+    main_init(argc, argv);
     
-    res = main_preprocess_cmdline(argc, argv);
-    if (res != RETURN_CONTINUE) {
-        return res;
-    }
-
 #if AGS_PLATFORM_OS_WINDOWS
     setup_malloc_handling();
 #endif

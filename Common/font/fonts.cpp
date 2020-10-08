@@ -209,6 +209,117 @@ bool use_default_linespacing(size_t fontNumber)
     return fonts[fontNumber].Info.LineSpacing == 0;
 }
 
+// Project-dependent implementation
+extern int wgettextwidth_compensate(const char *tex, int font);
+
+namespace AGS { namespace Common { SplitLines Lines; } }
+
+// Replaces AGS-specific linebreak tags with common '\n'
+void unescape_script_string(const char *cstr, std::vector<char> &out)
+{
+    out.clear();
+    // Handle the special case of the first char
+    if (cstr[0] == '[')
+    {
+        out.push_back('\n');
+        cstr++;
+    }
+    // Replace all other occurrences as they're found
+    const char *off;
+    for (off = cstr; *off; ++off)
+    {
+        if (*off != '[') continue;
+        if (*(off - 1) == '\\')
+        {
+            // convert \[ into [
+            out.insert(out.end(), cstr, off - 1);
+            out.push_back('[');
+        }
+        else
+        {
+            // convert [ into \n
+            out.insert(out.end(), cstr, off);
+            out.push_back('\n');
+        }
+        cstr = off + 1;
+    }
+    out.insert(out.end(), cstr, off + 1);
+}
+
+// Break up the text into lines
+void split_lines(const char *todis, SplitLines &lines, int wii, int fonnt, size_t max_lines) {
+    // NOTE: following hack accomodates for the legacy math mistake in split_lines.
+    // It's hard to tell how cruicial it is for the game looks, so research may be needed.
+    // TODO: IMHO this should rely not on game format, but script API level, because it
+    // defines necessary adjustments to game scripts. If you want to fix this, find a way to
+    // pass this flag here all the way from game.options[OPT_BASESCRIPTAPI] (or game format).
+    //
+    // if (game.options[OPT_BASESCRIPTAPI] < $Your current version$)
+    wii -= 1;
+
+    lines.Reset();
+    unescape_script_string(todis, lines.LineBuf);
+    char *theline = &lines.LineBuf.front();
+
+    size_t i = 0;
+    size_t splitAt;
+    char nextCharWas;
+    while (1) {
+        splitAt = -1;
+
+        if (theline[i] == 0) {
+            // end of the text, add the last line if necessary
+            if (i > 0) {
+                lines.Add(theline);
+            }
+            break;
+        }
+
+        // temporarily terminate the line here and test its width
+        nextCharWas = theline[i + 1];
+        theline[i + 1] = 0;
+
+        // force end of line with the \n character
+        if (theline[i] == '\n')
+            splitAt = i;
+        // otherwise, see if we are too wide
+        else if (wgettextwidth_compensate(theline, fonnt) > wii) {
+            int endline = i;
+            while ((theline[endline] != ' ') && (endline > 0))
+                endline--;
+
+            // single very wide word, display as much as possible
+            if (endline == 0)
+                endline = i - 1;
+
+            splitAt = endline;
+        }
+
+        // restore the character that was there before
+        theline[i + 1] = nextCharWas;
+
+        if (splitAt != -1) {
+            // add this line
+            nextCharWas = theline[splitAt];
+            theline[splitAt] = 0;
+            lines.Add(theline);
+            theline[splitAt] = nextCharWas;
+            if (lines.Count() >= max_lines) {
+                lines[lines.Count() - 1].Append("...");
+                break;
+            }
+            // the next line starts from here
+            theline += splitAt;
+            // skip the space or new line that caused the line break
+            if ((theline[0] == ' ') || (theline[0] == '\n'))
+                theline++;
+            i = -1;
+        }
+
+        i++;
+    }
+}
+
 void wouttextxy(Common::Bitmap *ds, int xxx, int yyy, size_t fontNumber, color_t text_color, const char *texx)
 {
     fontNumber = remap(fontNumber);

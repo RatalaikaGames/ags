@@ -48,6 +48,8 @@ using namespace AGS::Engine;
 const auto MaximumDelayBetweenPolling = std::chrono::milliseconds(16);
 
 AGSPlatformDriver* AGSPlatformDriver::instance = nullptr;
+bool AGSPlatformDriver::_logToStdErr = false;
+bool AGSPlatformDriver::_guiMode = false;
 AGSPlatformDriver *platform = nullptr;
 
 // ******** DEFAULT IMPLEMENTATIONS *******
@@ -103,6 +105,16 @@ void AGSPlatformDriver::WriteStdOut(const char *fmt, ...) {
     vprintf(fmt, args);
     va_end(args);
     printf("\n");
+    fflush(stdout);
+}
+
+void AGSPlatformDriver::WriteStdErr(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(stderr, fmt, args);
+    va_end(args);
+    fprintf(stderr, "\n");
     fflush(stdout);
 }
 
@@ -362,10 +374,20 @@ long AGSPlatformDriver::allegro_fremain(void *userdata) {
 //-----------------------------------------------
 void AGSPlatformDriver::PrintMessage(const Common::DebugMessage &msg)
 {
-    if (msg.GroupName.IsEmpty())
-        WriteStdOut("%s", msg.Text.GetCStr());
+    if (_logToStdErr)
+    {
+        if (msg.GroupName.IsEmpty())
+            WriteStdErr("%s", msg.Text.GetCStr());
+        else
+            WriteStdErr("%s : %s", msg.GroupName.GetCStr(), msg.Text.GetCStr());
+    }
     else
-        WriteStdOut("%s : %s", msg.GroupName.GetCStr(), msg.Text.GetCStr());
+    {
+        if (msg.GroupName.IsEmpty())
+            WriteStdOut("%s", msg.Text.GetCStr());
+        else
+            WriteStdOut("%s : %s", msg.GroupName.GetCStr(), msg.Text.GetCStr());
+    }
 }
 
 // ********** CD Player Functions common to Win and Linux ********

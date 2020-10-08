@@ -18,178 +18,9 @@
 #include "util/string_utils.h"
 #include "util/stream.h"
 
-//MBG - include this, required MAXLINE for my private hacks which are all throughout this file
-#include "gui/guidefines.h"
-
 using namespace AGS::Common;
 
-
-#ifdef AGS_UTF8
-extern "C" int musl_mbtowc(wchar_t * wc, const char * src, size_t n);
-#define thisfile_mbtowc musl_mbtowc
-#else
-inline int thisfile_mbtowc(wchar_t * wc, const char * src, size_t n) { 
-    if(n==0) return -1;  //not completely sure about this return value
-    if(wc) *wc = *src; 
-    return 1;
-}
-#endif
-
-#define STD_BUFFER_SIZE 3000
-
-// Turn [ into \n and turn \[ into [
-void unescape(char *buffer) {
-    char *offset;
-    // Handle the special case of the first char
-    if(buffer[0] == '[')
-    {
-        buffer[0] = '\n';
-        offset = buffer + 1;
-    }
-    else
-        offset = buffer;
-    // Replace all other occurrences as they're found
-    while((offset = strchr(offset, '[')) != nullptr) {
-        if(offset[-1] != '\\')
-            offset[0] = '\n';
-        else
-            memmove(offset - 1, offset, strlen(offset) + 1);
-        offset++;
-    }
-}
-
-char lines[MAXLINE][200];
-int  numlines;
-
-// Project-dependent implementation
-extern int wgettextwidth_compensate(const char *tex, int font);
-
-// Break up the text into lines
-void split_lines(const char *todis, int wii, int fonnt) {
-    // v2.56.636: rewrote this function because the old version
-    // was crap and buggy
-    int i = 0;
-    int nextCharWas;
-    int splitAt;
-    char *theline;
-    // make a copy, since we change characters in the original string
-    // and this might be in a read-only bit of memory
-    char textCopyBuffer[STD_BUFFER_SIZE];
-    size_t len = strlen(todis);
-    if(len>=STD_BUFFER_SIZE)
-        len=STD_BUFFER_SIZE-1;
-    memcpy(textCopyBuffer, todis, len);
-    textCopyBuffer[len]=0;
-    theline = textCopyBuffer;
-    unescape(theline);
-
-    //MBG HACK: undo line splitting
-    //wii = 1000000;
-
-    while (1) {
-        splitAt = -1;
-
-        if (theline[i] == 0) {
-            // end of the text, add the last line if necessary
-            if (i > 0) {
-                strcpy(lines[numlines], theline);
-                numlines++;
-            }
-            break;
-        }
-
-        //figure out how this character is
-        int codesize = thisfile_mbtowc(nullptr, theline+i, len-i);
-        if(codesize == -1) 
-            break;
-        if(codesize+i>(int)len)
-            break;
-
-        // temporarily terminate the line here and test its width
-        nextCharWas = theline[i + codesize];
-        theline[i + codesize] = 0;
-
-        // force end of line with the \n character
-        if (theline[i] == '\n')
-            splitAt = i;
-        // otherwise, see if we are too wide
-        else if (wgettextwidth_compensate(theline, fonnt) >= wii) {
-            int endline = i;
-
-            //ORIGINAL
-            //while ((theline[endline] != ' ') && (endline > 0))
-            //    endline--;
-
-            //UTF-8:
-            for(;;)
-            {
-                if(endline<=0)
-                    break;
-
-                //get the current character
-                wchar_t wc;
-                thisfile_mbtowc(&wc, theline+endline,len-endline);
-
-                //bail if we could break here
-                if(wc == ' ')
-                    break;
-
-                //work back until we find a valid character
-                endline--;
-                while(-1==thisfile_mbtowc(&wc, theline+endline,len-endline))
-                    endline--;
-            }
-
-
-            // single very wide word, display as much as possible
-            if (endline == 0)
-                endline = i - thisfile_mbtowc(nullptr, theline+i,len-i);
-
-            splitAt = endline;
-        }
-
-        // restore the character that was there before
-        theline[i + codesize] = nextCharWas;
-
-        if (splitAt >= 0) {
-            // add this line
-            nextCharWas = theline[splitAt];
-            theline[splitAt] = 0;
-            strcpy(lines[numlines], theline);
-            numlines++;
-            theline[splitAt] = nextCharWas;
-            if (numlines >= MAXLINE) {
-                strcat(lines[numlines-1], "...");
-                break;
-            }
-            // the next line starts from here
-            theline += splitAt;
-            // skip the space or new line that caused the line break
-            if ((theline[0] == ' ') || (theline[0] == '\n'))
-                theline++;
-            i = 0;
-        }
-        else 
-            i+=codesize;
-    }
-}
-
-//=============================================================================
-
 String cbuf_to_string_and_free(char *char_buf)
-{
-    String s = char_buf;
-    free(char_buf);
-    return s;
-}
-
-//MBG AUG 2019 - WTF IS THIS
-//void fgetstring(char *sss, Common::Stream *in)
-//{
-//    fgetstring_limit (sss, in, 50000000);
-//}
-
-String free_char_to_string(char *char_buf)
 {
     String s = char_buf;
     free(char_buf);
@@ -250,7 +81,6 @@ void StrUtil::ReadString(char *cstr, Stream *in, size_t buf_limit)
     }
 
     len = Math::Min(len, buf_limit - 1);
-    cstr[len] = 0;
     if (len > 0)
         in->Read(cstr, len);
     cstr[len] = 0;
@@ -259,17 +89,13 @@ void StrUtil::ReadString(char *cstr, Stream *in, size_t buf_limit)
 void StrUtil::ReadString(String *s, Stream *in)
 {
     size_t len = in->ReadInt32();
-    s->FillString('\0',len);
-    char* ptr = (char*)s->GetCStr(); //yes, this is bad.
-    if (len > 0)
-        in->Read(ptr, len);
+    s.ReadCount(in, len);
 }
 
 void StrUtil::ReadString(char **cstr, Stream *in)
 {
     size_t len = in->ReadInt32();
     *cstr = new char[len + 1];
-    (*cstr)[len] = 0;
     if (len > 0)
         in->Read(*cstr, len);
     (*cstr)[len] = 0;

@@ -997,7 +997,13 @@ namespace AGS
 				{
 					AGSCON::Graphics::TextureLock textureLock;
 					AGSCON::Graphics::Texture_Lock(tile->texture, &textureLock);
-					BitmapToVideoMem(bitmap, hasAlpha, tile, target, (char*)textureLock.Ptr, textureLock.StrideBytes, usingLinearFiltering);
+					//TODO RATA -- OLD WORKING WAY
+					//BitmapToVideoMem(bitmap, hasAlpha, tile, target, (char*)textureLock.Ptr, textureLock.StrideBytes, usingLinearFiltering);
+					//TODO RATA - MAKE WORK THIS WAY
+					//if (target->_opaque)
+					//	BitmapToVideoMemOpaque(bitmap, hasAlpha, tile, target, memPtr, lockedRegion.Pitch);
+					//else
+					//	BitmapToVideoMem(bitmap, hasAlpha, tile, target, memPtr, lockedRegion.Pitch, usingLinearFiltering);
 					AGSCON::Graphics::Texture_Unlock(tile->texture, &textureLock);
 				}
 			}

@@ -2541,6 +2541,15 @@ static void update_shakescreen()
 // Draw everything 
 void render_graphics(IDriverDependantBitmap *extraBitmap, int extraX, int extraY)
 {
+	if(gfxDriver->ShouldSkipSoftFrame())
+	{
+		//MBG - this got broken from 3.5.0.14 -> 3.5.0.23 update. need to test this codepath
+		throw "needs testing";
+		//WILD GUESS:
+		//render_to_screen();
+		//return;
+	}
+
     // Don't render if skipping cutscene
     if (play.fast_forward)
         return;

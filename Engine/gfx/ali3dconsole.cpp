@@ -895,34 +895,34 @@ namespace AGS
 					_spriteBatches.resize(index + 1);
 				_spriteBatches[index].List.clear();
 
+				Matrix44 tmp;
 				Rect viewport = desc.Viewport;
 				float scaled_offx = (_srcRect.GetWidth() - desc.Transform.ScaleX * (float)_srcRect.GetWidth()) / 2.f;
 				float scaled_offy = (_srcRect.GetHeight() - desc.Transform.ScaleY * (float)_srcRect.GetHeight()) / 2.f;
-				MatrixTransform2D(_spriteBatches[index].Matrix,
+				MatrixTransform2D(tmp,
 					desc.Transform.X + viewport.Left - scaled_offx, -(desc.Transform.Y + viewport.Top - scaled_offy),
 					desc.Transform.ScaleX, desc.Transform.ScaleY, desc.Transform.Rotate);
 
-				//TODO RATA - crap.
-				//// Then apply global node transformation (flip and offset)
-				//int node_tx = desc.Offset.X, node_ty = desc.Offset.Y;
-				//float node_sx = 1.f, node_sy = 1.f;
-				//if ((desc.Flip == kFlip_Vertical) || (desc.Flip == kFlip_Both))
-				//{
-				//	int left = _srcRect.GetWidth() - (viewport.Right + 1);
-				//	viewport.MoveToX(left);
-				//	node_sx = -1.f;
-				//}
-				//if ((desc.Flip == kFlip_Horizontal) || (desc.Flip == kFlip_Both))
-				//{
-				//	int top = _srcRect.GetHeight() - (viewport.Bottom + 1);
-				//	viewport.MoveToY(top);
-				//	node_sy = -1.f;
-				//}
-				//viewport = Rect::MoveBy(viewport, node_tx, node_ty);
-				//D3DMATRIX matFlip;
-				//MatrixTransform2D(matFlip, node_tx, -(node_ty), node_sx, node_sy, 0.f);
-				//MatrixMultiply(_spriteBatches[index].Matrix, matViewportFinal, matFlip);
-				//_spriteBatches[index].Viewport = viewport;
+				// Then apply global node transformation (flip and offset)
+				int node_tx = desc.Offset.X, node_ty = desc.Offset.Y;
+				float node_sx = 1.f, node_sy = 1.f;
+				if ((desc.Flip == kFlip_Vertical) || (desc.Flip == kFlip_Both))
+				{
+					int left = _srcRect.GetWidth() - (viewport.Right + 1);
+					viewport.MoveToX(left);
+					node_sx = -1.f;
+				}
+				if ((desc.Flip == kFlip_Horizontal) || (desc.Flip == kFlip_Both))
+				{
+					int top = _srcRect.GetHeight() - (viewport.Bottom + 1);
+					viewport.MoveToY(top);
+					node_sy = -1.f;
+				}
+				viewport = Rect::MoveBy(viewport, node_tx, node_ty);
+				Matrix44 matFlip;
+				MatrixTransform2D(matFlip, node_tx, -(node_ty), node_sx, node_sy, 0.f);
+				MatrixMultiply(_spriteBatches[index].Matrix, tmp, matFlip);
+				_spriteBatches[index].Viewport = viewport;
 
 				// create stage screen for plugin raw drawing
 				int src_w = viewport.GetWidth() / desc.Transform.ScaleX;
@@ -992,13 +992,10 @@ namespace AGS
 				{
 					AGSCON::Graphics::TextureLock textureLock;
 					AGSCON::Graphics::Texture_Lock(tile->texture, &textureLock);
-					//TODO RATA -- OLD WORKING WAY
-					//BitmapToVideoMem(bitmap, hasAlpha, tile, target, (char*)textureLock.Ptr, textureLock.StrideBytes, usingLinearFiltering);
-					//TODO RATA - MAKE WORK THIS WAY
-					//if (target->_opaque)
-					//	BitmapToVideoMemOpaque(bitmap, hasAlpha, tile, target, memPtr, lockedRegion.Pitch);
-					//else
-					//	BitmapToVideoMem(bitmap, hasAlpha, tile, target, memPtr, lockedRegion.Pitch, usingLinearFiltering);
+					if (target->_opaque)
+						BitmapToVideoMemOpaque(bitmap, hasAlpha, tile, target, (char*)textureLock.Ptr, textureLock.StrideBytes);
+					else
+						BitmapToVideoMem(bitmap, hasAlpha, tile, target, (char*)textureLock.Ptr, textureLock.StrideBytes, usingLinearFiltering);
 					AGSCON::Graphics::Texture_Unlock(tile->texture, &textureLock);
 				}
 			}
@@ -1326,23 +1323,21 @@ namespace AGS
 
 			void ConsoleGraphicsDriver::SetScreenFade(int red, int green, int blue)
 			{
-				//TODO RATA
-				//D3DBitmap *ddb = static_cast<D3DBitmap*>(MakeFx(red, green, blue));
-				//ddb->SetStretch(_spriteBatches[_actSpriteBatch].Viewport.GetWidth(),
-				//	_spriteBatches[_actSpriteBatch].Viewport.GetHeight(), false);
-				//ddb->SetTransparency(0);
-				//_spriteBatches[_actSpriteBatch].List.push_back(D3DDrawListEntry(ddb));
+				DDBitmap *ddb = static_cast<DDBitmap*>(MakeFx(red, green, blue));
+				ddb->SetStretch(_spriteBatches[_actSpriteBatch].Viewport.GetWidth(),
+					_spriteBatches[_actSpriteBatch].Viewport.GetHeight(), false);
+				ddb->SetTransparency(0);
+				_spriteBatches[_actSpriteBatch].List.push_back(DDDrawListEntry(ddb));
 			}
 
 			void ConsoleGraphicsDriver::SetScreenTint(int red, int green, int blue)
 			{ 
-				//TODO RATA
-				//if (red == 0 && green == 0 && blue == 0) return;
-				//D3DBitmap *ddb = static_cast<D3DBitmap*>(MakeFx(red, green, blue));
-				//ddb->SetStretch(_spriteBatches[_actSpriteBatch].Viewport.GetWidth(),
-				//	_spriteBatches[_actSpriteBatch].Viewport.GetHeight(), false);
-				//ddb->SetTransparency(128);
-				//_spriteBatches[_actSpriteBatch].List.push_back(D3DDrawListEntry(ddb));
+				if (red == 0 && green == 0 && blue == 0) return;
+				DDBitmap *ddb = static_cast<DDBitmap*>(MakeFx(red, green, blue));
+				ddb->SetStretch(_spriteBatches[_actSpriteBatch].Viewport.GetWidth(),
+					_spriteBatches[_actSpriteBatch].Viewport.GetHeight(), false);
+				ddb->SetTransparency(128);
+				_spriteBatches[_actSpriteBatch].List.push_back(DDDrawListEntry(ddb));
 			}
 
 			static class ConsoleGraphicsFactory : public GfxDriverFactoryBase<ConsoleGraphicsDriver, ConsoleGfxFilter>

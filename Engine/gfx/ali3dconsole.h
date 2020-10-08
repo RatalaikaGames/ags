@@ -184,6 +184,7 @@ namespace AGS
 				virtual void UpdateDDBFromBitmap(IDriverDependantBitmap* bitmapToUpdate, Bitmap *bitmap, bool hasAlpha);
 				virtual void DestroyDDB(IDriverDependantBitmap* bitmap);
 				virtual void DrawSprite(int x, int y, IDriverDependantBitmap* bitmap);
+				virtual void SetScreenTint(int red, int green, int blue) override;
 				virtual void RenderToBackBuffer();
 				virtual void Render();
 				virtual void Render(GlobalFlipType flip);
@@ -200,7 +201,6 @@ namespace AGS
 				virtual void UseSmoothScaling(bool enabled) { _smoothScaling = enabled; }
 				virtual bool RequiresFullRedrawEachFrame() { return true; }
 				virtual bool HasAcceleratedTransform() { return true; }
-				virtual void SetScreenTint(int red, int green, int blue);
 				virtual bool ShouldSkipSoftFrame() { 
 					return _skipFrame;
 				}
@@ -227,7 +227,6 @@ namespace AGS
 
 				AGSCON::Graphics::RenderTarget* pNativeSurface;
 				AGSCON::Graphics::Rectangle viewport_rect;
-				int _tint_red, _tint_green, _tint_blue;
 				COOLCUSTOMVERTEX defaultVertices[4];
 				String previousError;
 				bool _skipFrame = false;
@@ -237,11 +236,6 @@ namespace AGS
 				float _pixelRenderXOffset;
 				float _pixelRenderYOffset;
 				bool _renderSprAtScreenRes;
-
-				// TODO: find a way to have this tint sprite in the normal sprite list (or use shader instead!)
-				Bitmap *_screenTintLayer;
-				DDBitmap* _screenTintLayerDDB;
-				DDDrawListEntry _screenTintSprite;
 
 				Matrix44 currentProjection;
 
@@ -266,7 +260,6 @@ namespace AGS
 				void UpdateTextureRegion(DDTextureTile *tile, Bitmap *bitmap, DDBitmap *target, bool hasAlpha);
 				void CreateVirtualScreen();
 				void do_fade(bool fadingOut, int speed, int targetColourRed, int targetColourGreen, int targetColourBlue);
-				void create_screen_tint_bitmap();
 				// Backup all draw lists in the temp storage
 				void BackupDrawLists();
 				// Restore draw lists from the temp storage

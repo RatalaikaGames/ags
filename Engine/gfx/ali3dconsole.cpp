@@ -178,14 +178,6 @@ namespace AGS
 
 				AGSCON::Graphics::Initialize();
 
-				_tint_red = 0;
-				_tint_green = 0;
-				_tint_blue = 0;
-				_screenTintLayer = nullptr;
-				_screenTintLayerDDB = nullptr;
-				_screenTintSprite.skip = true;
-				_screenTintSprite.x = 0;
-				_screenTintSprite.y = 0;
 				_legacyPixelShader = false;
 				//pNativeSurface = NULL;
 				_smoothScaling = false;
@@ -323,9 +315,6 @@ namespace AGS
 			{
 				_filter = filter;
 				OnSetFilter();
-				// Creating ddbs references filter properties at some point,
-				// so we have to redo this part of initialization here.
-				create_screen_tint_bitmap();
 			}
 
 			void ConsoleGraphicsDriver::SetTintMethod(TintMethod method) 
@@ -346,7 +335,6 @@ namespace AGS
 				GraphicsDriverBase::OnModeSet(mode);
 				InitializeDDState();
 				CreateVirtualScreen();
-				create_screen_tint_bitmap();
 				return true;
 			}
 
@@ -855,6 +843,7 @@ namespace AGS
 					flipTypeLastTime = flip;
 					ClearDrawLists();
 				}
+				ResetFxPool();
 			}
 
 			void ConsoleGraphicsDriver::RenderSpriteBatches(GlobalFlipType flip)
@@ -894,10 +883,6 @@ namespace AGS
 
 				_stageVirtualScreen = GetStageScreen(0);
 				AGSCON::Graphics::ClearScissor();
-				if (!_screenTintSprite.skip)
-				{
-					this->_renderSprite(&_screenTintSprite, _spriteBatches[_actSpriteBatch].Matrix, false, false);
-				}
 			}
 
 			void ConsoleGraphicsDriver::RenderSpriteBatch(const DDSpriteBatch &batch, GlobalFlipType flip)
@@ -1256,6 +1241,7 @@ namespace AGS
 
 				this->DestroyDDB(ddb);
 				this->ClearDrawLists();
+				ResetFxPool();
 			}
 
 			void ConsoleGraphicsDriver::FadeOut(int speed, int targetColourRed, int targetColourGreen, int targetColourBlue) 
@@ -1332,6 +1318,7 @@ namespace AGS
 
 				this->DestroyDDB(d3db);
 				this->ClearDrawLists();
+				ResetFxPool();
 			}
 
 			bool ConsoleGraphicsDriver::PlayVideo(const char *filename, bool useAVISound, VideoSkipType skipType, bool stretchToFullScreen)
@@ -1339,36 +1326,18 @@ namespace AGS
 				return false;
 			}
 
-			void ConsoleGraphicsDriver::create_screen_tint_bitmap() 
-			{
-				// Some work on textures depends on current scaling filter, sadly
-				// TODO: find out if there is a workaround for that
-				if (!IsModeSet() || !_filter)
-					return;
-
-				_screenTintLayer = BitmapHelper::CreateBitmap(16, 16, this->_mode.ColorDepth);
-				_screenTintLayerDDB = (DDBitmap*)this->CreateDDBFromBitmap(_screenTintLayer, false, false);
-				_screenTintSprite.bitmap = _screenTintLayerDDB;
-			}
-
 			void ConsoleGraphicsDriver::SetScreenTint(int red, int green, int blue)
 			{ 
-				if ((red != _tint_red) || (green != _tint_green) || (blue != _tint_blue))
+				if (red != 0 || green != 0 || blue != 0)
 				{
-					_tint_red = red; 
-					_tint_green = green; 
-					_tint_blue = blue;
-
-					_screenTintLayer->Clear(makecol_depth(_screenTintLayer->GetColorDepth(), red, green, blue));
-					this->UpdateDDBFromBitmap(_screenTintLayerDDB, _screenTintLayer, false);
-					_screenTintLayerDDB->SetStretch(_srcRect.GetWidth(), _srcRect.GetHeight(), false);
-					_screenTintLayerDDB->SetTransparency(128);
-
-					_screenTintSprite.skip = ((red == 0) && (green == 0) && (blue == 0));
+					//TODO RATA
+				/*	D3DBitmap *ddb = static_cast<D3DBitmap*>(MakeFx(red, green, blue));
+					ddb->SetStretch(_spriteBatchDesc[_actSpriteBatch].Viewport.GetWidth(),
+						_spriteBatchDesc[_actSpriteBatch].Viewport.GetHeight(), false);
+					ddb->SetTransparency(128);
+					_spriteBatches[_actSpriteBatch].List.push_back(D3DDrawListEntry(ddb));*/
 				}
 			}
-
-
 
 			static class ConsoleGraphicsFactory : public GfxDriverFactoryBase<ConsoleGraphicsDriver, ConsoleGfxFilter>
 			{

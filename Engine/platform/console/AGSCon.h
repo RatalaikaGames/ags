@@ -82,6 +82,7 @@ namespace AGSCON
 		{
 			void* Ptr;
 			int StrideBytes;
+			void* UserData;
 		};
 
 		//one element of a vertex (aka attribute)

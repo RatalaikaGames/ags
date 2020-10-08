@@ -1202,11 +1202,8 @@ namespace AGS
 			{
 				//YUCK!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-				if (fadingOut)
-				{
-					this->_reDrawLastFrame();
-				}
-				else if (_drawScreenCallback != NULL)
+				// Construct scene in order: game screen, fade fx, post game overlay
+				if (_drawScreenCallback != NULL)
 					_drawScreenCallback();
 
 				Bitmap *blackSquare = BitmapHelper::CreateBitmap(16, 16, 32);
@@ -1217,6 +1214,9 @@ namespace AGS
 				BeginSpriteBatch(_srcRect, SpriteTransform());
 				ddb->SetStretch(_srcRect.GetWidth(), _srcRect.GetHeight(), false);
 				this->DrawSprite(0, 0, ddb);
+				if (_drawPostScreenCallback != NULL)
+					_drawPostScreenCallback();
+
 
 				if (speed <= 0) speed = 16;
 				speed *= 2;  // harmonise speeds with software driver which is faster
@@ -1258,11 +1258,7 @@ namespace AGS
 			{
 				//YUCK!!!!!!!!!!!!!!!
 
-				if (blackingOut)
-				{
-					this->_reDrawLastFrame();
-				}
-				else if (_drawScreenCallback != NULL)
+				if (_drawScreenCallback != NULL)
 					_drawScreenCallback();
 
 				Bitmap *blackSquare = BitmapHelper::CreateBitmap(16, 16, 32);
@@ -1271,6 +1267,7 @@ namespace AGS
 				delete blackSquare;
 
 				BeginSpriteBatch(_srcRect, SpriteTransform());
+				size_t fx_batch = _actSpriteBatch;
 				d3db->SetStretch(_srcRect.GetWidth(), _srcRect.GetHeight(), false);
 				this->DrawSprite(0, 0, d3db);
 				if (!blackingOut)
@@ -1281,6 +1278,8 @@ namespace AGS
 					this->DrawSprite(0, 0, d3db);
 					this->DrawSprite(0, 0, d3db);
 				}
+				if (_drawPostScreenCallback != NULL)
+					_drawPostScreenCallback();
 
 				int yspeed = _srcRect.GetHeight() / (_srcRect.GetWidth() / speed);
 				int boxWidth = speed;
@@ -1290,7 +1289,7 @@ namespace AGS
 				{
 					boxWidth += speed;
 					boxHeight += yspeed;
-					DDSpriteBatch &batch = _spriteBatches.back();
+					DDSpriteBatch &batch = _spriteBatches[fx_batch];
 					std::vector<DDDrawListEntry> &drawList = batch.List;
 					const size_t last = drawList.size() - 1;
 					if (blackingOut)

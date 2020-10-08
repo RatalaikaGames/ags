@@ -87,6 +87,7 @@
 #include "util/filestream.h" // TODO: needed only because plugins expect file handle
 #include "util/path.h"
 #include "util/string_utils.h"
+#include "ac/keycode.h"
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -346,7 +347,7 @@ void restore_after_dialog() {
     set_mouse_cursor(oldmouse);
     if (!play.mouse_cursor_hidden)
         ags_domouse(DOMOUSE_DISABLE);
-    construct_virtual_screen(true);
+    invalidate_screen();
 }
 
 
@@ -942,7 +943,11 @@ ScriptCamera* Game_GetAnyCamera(int index)
 
 void Game_SimulateKeyPress(int key)
 {
-    simulate_keypress(key);
+    int platformKey = GetKeyForKeyPressCb(key);
+    platformKey = PlatformKeyFromAgsKey(platformKey);
+    if (platformKey >= 0) {
+        simulate_keypress(platformKey);
+    }
 }
 
 //=============================================================================

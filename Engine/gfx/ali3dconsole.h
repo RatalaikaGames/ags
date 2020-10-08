@@ -242,7 +242,6 @@ namespace AGS
 				Matrix44 currentProjection;
 
 				DDSpriteBatches _spriteBatches;
-				GlobalFlipType flipTypeLastTime;
 				// TODO: these draw list backups are needed only for the fade-in/out effects
 				// find out if it's possible to reimplement these effects in main drawing routine.
 				SpriteBatchDescs _backupBatchDescs;
@@ -268,12 +267,12 @@ namespace AGS
 				void RestoreDrawLists();
 				// Deletes draw list backups
 				void ClearDrawBackups();
-				void _renderAndPresent(GlobalFlipType flip, bool clearDrawListAfterwards);
-				void _render(GlobalFlipType flip, bool clearDrawListAfterwards);
+				void _renderAndPresent(bool clearDrawListAfterwards);
+				void _render(bool clearDrawListAfterwards);
 				void _reDrawLastFrame();
-				void RenderSpriteBatches(GlobalFlipType flip);
-				void RenderSpriteBatch(const DDSpriteBatch &batch, GlobalFlipType flip);
-				void _renderSprite(const DDDrawListEntry *entry, const Matrix44 &matGlobal, bool globalLeftRightFlip, bool globalTopBottomFlip);
+				void RenderSpriteBatches();
+				void RenderSpriteBatch(const DDSpriteBatch &batch);
+				void _renderSprite(const DDDrawListEntry *entry, const Matrix44 &matGlobal);
 			};
 
 

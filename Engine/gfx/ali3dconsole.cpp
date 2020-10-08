@@ -184,7 +184,6 @@ namespace AGS
 				_pixelRenderXOffset = 0;
 				_pixelRenderYOffset = 0;
 				_renderSprAtScreenRes = false;
-				flipTypeLastTime = kFlip_None;
 
 				const int* shifts = AGSCON::Graphics::GetColorShifts();
 				_vmem_a_shift_32 = shifts[0];
@@ -225,7 +224,6 @@ namespace AGS
 			//{
 			//	ClearDrawLists();
 			//	ClearDrawBackups();
-			//	flipTypeLastTime = kFlip_None;
 
 			//	if (_screenTintLayerDDB != NULL) 
 			//	{
@@ -464,7 +462,7 @@ namespace AGS
 				//{
 				//	_renderSprAtScreenRes = false;
 				//	_reDrawLastFrame();
-				//	_render(flipTypeLastTime, true);
+				//	_render(true);
 				//	_renderSprAtScreenRes = true;
 				//}
 				//-------------------------------------------
@@ -518,9 +516,9 @@ namespace AGS
 				Render(kFlip_None);
 			}
 
-			void ConsoleGraphicsDriver::Render(GlobalFlipType flip)
+			void ConsoleGraphicsDriver::Render()
 			{
-				_renderAndPresent(flip, true);
+				_renderAndPresent(true);
 			}
 
 			void ConsoleGraphicsDriver::_reDrawLastFrame()
@@ -528,7 +526,7 @@ namespace AGS
 				RestoreDrawLists();
 			}
 
-			void ConsoleGraphicsDriver::_renderSprite(const DDDrawListEntry *drawListEntry, const Matrix44 &matGlobal, bool globalLeftRightFlip, bool globalTopBottomFlip)
+			void ConsoleGraphicsDriver::_renderSprite(const DDDrawListEntry *drawListEntry, const Matrix44 &matGlobal)
 			{
 				DDBitmap *bmpToDraw = drawListEntry->bitmap;
 				Matrix44 matSelfTransform;
@@ -653,7 +651,6 @@ namespace AGS
 				float xProportion = width / (float)bmpToDraw->_width;
 				float yProportion = height / (float)bmpToDraw->_height;
 
-				bool  flipLeftToRight = globalLeftRightFlip ^ bmpToDraw->_flipped;
 				float drawAtX = drawListEntry->x + _globalViewOff.X;
 				float drawAtY = drawListEntry->y + _globalViewOff.Y;
 
@@ -663,25 +660,12 @@ namespace AGS
 					height = bmpToDraw->_tiles[ti].height * yProportion;
 					float xOffs;
 					float yOffs = bmpToDraw->_tiles[ti].y * yProportion;
-					if (flipLeftToRight != globalLeftRightFlip)
-					{
+					if (bmpToDraw->_flipped)
 						xOffs = (bmpToDraw->_width - (bmpToDraw->_tiles[ti].x + bmpToDraw->_tiles[ti].width)) * xProportion;
-					}
 					else
-					{
 						xOffs = bmpToDraw->_tiles[ti].x * xProportion;
-					}
 					float thisX = drawAtX + xOffs;
 					float thisY = drawAtY + yOffs;
-
-					if (globalLeftRightFlip)
-					{
-						thisX = (_srcRect.GetWidth() - thisX) - width;
-					}
-					if (globalTopBottomFlip) 
-					{
-						thisY = (_srcRect.GetHeight() - thisY) - height;
-					}
 
 					thisX = (-(_srcRect.GetWidth() / 2)) + thisX;
 					thisY = (_srcRect.GetHeight() / 2) - thisY;
@@ -689,18 +673,13 @@ namespace AGS
 					//Setup translation and scaling matrices
 					float widthToScale = (float)width;
 					float heightToScale = (float)height;
-					if (flipLeftToRight)
+					if (bmpToDraw->_flipped)
 					{
 						// The usual transform changes 0..1 into 0..width
 						// So first negate it (which changes 0..w into -w..0)
 						widthToScale = -widthToScale;
 						// and now shift it over to make it 0..w again
 						thisX += width;
-					}
-					if (globalTopBottomFlip) 
-					{
-						heightToScale = -heightToScale;
-						thisY -= height;
 					}
 
 					// Multiply object's own and global matrixes
@@ -732,7 +711,7 @@ namespace AGS
 				}
 			}
 
-			void ConsoleGraphicsDriver::_renderAndPresent(GlobalFlipType flip, bool clearDrawListAfterwards)
+			void ConsoleGraphicsDriver::_renderAndPresent(bool clearDrawListAfterwards)
 			{
 				if(_skipFrame)
 				{
@@ -743,7 +722,7 @@ namespace AGS
 
 				//TODO - begin and end semantics mixed up. not sure about this yet.
 				AGSCON::Graphics::BeginFrame();
-				_render(flip, clearDrawListAfterwards);
+				_render(clearDrawListAfterwards);
 				AGSCON::Graphics::EndFrame();
 
 				//age the contents of the pool to purge stale stuff
@@ -765,7 +744,7 @@ namespace AGS
 				}
 			}
 
-			void ConsoleGraphicsDriver::_render(GlobalFlipType flip, bool clearDrawListAfterwards)
+			void ConsoleGraphicsDriver::_render(bool clearDrawListAfterwards)
 			{
 				//TODO MBG - READ THIS CAREFULLY!
 
@@ -801,7 +780,7 @@ namespace AGS
 				// "if showing at 2x size, the sprite can get distorted otherwise"
 				//set sampler to CLAMP
 
-				RenderSpriteBatches(flip);
+				RenderSpriteBatches();
 
 				if (_renderSprAtScreenRes)
                 {
@@ -840,13 +819,12 @@ namespace AGS
 				if (clearDrawListAfterwards)
 				{
 					BackupDrawLists();
-					flipTypeLastTime = flip;
 					ClearDrawLists();
 				}
 				ResetFxPool();
 			}
 
-			void ConsoleGraphicsDriver::RenderSpriteBatches(GlobalFlipType flip)
+			void ConsoleGraphicsDriver::RenderSpriteBatches()
 			{
 				// Render all the sprite batches with necessary transformations
 				for (size_t i = 0; i <= _actSpriteBatch; ++i)
@@ -878,18 +856,15 @@ namespace AGS
 						AGSCON::Graphics::ClearScissor();
 					}
 					_stageVirtualScreen = GetStageScreen(i);
-					RenderSpriteBatch(batch, flip);
+					RenderSpriteBatch(batch);
 				}
 
 				_stageVirtualScreen = GetStageScreen(0);
 				AGSCON::Graphics::ClearScissor();
 			}
 
-			void ConsoleGraphicsDriver::RenderSpriteBatch(const DDSpriteBatch &batch, GlobalFlipType flip)
+			void ConsoleGraphicsDriver::RenderSpriteBatch(const DDSpriteBatch &batch)
 			{
-				bool globalLeftRightFlip = (flip == kFlip_Vertical) || (flip == kFlip_Both);
-				bool globalTopBottomFlip = (flip == kFlip_Horizontal) || (flip == kFlip_Both);
-
 				DDDrawListEntry stageEntry; // raw-draw plugin support
 
 				const std::vector<DDDrawListEntry> &listToDraw = batch.List;
@@ -910,7 +885,7 @@ namespace AGS
 						sprite = &stageEntry;
 					}
 
-					this->_renderSprite(sprite, batch.Matrix, globalLeftRightFlip, globalTopBottomFlip);
+					this->_renderSprite(sprite, batch.Matrix);
 				}
 			}
 
@@ -1255,14 +1230,14 @@ namespace AGS
 					if(a>255) break;
 
 					ddb->SetTransparency(fadingOut ? a : (255 - a));
-					this->_renderAndPresent(flipTypeLastTime, false);
+					this->_renderAndPresent(false);
 					update_polled_mp3();
 				}
 
 				if (fadingOut)
 				{
 					ddb->SetTransparency(0);
-					this->_renderAndPresent(flipTypeLastTime, false);
+					this->_renderAndPresent(false);
 				}
 
 				this->DestroyDDB(ddb);
@@ -1335,7 +1310,7 @@ namespace AGS
 						d3db->SetStretch(_srcRect.GetWidth(), _srcRect.GetHeight(), false);
 					}
 
-					this->_renderAndPresent(flipTypeLastTime, false);
+					this->_renderAndPresent(false);
 
 					if (_pollingCallback)
 						_pollingCallback();

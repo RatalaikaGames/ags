@@ -763,9 +763,13 @@ namespace AGS
 					AGSCON::Graphics::BindRenderTarget(0, pNativeSurface);
 				else
 				{
+					//scale too large for the intended display resolution, so we can scale down with linear filtering and capture some of the details
+					//in 2020 on consoles it's assumed we'll be outputting a low resolution game on a high resolution full screen television (or the switch), so a bit of blurring is gonna happen
+					//this is especially significant because many games will have been designed with a good solid 2x scale up at least to display on a monitor yet not fit quite on 720p
 					float scale = (float)dh / (viewport_rect.bottom - viewport_rect.top);
-					int newWidth = (int)((viewport_rect.right - viewport_rect.left)*scale);
-					int newHeight = dh;
+					int nscale = (int)ceilf(scale);
+					int newWidth = (int)((viewport_rect.right - viewport_rect.left)*nscale);
+					int newHeight = (viewport_rect.bottom - viewport_rect.top) * nscale;
 					if(!rtPrescale || rtPrescaleWidth != newWidth || rtPrescaleHeight != newHeight)
 					{
 						if(rtPrescale)

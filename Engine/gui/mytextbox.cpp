@@ -57,7 +57,7 @@ int MyTextBox::pressedon(int mousex, int mousey)
     return 0;
 }
 
-int MyTextBox::processmessage(int mcode, int wParam, long lParam)
+int MyTextBox::processmessage(int mcode, int wParam, void* lParam)
 {
     if (mcode == CTB_SETTEXT) {
         strcpy(text, (char *)lParam);

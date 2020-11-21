@@ -136,7 +136,7 @@ extern int smcode;
     needredraw = 1;
   }
 
-  int MyListBox::processmessage(int mcode, int wParam, long lParam)
+  int MyListBox::processmessage(int mcode, int wParam, void* lParam)
   {
     if (mcode == CLB_ADDITEM) {
       additem((char *)lParam);

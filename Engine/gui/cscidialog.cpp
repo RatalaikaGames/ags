@@ -242,7 +242,7 @@ void CSCIDeleteControl(int haa)
     vobjs[haa] = nullptr;
 }
 
-int CSCISendControlMessage(int haa, int mess, int wPar, long lPar)
+int CSCISendControlMessage(int haa, int mess, int wPar, void* lPar)
 {
     if (vobjs[haa] == nullptr)
         return -1;

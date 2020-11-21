@@ -56,7 +56,7 @@ int MyLabel::pressedon(int mousex, int mousey)
     return 0;
 }
 
-int MyLabel::processmessage(int mcode, int wParam, long lParam)
+int MyLabel::processmessage(int mcode, int wParam, void* lParam)
 {
     return -1;                  // doesn't support messages
 }

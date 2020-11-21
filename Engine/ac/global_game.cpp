@@ -13,6 +13,7 @@
 //=============================================================================
 
 #include <math.h>
+#include <stdio.h>
 
 #include "core/platform.h"
 #include "ac/audiocliptype.h"
@@ -120,21 +121,7 @@ void RestoreGameSlot(int slnum) {
 }
 
 void DeleteSaveSlot (int slnum) {
-    String nametouse;
-    nametouse = get_save_game_path(slnum);
-    ::remove (nametouse);
-    if ((slnum >= 1) && (slnum <= MAXSAVEGAMES)) {
-        String thisname;
-        for (int i = MAXSAVEGAMES; i > slnum; i--) {
-            thisname = get_save_game_path(i);
-            if (Common::File::TestReadFile(thisname)) {
-                // Rename the highest save game to fill in the gap
-                rename (thisname, nametouse);
-                break;
-            }
-        }
-
-    }
+	platform->Save_DeleteSlot(slnum);
 }
 
 void PauseGame() {
@@ -600,145 +587,272 @@ void GetLocationName(int xxx,int yyy,char*tempo) {
     play.get_loc_name_last_time = onhs;
 }
 
+//int IsKeyPressed (int keycode) {
+//#ifdef ALLEGRO_KEYBOARD_HANDLER
+//    if (keyboard_needs_poll())
+//        poll_keyboard();
+//
+//    switch(keycode) {
+//        case eAGSKeyCodeBackspace: return ags_iskeypressed(__allegro_KEY_BACKSPACE); break;
+//        case eAGSKeyCodeTab: return ags_iskeypressed(__allegro_KEY_TAB); break;
+//        case eAGSKeyCodeReturn: return ags_iskeypressed(__allegro_KEY_ENTER) || ags_iskeypressed(__allegro_KEY_ENTER_PAD); break;
+//        case eAGSKeyCodeEscape: return ags_iskeypressed(__allegro_KEY_ESC); break;
+//        case eAGSKeyCodeSpace: return ags_iskeypressed(__allegro_KEY_SPACE); break;
+//        case eAGSKeyCodeSingleQuote: return ags_iskeypressed(__allegro_KEY_QUOTE); break;
+//        case eAGSKeyCodeComma: return ags_iskeypressed(__allegro_KEY_COMMA); break;
+//        case eAGSKeyCodePeriod: return ags_iskeypressed(__allegro_KEY_STOP); break;
+//        case eAGSKeyCodeForwardSlash: return ags_iskeypressed(__allegro_KEY_SLASH) || ags_iskeypressed(__allegro_KEY_SLASH_PAD); break;
+//        case eAGSKeyCodeBackSlash: return ags_iskeypressed(__allegro_KEY_BACKSLASH) || ags_iskeypressed(__allegro_KEY_BACKSLASH2); break;
+//        case eAGSKeyCodeSemiColon: return ags_iskeypressed(__allegro_KEY_SEMICOLON); break;
+//        case eAGSKeyCodeEquals: return ags_iskeypressed(__allegro_KEY_EQUALS) || ags_iskeypressed(__allegro_KEY_EQUALS_PAD); break;
+//        case eAGSKeyCodeOpenBracket: return ags_iskeypressed(__allegro_KEY_OPENBRACE); break;
+//        case eAGSKeyCodeCloseBracket: return ags_iskeypressed(__allegro_KEY_CLOSEBRACE); break;
+//        // NOTE: we're treating EQUALS like PLUS, even though it is only available shifted.
+//        case eAGSKeyCodePlus: return ags_iskeypressed(__allegro_KEY_EQUALS) || ags_iskeypressed(__allegro_KEY_PLUS_PAD); break;
+//        case eAGSKeyCodeHyphen: return ags_iskeypressed(__allegro_KEY_MINUS) || ags_iskeypressed(__allegro_KEY_MINUS_PAD); break;
+//
+//        // non-shifted versions of keys
+//        case eAGSKeyCodeColon: return ags_iskeypressed(__allegro_KEY_COLON) || ags_iskeypressed(__allegro_KEY_COLON2); break;
+//        case eAGSKeyCodeAsterisk: return ags_iskeypressed(__allegro_KEY_ASTERISK); break;
+//        case eAGSKeyCodeAt: return ags_iskeypressed(__allegro_KEY_AT); break;
+//
+//        case eAGSKeyCode0: return ags_iskeypressed(__allegro_KEY_0); break;
+//        case eAGSKeyCode1: return ags_iskeypressed(__allegro_KEY_1); break;
+//        case eAGSKeyCode2: return ags_iskeypressed(__allegro_KEY_2); break;
+//        case eAGSKeyCode3: return ags_iskeypressed(__allegro_KEY_3); break;
+//        case eAGSKeyCode4: return ags_iskeypressed(__allegro_KEY_4); break;
+//        case eAGSKeyCode5: return ags_iskeypressed(__allegro_KEY_5); break;
+//        case eAGSKeyCode6: return ags_iskeypressed(__allegro_KEY_6); break;
+//        case eAGSKeyCode7: return ags_iskeypressed(__allegro_KEY_7); break;
+//        case eAGSKeyCode8: return ags_iskeypressed(__allegro_KEY_8); break;
+//        case eAGSKeyCode9: return ags_iskeypressed(__allegro_KEY_9); break;
+//
+//        case eAGSKeyCodeA: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('A')); break;
+//        case eAGSKeyCodeB: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('B')); break;
+//        case eAGSKeyCodeC: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('C')); break;
+//        case eAGSKeyCodeD: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('D')); break;
+//        case eAGSKeyCodeE: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('E')); break;
+//        case eAGSKeyCodeF: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('F')); break;
+//        case eAGSKeyCodeG: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('G')); break;
+//        case eAGSKeyCodeH: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('H')); break;
+//        case eAGSKeyCodeI: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('I')); break;
+//        case eAGSKeyCodeJ: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('J')); break;
+//        case eAGSKeyCodeK: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('K')); break;
+//        case eAGSKeyCodeL: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('L')); break;
+//        case eAGSKeyCodeM: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('M')); break;
+//        case eAGSKeyCodeN: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('N')); break;
+//        case eAGSKeyCodeO: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('O')); break;
+//        case eAGSKeyCodeP: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('P')); break;
+//        case eAGSKeyCodeQ: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('Q')); break;
+//        case eAGSKeyCodeR: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('R')); break;
+//        case eAGSKeyCodeS: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('S')); break;
+//        case eAGSKeyCodeT: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('T')); break;
+//        case eAGSKeyCodeU: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('U')); break;
+//        case eAGSKeyCodeV: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('V')); break;
+//        case eAGSKeyCodeW: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('W')); break;
+//        case eAGSKeyCodeX: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('X')); break;
+//        case eAGSKeyCodeY: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('Y')); break;
+//        case eAGSKeyCodeZ: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('Z')); break;
+//
+//        case eAGSKeyCodeF1: return ags_iskeypressed(__allegro_KEY_F1); break;
+//        case eAGSKeyCodeF2: return ags_iskeypressed(__allegro_KEY_F2); break;
+//        case eAGSKeyCodeF3: return ags_iskeypressed(__allegro_KEY_F3); break;
+//        case eAGSKeyCodeF4: return ags_iskeypressed(__allegro_KEY_F4); break;
+//        case eAGSKeyCodeF5: return ags_iskeypressed(__allegro_KEY_F5); break;
+//        case eAGSKeyCodeF6: return ags_iskeypressed(__allegro_KEY_F6); break;
+//        case eAGSKeyCodeF7: return ags_iskeypressed(__allegro_KEY_F7); break;
+//        case eAGSKeyCodeF8: return ags_iskeypressed(__allegro_KEY_F8); break;
+//        case eAGSKeyCodeF9: return ags_iskeypressed(__allegro_KEY_F9); break;
+//        case eAGSKeyCodeF10: return ags_iskeypressed(__allegro_KEY_F10); break;
+//        case eAGSKeyCodeF11: return ags_iskeypressed(__allegro_KEY_F11); break;
+//        case eAGSKeyCodeF12: return ags_iskeypressed(__allegro_KEY_F12); break;
+//
+//        case eAGSKeyCodeHome: return ags_iskeypressed(__allegro_KEY_HOME) || ags_iskeypressed(__allegro_KEY_7_PAD); break;
+//        case eAGSKeyCodeUpArrow: return ags_iskeypressed(__allegro_KEY_UP) || ags_iskeypressed(__allegro_KEY_8_PAD); break;
+//        case eAGSKeyCodePageUp: return ags_iskeypressed(__allegro_KEY_PGUP) || ags_iskeypressed(__allegro_KEY_9_PAD); break;
+//        case eAGSKeyCodeLeftArrow: return ags_iskeypressed(__allegro_KEY_LEFT) || ags_iskeypressed(__allegro_KEY_4_PAD); break;
+//        case eAGSKeyCodeNumPad5: return ags_iskeypressed(__allegro_KEY_5_PAD); break;
+//        case eAGSKeyCodeRightArrow: return ags_iskeypressed(__allegro_KEY_RIGHT) || ags_iskeypressed(__allegro_KEY_6_PAD); break;
+//        case eAGSKeyCodeEnd: return ags_iskeypressed(__allegro_KEY_END) || ags_iskeypressed(__allegro_KEY_1_PAD); break;
+//        case eAGSKeyCodeDownArrow: return ags_iskeypressed(__allegro_KEY_DOWN) || ags_iskeypressed(__allegro_KEY_2_PAD); break;
+//        case eAGSKeyCodePageDown: return ags_iskeypressed(__allegro_KEY_PGDN) || ags_iskeypressed(__allegro_KEY_3_PAD); break;
+//        case eAGSKeyCodeInsert: return ags_iskeypressed(__allegro_KEY_INSERT) || ags_iskeypressed(__allegro_KEY_0_PAD); break;
+//        case eAGSKeyCodeDelete: return ags_iskeypressed(__allegro_KEY_DEL) || ags_iskeypressed(__allegro_KEY_DEL_PAD); break;
+//
+//        // These keys are not defined in the eAGSKey enum but are in the manual
+//        // https://adventuregamestudio.github.io/ags-manual/ASCIIcodes.html
+//
+//        case 403: return ags_iskeypressed(__allegro_KEY_LSHIFT); break;
+//        case 404: return ags_iskeypressed(__allegro_KEY_RSHIFT); break;
+//        case 405: return ags_iskeypressed(__allegro_KEY_LCONTROL); break;
+//        case 406: return ags_iskeypressed(__allegro_KEY_RCONTROL); break;
+//        case 407: return ags_iskeypressed(__allegro_KEY_ALT); break;
+//
+//        // (noted here for interest)
+//        // The following are the AGS_EXT_KEY_SHIFT, derived from applying arithmetic to the original keycodes.
+//        // These do not have a corresponding ags key enum, do not appear in the manual and may not be accessible because of OS contraints.
+//
+//        case 392: return ags_iskeypressed(__allegro_KEY_PRTSCR); break;
+//        case 393: return ags_iskeypressed(__allegro_KEY_PAUSE); break;
+//        case 394: return ags_iskeypressed(__allegro_KEY_ABNT_C1); break;  // The ABNT_C1 (Brazilian) key
+//        case 395: return ags_iskeypressed(__allegro_KEY_YEN); break;
+//        case 396: return ags_iskeypressed(__allegro_KEY_KANA); break;
+//        case 397: return ags_iskeypressed(__allegro_KEY_CONVERT); break;
+//        case 398: return ags_iskeypressed(__allegro_KEY_NOCONVERT); break;
+//        case 400: return ags_iskeypressed(__allegro_KEY_CIRCUMFLEX); break;
+//        case 402: return ags_iskeypressed(__allegro_KEY_KANJI); break;
+//        case 420: return ags_iskeypressed(__allegro_KEY_ALTGR); break;
+//        case 421: return ags_iskeypressed(__allegro_KEY_LWIN); break;
+//        case 422: return ags_iskeypressed(__allegro_KEY_RWIN); break;
+//        case 423: return ags_iskeypressed(__allegro_KEY_MENU); break;
+//        case 424: return ags_iskeypressed(__allegro_KEY_SCRLOCK); break;
+//        case 425: return ags_iskeypressed(__allegro_KEY_NUMLOCK); break;
+//        case 426: return ags_iskeypressed(__allegro_KEY_CAPSLOCK); break;
+//
+//        // Allegro4 keys that were never supported:
+//        // __allegro_KEY_COMMAND
+//        // __allegro_KEY_TILDE
+//        // __allegro_KEY_BACKQUOTE
+//
+//        default:
+//            // Remaining Allegro4 keycodes are offset by AGS_EXT_KEY_SHIFT
+//            if (keycode >= AGS_EXT_KEY_SHIFT) {
+//                if (ags_iskeypressed(keycode - AGS_EXT_KEY_SHIFT)) { return 1; }
+//            }
+//            debug_script_log("IsKeyPressed: unsupported keycode %d", keycode);
+//            return 0;
+//    }
+//#else
+//    // old allegro version
+//    quit("allegro keyboard handler not in use??");
+//#endif
+//}
+
+//MBG HACKS - modified from https://github.com/sonneveld/ags/blob/ags3-sdl2/Engine/ac/global_game.cpp#L601
+int SDL_GetScancodeFromKey(int key);
+extern int rata_hacks_sdl_keyboard_state[512];
+#include "keymap.h"
 int IsKeyPressed (int keycode) {
-#ifdef ALLEGRO_KEYBOARD_HANDLER
-    if (keyboard_needs_poll())
-        poll_keyboard();
+	if (keyboard_needs_poll())
+		poll_keyboard();
+	int* state = rata_hacks_sdl_keyboard_state;
 
-    switch(keycode) {
-        case eAGSKeyCodeBackspace: return ags_iskeypressed(__allegro_KEY_BACKSPACE); break;
-        case eAGSKeyCodeTab: return ags_iskeypressed(__allegro_KEY_TAB); break;
-        case eAGSKeyCodeReturn: return ags_iskeypressed(__allegro_KEY_ENTER) || ags_iskeypressed(__allegro_KEY_ENTER_PAD); break;
-        case eAGSKeyCodeEscape: return ags_iskeypressed(__allegro_KEY_ESC); break;
-        case eAGSKeyCodeSpace: return ags_iskeypressed(__allegro_KEY_SPACE); break;
-        case eAGSKeyCodeSingleQuote: return ags_iskeypressed(__allegro_KEY_QUOTE); break;
-        case eAGSKeyCodeComma: return ags_iskeypressed(__allegro_KEY_COMMA); break;
-        case eAGSKeyCodePeriod: return ags_iskeypressed(__allegro_KEY_STOP); break;
-        case eAGSKeyCodeForwardSlash: return ags_iskeypressed(__allegro_KEY_SLASH) || ags_iskeypressed(__allegro_KEY_SLASH_PAD); break;
-        case eAGSKeyCodeBackSlash: return ags_iskeypressed(__allegro_KEY_BACKSLASH) || ags_iskeypressed(__allegro_KEY_BACKSLASH2); break;
-        case eAGSKeyCodeSemiColon: return ags_iskeypressed(__allegro_KEY_SEMICOLON); break;
-        case eAGSKeyCodeEquals: return ags_iskeypressed(__allegro_KEY_EQUALS) || ags_iskeypressed(__allegro_KEY_EQUALS_PAD); break;
-        case eAGSKeyCodeOpenBracket: return ags_iskeypressed(__allegro_KEY_OPENBRACE); break;
-        case eAGSKeyCodeCloseBracket: return ags_iskeypressed(__allegro_KEY_CLOSEBRACE); break;
-        // NOTE: we're treating EQUALS like PLUS, even though it is only available shifted.
-        case eAGSKeyCodePlus: return ags_iskeypressed(__allegro_KEY_EQUALS) || ags_iskeypressed(__allegro_KEY_PLUS_PAD); break;
-        case eAGSKeyCodeHyphen: return ags_iskeypressed(__allegro_KEY_MINUS) || ags_iskeypressed(__allegro_KEY_MINUS_PAD); break;
+	switch (keycode) {
+		case 'A': return state[SDL_GetScancodeFromKey(SDLK_a)];
+		case 'B': return state[SDL_GetScancodeFromKey(SDLK_b)];
+		case 'C': return state[SDL_GetScancodeFromKey(SDLK_c)];
+		case 'D': return state[SDL_GetScancodeFromKey(SDLK_d)];
+		case 'E': return state[SDL_GetScancodeFromKey(SDLK_e)];
+		case 'F': return state[SDL_GetScancodeFromKey(SDLK_f)];
+		case 'G': return state[SDL_GetScancodeFromKey(SDLK_g)];
+		case 'H': return state[SDL_GetScancodeFromKey(SDLK_h)];
+		case 'I': return state[SDL_GetScancodeFromKey(SDLK_i)];
+		case 'J': return state[SDL_GetScancodeFromKey(SDLK_j)];
+		case 'K': return state[SDL_GetScancodeFromKey(SDLK_k)];
+		case 'L': return state[SDL_GetScancodeFromKey(SDLK_l)];
+		case 'M': return state[SDL_GetScancodeFromKey(SDLK_m)];
+		case 'N': return state[SDL_GetScancodeFromKey(SDLK_n)];
+		case 'O': return state[SDL_GetScancodeFromKey(SDLK_o)];
+		case 'P': return state[SDL_GetScancodeFromKey(SDLK_p)];
+		case 'Q': return state[SDL_GetScancodeFromKey(SDLK_q)];
+		case 'R': return state[SDL_GetScancodeFromKey(SDLK_r)];
+		case 'S': return state[SDL_GetScancodeFromKey(SDLK_s)];
+		case 'T': return state[SDL_GetScancodeFromKey(SDLK_t)];
+		case 'U': return state[SDL_GetScancodeFromKey(SDLK_u)];
+		case 'V': return state[SDL_GetScancodeFromKey(SDLK_v)];
+		case 'W': return state[SDL_GetScancodeFromKey(SDLK_w)];
+		case 'X': return state[SDL_GetScancodeFromKey(SDLK_x)];
+		case 'Y': return state[SDL_GetScancodeFromKey(SDLK_y)];
+		case 'Z': return state[SDL_GetScancodeFromKey(SDLK_z)];
 
-        // non-shifted versions of keys
-        case eAGSKeyCodeColon: return ags_iskeypressed(__allegro_KEY_COLON) || ags_iskeypressed(__allegro_KEY_COLON2); break;
-        case eAGSKeyCodeAsterisk: return ags_iskeypressed(__allegro_KEY_ASTERISK); break;
-        case eAGSKeyCodeAt: return ags_iskeypressed(__allegro_KEY_AT); break;
+		case '0': return state[SDL_SCANCODE_0];
+		case '1': return state[SDL_SCANCODE_1];
+		case '2': return state[SDL_SCANCODE_2];
+		case '3': return state[SDL_SCANCODE_3];
+		case '4': return state[SDL_SCANCODE_4];
+		case '5': return state[SDL_SCANCODE_5];
+		case '6': return state[SDL_SCANCODE_6];
+		case '7': return state[SDL_SCANCODE_7];
+		case '8': return state[SDL_SCANCODE_8];
+		case '9': return state[SDL_SCANCODE_9];
 
-        case eAGSKeyCode0: return ags_iskeypressed(__allegro_KEY_0); break;
-        case eAGSKeyCode1: return ags_iskeypressed(__allegro_KEY_1); break;
-        case eAGSKeyCode2: return ags_iskeypressed(__allegro_KEY_2); break;
-        case eAGSKeyCode3: return ags_iskeypressed(__allegro_KEY_3); break;
-        case eAGSKeyCode4: return ags_iskeypressed(__allegro_KEY_4); break;
-        case eAGSKeyCode5: return ags_iskeypressed(__allegro_KEY_5); break;
-        case eAGSKeyCode6: return ags_iskeypressed(__allegro_KEY_6); break;
-        case eAGSKeyCode7: return ags_iskeypressed(__allegro_KEY_7); break;
-        case eAGSKeyCode8: return ags_iskeypressed(__allegro_KEY_8); break;
-        case eAGSKeyCode9: return ags_iskeypressed(__allegro_KEY_9); break;
+		case 8: return state[SDL_SCANCODE_BACKSPACE] || state[SDL_SCANCODE_KP_BACKSPACE];
+		case 9: return state[SDL_SCANCODE_TAB] || state[SDL_SCANCODE_KP_TAB];
 
-        case eAGSKeyCodeA: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('A')); break;
-        case eAGSKeyCodeB: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('B')); break;
-        case eAGSKeyCodeC: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('C')); break;
-        case eAGSKeyCodeD: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('D')); break;
-        case eAGSKeyCodeE: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('E')); break;
-        case eAGSKeyCodeF: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('F')); break;
-        case eAGSKeyCodeG: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('G')); break;
-        case eAGSKeyCodeH: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('H')); break;
-        case eAGSKeyCodeI: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('I')); break;
-        case eAGSKeyCodeJ: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('J')); break;
-        case eAGSKeyCodeK: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('K')); break;
-        case eAGSKeyCodeL: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('L')); break;
-        case eAGSKeyCodeM: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('M')); break;
-        case eAGSKeyCodeN: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('N')); break;
-        case eAGSKeyCodeO: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('O')); break;
-        case eAGSKeyCodeP: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('P')); break;
-        case eAGSKeyCodeQ: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('Q')); break;
-        case eAGSKeyCodeR: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('R')); break;
-        case eAGSKeyCodeS: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('S')); break;
-        case eAGSKeyCodeT: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('T')); break;
-        case eAGSKeyCodeU: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('U')); break;
-        case eAGSKeyCodeV: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('V')); break;
-        case eAGSKeyCodeW: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('W')); break;
-        case eAGSKeyCodeX: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('X')); break;
-        case eAGSKeyCodeY: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('Y')); break;
-        case eAGSKeyCodeZ: return ags_iskeypressed(platform->ConvertKeycodeToScanCode('Z')); break;
+			// check both the main return key and the numeric pad enter
+		case 13: return state[SDL_SCANCODE_RETURN] || state[SDL_SCANCODE_RETURN2] || state[SDL_SCANCODE_KP_ENTER];
 
-        case eAGSKeyCodeF1: return ags_iskeypressed(__allegro_KEY_F1); break;
-        case eAGSKeyCodeF2: return ags_iskeypressed(__allegro_KEY_F2); break;
-        case eAGSKeyCodeF3: return ags_iskeypressed(__allegro_KEY_F3); break;
-        case eAGSKeyCodeF4: return ags_iskeypressed(__allegro_KEY_F4); break;
-        case eAGSKeyCodeF5: return ags_iskeypressed(__allegro_KEY_F5); break;
-        case eAGSKeyCodeF6: return ags_iskeypressed(__allegro_KEY_F6); break;
-        case eAGSKeyCodeF7: return ags_iskeypressed(__allegro_KEY_F7); break;
-        case eAGSKeyCodeF8: return ags_iskeypressed(__allegro_KEY_F8); break;
-        case eAGSKeyCodeF9: return ags_iskeypressed(__allegro_KEY_F9); break;
-        case eAGSKeyCodeF10: return ags_iskeypressed(__allegro_KEY_F10); break;
-        case eAGSKeyCodeF11: return ags_iskeypressed(__allegro_KEY_F11); break;
-        case eAGSKeyCodeF12: return ags_iskeypressed(__allegro_KEY_F12); break;
+		case ' ': return state[SDL_SCANCODE_KP_SPACE] || state[SDL_SCANCODE_KP_SPACE];
 
-        case eAGSKeyCodeHome: return ags_iskeypressed(__allegro_KEY_HOME) || ags_iskeypressed(__allegro_KEY_7_PAD); break;
-        case eAGSKeyCodeUpArrow: return ags_iskeypressed(__allegro_KEY_UP) || ags_iskeypressed(__allegro_KEY_8_PAD); break;
-        case eAGSKeyCodePageUp: return ags_iskeypressed(__allegro_KEY_PGUP) || ags_iskeypressed(__allegro_KEY_9_PAD); break;
-        case eAGSKeyCodeLeftArrow: return ags_iskeypressed(__allegro_KEY_LEFT) || ags_iskeypressed(__allegro_KEY_4_PAD); break;
-        case eAGSKeyCodeNumPad5: return ags_iskeypressed(__allegro_KEY_5_PAD); break;
-        case eAGSKeyCodeRightArrow: return ags_iskeypressed(__allegro_KEY_RIGHT) || ags_iskeypressed(__allegro_KEY_6_PAD); break;
-        case eAGSKeyCodeEnd: return ags_iskeypressed(__allegro_KEY_END) || ags_iskeypressed(__allegro_KEY_1_PAD); break;
-        case eAGSKeyCodeDownArrow: return ags_iskeypressed(__allegro_KEY_DOWN) || ags_iskeypressed(__allegro_KEY_2_PAD); break;
-        case eAGSKeyCodePageDown: return ags_iskeypressed(__allegro_KEY_PGDN) || ags_iskeypressed(__allegro_KEY_3_PAD); break;
-        case eAGSKeyCodeInsert: return ags_iskeypressed(__allegro_KEY_INSERT) || ags_iskeypressed(__allegro_KEY_0_PAD); break;
-        case eAGSKeyCodeDelete: return ags_iskeypressed(__allegro_KEY_DEL) || ags_iskeypressed(__allegro_KEY_DEL_PAD); break;
+		case 27: return state[SDL_SCANCODE_ESCAPE];
 
-        // These keys are not defined in the eAGSKey enum but are in the manual
-        // https://adventuregamestudio.github.io/ags-manual/ASCIIcodes.html
+			// check both the main - key and the numeric pad
+		case '-': return state[SDL_SCANCODE_MINUS] || state[SDL_SCANCODE_KP_MINUS];
 
-        case 403: return ags_iskeypressed(__allegro_KEY_LSHIFT); break;
-        case 404: return ags_iskeypressed(__allegro_KEY_RSHIFT); break;
-        case 405: return ags_iskeypressed(__allegro_KEY_LCONTROL); break;
-        case 406: return ags_iskeypressed(__allegro_KEY_RCONTROL); break;
-        case 407: return ags_iskeypressed(__allegro_KEY_ALT); break;
+			// check both the main + key and the numeric pad
+		case '+': return state[SDL_SCANCODE_EQUALS] || state[SDL_SCANCODE_KP_PLUS];
 
-        // (noted here for interest)
-        // The following are the AGS_EXT_KEY_SHIFT, derived from applying arithmetic to the original keycodes.
-        // These do not have a corresponding ags key enum, do not appear in the manual and may not be accessible because of OS contraints.
+			// check both the main / key and the numeric pad
+		case '/': return state[SDL_SCANCODE_SLASH] || state[SDL_SCANCODE_KP_DIVIDE];
 
-        case 392: return ags_iskeypressed(__allegro_KEY_PRTSCR); break;
-        case 393: return ags_iskeypressed(__allegro_KEY_PAUSE); break;
-        case 394: return ags_iskeypressed(__allegro_KEY_ABNT_C1); break;  // The ABNT_C1 (Brazilian) key
-        case 395: return ags_iskeypressed(__allegro_KEY_YEN); break;
-        case 396: return ags_iskeypressed(__allegro_KEY_KANA); break;
-        case 397: return ags_iskeypressed(__allegro_KEY_CONVERT); break;
-        case 398: return ags_iskeypressed(__allegro_KEY_NOCONVERT); break;
-        case 400: return ags_iskeypressed(__allegro_KEY_CIRCUMFLEX); break;
-        case 402: return ags_iskeypressed(__allegro_KEY_KANJI); break;
-        case 420: return ags_iskeypressed(__allegro_KEY_ALTGR); break;
-        case 421: return ags_iskeypressed(__allegro_KEY_LWIN); break;
-        case 422: return ags_iskeypressed(__allegro_KEY_RWIN); break;
-        case 423: return ags_iskeypressed(__allegro_KEY_MENU); break;
-        case 424: return ags_iskeypressed(__allegro_KEY_SCRLOCK); break;
-        case 425: return ags_iskeypressed(__allegro_KEY_NUMLOCK); break;
-        case 426: return ags_iskeypressed(__allegro_KEY_CAPSLOCK); break;
+		case '=': return state[SDL_SCANCODE_EQUALS] || state[SDL_SCANCODE_KP_EQUALS];
+		case '[': return state[SDL_SCANCODE_LEFTBRACKET];
+		case ']': return state[SDL_SCANCODE_RIGHTBRACKET];
+		case '\\': return state[SDL_SCANCODE_BACKSLASH];
+		case ';': return state[SDL_SCANCODE_SEMICOLON];
+		case '\'': return state[SDL_SCANCODE_APOSTROPHE];
+		case ',': return state[SDL_SCANCODE_COMMA] || state[SDL_SCANCODE_KP_COMMA];
+		case '.': return state[SDL_SCANCODE_PERIOD] || state[SDL_SCANCODE_KP_PERIOD];
 
-        // Allegro4 keys that were never supported:
-        // __allegro_KEY_COMMAND
-        // __allegro_KEY_TILDE
-        // __allegro_KEY_BACKQUOTE
+			// AGS_EXT_KEY_SHIFT is >= 300 and sort of maps to original allegro3 keycodes (+300)
 
-        default:
-            // Remaining Allegro4 keycodes are offset by AGS_EXT_KEY_SHIFT
-            if (keycode >= AGS_EXT_KEY_SHIFT) {
-                if (ags_iskeypressed(keycode - AGS_EXT_KEY_SHIFT)) { return 1; }
-            }
-            debug_script_log("IsKeyPressed: unsupported keycode %d", keycode);
-            return 0;
-    }
-#else
-    // old allegro version
-    quit("allegro keyboard handler not in use??");
-#endif
+			// function keys are 12 lower in allegro 4
+		case 359: return state[SDL_SCANCODE_F1];
+		case 360: return state[SDL_SCANCODE_F2];
+		case 361: return state[SDL_SCANCODE_F3];
+		case 362: return state[SDL_SCANCODE_F4];
+		case 363: return state[SDL_SCANCODE_F5];
+		case 364: return state[SDL_SCANCODE_F6];
+		case 365: return state[SDL_SCANCODE_F7];
+		case 366: return state[SDL_SCANCODE_F8];
+		case 367: return state[SDL_SCANCODE_F9];
+		case 368: return state[SDL_SCANCODE_F10];
+
+		case 371: return state[SDL_SCANCODE_KP_7] || state[SDL_SCANCODE_HOME];
+		case 372: return state[SDL_SCANCODE_UP] || state[SDL_SCANCODE_KP_8];
+		case 373: return state[SDL_SCANCODE_KP_9] || state[SDL_SCANCODE_PAGEUP];
+		case 374: return state[SDL_SCANCODE_KP_MINUS];
+		case 375: return state[SDL_SCANCODE_LEFT] || state[SDL_SCANCODE_KP_4];
+		case 376: return state[SDL_SCANCODE_KP_5];
+		case 377: return state[SDL_SCANCODE_RIGHT] || state[SDL_SCANCODE_KP_6];
+		case 378: return state[SDL_SCANCODE_KP_PLUS];
+		case 379: return state[SDL_SCANCODE_KP_1] || state[SDL_SCANCODE_END];
+		case 380: return state[SDL_SCANCODE_DOWN] || state[SDL_SCANCODE_KP_2];
+		case 381: return state[SDL_SCANCODE_KP_3] || state[SDL_SCANCODE_PAGEDOWN];
+		case 382: return state[SDL_SCANCODE_INSERT] || state[SDL_SCANCODE_KP_0];
+		case 383: return state[SDL_SCANCODE_DELETE] || state[SDL_SCANCODE_KP_PERIOD];
+
+		case 387: return state[SDL_SCANCODE_F11];
+		case 388: return state[SDL_SCANCODE_F12];
+
+			// made up numbers, not based on allegro3 keycodes
+			// deal with shift/ctrl/alt
+		case 403: return state[SDL_SCANCODE_LSHIFT];
+		case 404: return state[SDL_SCANCODE_RSHIFT];
+		case 405: return state[SDL_SCANCODE_LCTRL];
+		case 406: return state[SDL_SCANCODE_RCTRL];
+		case 407: return state[SDL_SCANCODE_LALT] || state[SDL_SCANCODE_RALT];
+			// F11-F12
+		case 433: return state[SDL_SCANCODE_F11];
+		case 434: return state[SDL_SCANCODE_F12];
+
+		default:        
+			if (keycode >= AGS_EXT_KEY_SHIFT) {
+				return key[keycode - 300];  // try allegro3 codes that map directly to allergro4.  also, won't work when SDL only.
+			}
+			debug_script_log("IsKeyPressed: unsupported keycode %d", keycode);
+			return 0;
+	}
 }
 
 int SaveScreenShot(const char*namm) {

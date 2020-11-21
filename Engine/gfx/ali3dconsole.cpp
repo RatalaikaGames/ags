@@ -754,18 +754,29 @@ namespace AGS
 
 				AGSCON::Graphics::BeginRender();
 
-                static AGSCON::Graphics::RenderTarget* rtPrescale;
-                //NEW
-				if (!_renderSprAtScreenRes)
+				int dw, dh;
+				AGSCON::Graphics::GetDisplayResolution(&dw, &dh);
+
+				static AGSCON::Graphics::RenderTarget* rtPrescale;
+				static int rtPrescaleWidth, rtPrescaleHeight;
+				if(!_renderSprAtScreenRes)
 					AGSCON::Graphics::BindRenderTarget(0, pNativeSurface);
-                else
-                {
-                //HACKS! NOT EVEN TRYING RIGHT NOW!
-                    if(!rtPrescale)
-                        rtPrescale = AGSCON::Graphics::RenderTarget_Create(800, 720);
-                  AGSCON::Graphics::BindRenderTarget(0, rtPrescale);
-                    AGSCON::Graphics::SetViewport(0,0,800,720);
-                }
+				else
+				{
+					float scale = (float)dh / (viewport_rect.bottom - viewport_rect.top);
+					int newWidth = (int)((viewport_rect.right - viewport_rect.left)*scale);
+					int newHeight = dh;
+					if(!rtPrescale || rtPrescaleWidth != newWidth || rtPrescaleHeight != newHeight)
+					{
+						if(rtPrescale)
+							AGSCON::Graphics::RenderTarget_Destroy(rtPrescale);
+						rtPrescaleWidth = newWidth;
+						rtPrescaleHeight = newHeight;
+						rtPrescale = AGSCON::Graphics::RenderTarget_Create(rtPrescaleWidth,rtPrescaleHeight);
+					}
+					AGSCON::Graphics::BindRenderTarget(0, rtPrescale);
+					AGSCON::Graphics::SetViewport(0, 0, rtPrescaleWidth, rtPrescaleHeight);
+				}
 
 
 				//OLD
@@ -782,17 +793,20 @@ namespace AGS
 
 				RenderSpriteBatches();
 
-				if (_renderSprAtScreenRes)
-                {
-                    AGSCON::Graphics::Rectangle r;
-                    r.left = 0;
-                    r.right = 800;
-                    r.top = 0;
-                    r.bottom = 720;
-                    AGSCON::Graphics::PresentNative(rtPrescale, &r);
-                }
-                else
-                {
+				if(_renderSprAtScreenRes)
+				{
+					//NOTE: this logic may be wrong for strangely set viewport rects. basically just ignoring it...
+					//probably need to adjust it proportionally with the scale? what a mess.
+					//it's impossible to figure out how all this stuff combines
+					AGSCON::Graphics::Rectangle r;
+					r.left = (dw-rtPrescaleWidth)/2;
+					r.right = r.left + rtPrescaleWidth;
+					r.top = (dh-rtPrescaleHeight)/2;
+					r.bottom = r.top + rtPrescaleHeight;
+					AGSCON::Graphics::PresentNative(rtPrescale, &r);
+				}
+				else
+				{
 					//TODO - uhhhh I guess this is the final presentation logic? that's pretty shoddy. need to re-engineer that
 					
 

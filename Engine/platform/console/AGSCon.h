@@ -167,6 +167,9 @@ namespace AGSCON
 		void EndFrame();
 		void SkipFrame();
 
+		//Gets the current display resolution. This may change during runtime.
+		void GetDisplayResolution(int* x, int* y);
+
 		Texture* Texture_Create(int w, int h);
 		void Texture_Lock(Texture* texture, TextureLock* lockData);
 		void Texture_Unlock(Texture* texture, TextureLock* lockData);

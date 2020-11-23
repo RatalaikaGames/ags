@@ -281,7 +281,11 @@ size_t split_lines(const char *todis, SplitLines &lines, int wii, int fonnt, siz
 
         //MBG - locale hacks
         //figure out how this character is
+				#ifdef AGS_UTF8
         int codesize = musl_mbtowc(nullptr, theline+i, len-i);
+				#else
+				int codesize = 1;
+				#endif
         if(codesize == -1) break;
         if(codesize+i>len) break;
 
@@ -307,8 +311,12 @@ size_t split_lines(const char *todis, SplitLines &lines, int wii, int fonnt, siz
                     break;
 
                 //get the current character
+								#ifdef AGS_UTF8
                 wchar_t wc;
                 musl_mbtowc(&wc, theline+endline,len-endline);
+								#else
+								wchar_t wc = (wchar_t)(unsigned char)*(theline+endline);
+								#endif
 
                 //bail if we could break here
                 if(wc == ' ')
@@ -316,14 +324,21 @@ size_t split_lines(const char *todis, SplitLines &lines, int wii, int fonnt, siz
 
                 //work back until we find a valid character
                 endline--;
+								#ifdef AGS_UTF8
                 while(-1==musl_mbtowc(&wc, theline+endline,len-endline))
                     endline--;
+								#endif
             }
 
 
             // single very wide word, display as much as possible
+						#ifdef AGS_UTF8
             if (endline == 0)
                 endline = i - musl_mbtowc(nullptr, theline+i,len-i);
+						#else
+						if (endline == 0)
+							endline = i - 1;
+						#endif
 
             splitAt = endline;
         }

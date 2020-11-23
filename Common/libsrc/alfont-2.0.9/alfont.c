@@ -86,6 +86,22 @@ static int alfont_textmode = 0;
 static int alfont_inited = 0;
 
 
+static int prior_marker = -1;
+static void _set_uformat(int type, int marker)
+{
+	if(prior_marker != -1)
+	{
+		int zzz=9;
+	}
+	prior_marker = marker;
+	set_uformat(type);
+}
+
+void _restore_uformat(int type)
+{
+	set_uformat(type);
+	prior_marker = -1;
+}
 
 
 char* alfont_get_name(ALFONT_FONT *f)
@@ -833,7 +849,7 @@ void alfont_textout_aa_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int
 		}
 
 		setlocale(LC_CTYPE,f->language);
-		set_uformat(U_UNICODE);
+		_set_uformat(U_UNICODE,1);
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen*sizeof(wchar_t));
@@ -844,7 +860,7 @@ void alfont_textout_aa_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int
 		if (ret == -1) { //If the ret is -1, the final one will can be a shortcutted character.
 			//store the last character to precedingchar character
 			//get the final character
-			set_uformat(curr_uformat);
+			_restore_uformat(curr_uformat);
 			while (*s_pointer_temp != '\0') {
 				f->precedingchar = *s_pointer_temp;
 				s_pointer_temp++;
@@ -859,7 +875,7 @@ void alfont_textout_aa_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int
 		}
 		#endif
 		//recover to original codepage
-		set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
 	}
   }
 
@@ -917,12 +933,12 @@ void alfont_textout_aa_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int
            	lpszW = (char *)s_pointer;
         }
         else {
-			set_uformat(U_UNICODE);
+			_set_uformat(U_UNICODE);
         }
   	}
 	#else
 	setlocale(LC_CTYPE,f->language);
-	set_uformat(U_UNICODE);
+	_set_uformat(U_UNICODE,2);
 
 	#ifdef ALFONT_LINUX
 	nLen = strlen(s_pointer) * 5 + 1;
@@ -1865,7 +1881,7 @@ void alfont_textout_aa_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int
   #endif
 
   if (f->type==2) {
-	set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
   }
 
 }
@@ -1953,7 +1969,7 @@ void alfont_textout_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int y,
 			if (ret == -1) { //If the ret is -1, the final one will can be a shortcutted character.
 				//store the last character to precedingchar character
 				//get the final character
-				set_uformat(curr_uformat);
+				_restore_uformat(curr_uformat);
 				while (*s_pointer_temp != '\0') {
 					f->precedingchar = *s_pointer_temp;
 					s_pointer_temp++;
@@ -1995,7 +2011,7 @@ void alfont_textout_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int y,
 		}
 
 		setlocale(LC_CTYPE,f->language);
-		set_uformat(U_UNICODE);
+		_set_uformat(U_UNICODE,3);
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen*sizeof(wchar_t));
@@ -2006,7 +2022,7 @@ void alfont_textout_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int y,
 		if (ret == -1) { //If the ret is -1, the final one will can be a shortcutted character.
 			//store the last character to precedingchar character
 			//get the final character
-			set_uformat(curr_uformat);
+			_restore_uformat(curr_uformat);
 			while (*s_pointer_temp != '\0') {
 				f->precedingchar = *s_pointer_temp;
 				s_pointer_temp++;
@@ -2021,7 +2037,7 @@ void alfont_textout_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int y,
 		}
 		#endif
 		//recover to original codepage
-		set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
 	}
   }
 
@@ -2080,12 +2096,12 @@ void alfont_textout_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int y,
            	lpszW = (char *)s_pointer;
         }
         else {
-			set_uformat(U_UNICODE);
+			_set_uformat(U_UNICODE);
         }
   	}
 	#else
 	setlocale(LC_CTYPE,f->language);
-	set_uformat(U_UNICODE);
+	_set_uformat(U_UNICODE,4);
 
 	#ifdef ALFONT_LINUX
 	nLen = strlen(s_pointer) * 5 + 1;
@@ -2720,7 +2736,7 @@ void alfont_textout_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int y,
   #endif
 
   if (f->type==2) {
-	set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
   }
 
 }
@@ -2848,7 +2864,7 @@ int alfont_text_length(ALFONT_FONT *f, const char *str) {
 		}
 
 		setlocale(LC_CTYPE,f->language);
-		set_uformat(U_UNICODE);
+		_set_uformat(U_UNICODE,6);
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen*sizeof(wchar_t));
@@ -2859,7 +2875,7 @@ int alfont_text_length(ALFONT_FONT *f, const char *str) {
 		if (ret == -1) { //If the ret is -1, the final one will can be a shortcutted character.
 			//store the last character to precedingchar character
 			//get the final character
-			set_uformat(curr_uformat);
+			_restore_uformat(curr_uformat);
 			while (*str_pointer_temp != '\0') {
 				f->precedingchar = *str_pointer_temp;
 				str_pointer_temp++;
@@ -2874,7 +2890,7 @@ int alfont_text_length(ALFONT_FONT *f, const char *str) {
 		}
 		#endif
 		//recover to original codepage
-		set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
 	}
   }
 
@@ -2934,12 +2950,12 @@ int alfont_text_length(ALFONT_FONT *f, const char *str) {
            	lpszW = (char *)str_pointer;
         }
         else {
-			set_uformat(U_UNICODE);
+			_set_uformat(U_UNICODE);
         }
   	}
 	#else
 	setlocale(LC_CTYPE,f->language);
-	set_uformat(U_UNICODE);
+	_set_uformat(U_UNICODE,7);
 
 	#ifdef ALFONT_LINUX
 	nLen = strlen(str_pointer) * 5 + 1;
@@ -3052,7 +3068,7 @@ int alfont_text_length(ALFONT_FONT *f, const char *str) {
   #endif
 
   if (f->type==2) {
-	set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
   }
 
   return total_length;
@@ -3077,7 +3093,7 @@ int alfont_char_length(ALFONT_FONT *f, int character) {
   	curr_uformat=get_uformat();
 
 	setlocale(LC_CTYPE,f->language);
-	set_uformat(U_UNICODE);
+	_set_uformat(U_UNICODE,8);
   }
   else {
     #ifdef ALFONT_LINUX
@@ -3126,7 +3142,7 @@ int alfont_char_length(ALFONT_FONT *f, int character) {
   #endif
 
   if (f->type==2) {
-	set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
   }
 
   return total_length;
@@ -3245,7 +3261,7 @@ int alfont_text_count(ALFONT_FONT *f, const char *str) {
 		}
 
 		setlocale(LC_CTYPE,f->language);
-		set_uformat(U_UNICODE);
+		_set_uformat(U_UNICODE,9);
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen*sizeof(wchar_t));
@@ -3256,7 +3272,7 @@ int alfont_text_count(ALFONT_FONT *f, const char *str) {
 		if (ret == -1) { //If the ret is -1, the final one will can be a shortcutted character.
 			//store the last character to precedingchar character
 			//get the final character
-			set_uformat(curr_uformat);
+			_restore_uformat(curr_uformat);
 			while (*str_pointer_temp != '\0') {
 				f->precedingchar = *str_pointer_temp;
 				str_pointer_temp++;
@@ -3271,7 +3287,7 @@ int alfont_text_count(ALFONT_FONT *f, const char *str) {
 		}
 		#endif
 		//recover to original codepage
-		set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
 	}
   }
 
@@ -3334,13 +3350,13 @@ int alfont_text_count(ALFONT_FONT *f, const char *str) {
            	string_count = strlen(lpszW);
         }
         else {
-			set_uformat(U_UNICODE);
+			_set_uformat(U_UNICODE);
 			string_count = ustrlen(lpszW);
         }
   	}
 	#else
 	setlocale(LC_CTYPE,f->language);
-	set_uformat(U_UNICODE);
+	_set_uformat(U_UNICODE,10);
 
 	#ifdef ALFONT_LINUX
 	nLen = strlen(str_pointer) * 5 + 1;
@@ -3380,7 +3396,7 @@ int alfont_text_count(ALFONT_FONT *f, const char *str) {
   #endif
 
   if (f->type==2) {
-	set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
   }
 
   return string_count;
@@ -3457,7 +3473,7 @@ int alfont_ugetc(ALFONT_FONT *f, const char *s) {
 			if (ret == -1) { //If the ret is -1, the final one will can be a shortcutted character.
 				//store the last character to precedingchar character
 				//get the final character
-				set_uformat(curr_uformat);
+				_restore_uformat(curr_uformat);
 				while (*s_pointer_temp != '\0') {
 					f->precedingchar = *s_pointer_temp;
 					s_pointer_temp++;
@@ -3499,7 +3515,7 @@ int alfont_ugetc(ALFONT_FONT *f, const char *s) {
 		}
 
 		setlocale(LC_CTYPE,f->language);
-		set_uformat(U_UNICODE);
+		_set_uformat(U_UNICODE,11);
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen*sizeof(wchar_t));
@@ -3510,7 +3526,7 @@ int alfont_ugetc(ALFONT_FONT *f, const char *s) {
 		if (ret == -1) { //If the ret is -1, the final one will can be a shortcutted character.
 			//store the last character to precedingchar character
 			//get the final character
-			set_uformat(curr_uformat);
+			_restore_uformat(curr_uformat);
 			while (*s_pointer_temp != '\0') {
 				f->precedingchar = *s_pointer_temp;
 				s_pointer_temp++;
@@ -3525,7 +3541,7 @@ int alfont_ugetc(ALFONT_FONT *f, const char *s) {
 		}
 		#endif
 		//recover to original codepage
-		set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
 	}
   }
 
@@ -3582,12 +3598,12 @@ int alfont_ugetc(ALFONT_FONT *f, const char *s) {
            	lpszW = (char *)s_pointer;
         }
         else {
-			set_uformat(U_UNICODE);
+			_set_uformat(U_UNICODE);
         }
   	}
 	#else
 	setlocale(LC_CTYPE,f->language);
-	set_uformat(U_UNICODE);
+	_set_uformat(U_UNICODE,12);
 
 	#ifdef ALFONT_LINUX
 	nLen = strlen(s_pointer) * 5 + 1;
@@ -3624,7 +3640,7 @@ int alfont_ugetc(ALFONT_FONT *f, const char *s) {
   #endif
 
   if (f->type==2) {
-	set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
   }
 
   return character;
@@ -3752,7 +3768,7 @@ int alfont_ugetx(ALFONT_FONT *f, char **s) {
 		}
 
 		setlocale(LC_CTYPE,f->language);
-		set_uformat(U_UNICODE);
+		_set_uformat(U_UNICODE,13);
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen*sizeof(wchar_t));
@@ -3763,7 +3779,7 @@ int alfont_ugetx(ALFONT_FONT *f, char **s) {
 		if (ret == -1) { //If the ret is -1, the final one will can be a shortcutted character.
 			//store the last character to precedingchar character
 			//get the final character
-			set_uformat(curr_uformat);
+			_restore_uformat(curr_uformat);
 			while (*s_pointer_temp != '\0') {
 				f->precedingchar = *s_pointer_temp;
 				s_pointer_temp++;
@@ -3778,7 +3794,7 @@ int alfont_ugetx(ALFONT_FONT *f, char **s) {
 		}
 		#endif
 		//recover to original codepage
-		set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
 	}
   }
 
@@ -3835,12 +3851,12 @@ int alfont_ugetx(ALFONT_FONT *f, char **s) {
            	lpszW = (char *)s_pointer;
         }
         else {
-			set_uformat(U_UNICODE);
+			_set_uformat(U_UNICODE);
         }
   	}
 	#else
 	setlocale(LC_CTYPE,f->language);
-	set_uformat(U_UNICODE);
+	_set_uformat(U_UNICODE,14);
 
 	#ifdef ALFONT_LINUX
 	nLen = strlen(s_pointer) * 5 + 1;
@@ -3940,7 +3956,7 @@ int alfont_ugetx(ALFONT_FONT *f, char **s) {
   #endif
 
   if (f->type==2) {
-	set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
   }
 
   return character;
@@ -4026,7 +4042,7 @@ int alfont_ugetxc(ALFONT_FONT *f, const char **s) {
 			if (ret == -1) { //If the ret is -1, the final one will can be a shortcutted character.
 				//store the last character to precedingchar character
 				//get the final character
-				set_uformat(curr_uformat);
+				_restore_uformat(curr_uformat);
 				while (*s_pointer_temp != '\0') {
 					f->precedingchar = *s_pointer_temp;
 					s_pointer_temp++;
@@ -4068,7 +4084,7 @@ int alfont_ugetxc(ALFONT_FONT *f, const char **s) {
 		}
 
 		setlocale(LC_CTYPE,f->language);
-		set_uformat(U_UNICODE);
+		_set_uformat(U_UNICODE,20);
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen*sizeof(wchar_t));
@@ -4079,7 +4095,7 @@ int alfont_ugetxc(ALFONT_FONT *f, const char **s) {
 		if (ret == -1) { //If the ret is -1, the final one will can be a shortcutted character.
 			//store the last character to precedingchar character
 			//get the final character
-			set_uformat(curr_uformat);
+			_restore_uformat(curr_uformat);
 			while (*s_pointer_temp != '\0') {
 				f->precedingchar = *s_pointer_temp;
 				s_pointer_temp++;
@@ -4094,7 +4110,7 @@ int alfont_ugetxc(ALFONT_FONT *f, const char **s) {
 		}
 		#endif
 		//recover to original codepage
-		set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
 	}
   }
 
@@ -4151,12 +4167,12 @@ int alfont_ugetxc(ALFONT_FONT *f, const char **s) {
            	lpszW = (char *)s_pointer;
         }
         else {
-			set_uformat(U_UNICODE);
+			_set_uformat(U_UNICODE);
         }
   	}
 	#else
 	setlocale(LC_CTYPE,f->language);
-	set_uformat(U_UNICODE);
+	_set_uformat(U_UNICODE,21);
 
 	#ifdef ALFONT_LINUX
 	nLen = strlen(s_pointer) * 5 + 1;
@@ -4256,7 +4272,7 @@ int alfont_ugetxc(ALFONT_FONT *f, const char **s) {
   #endif
 
   if (f->type==2) {
-	set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
   }
 
   return character;
@@ -4339,7 +4355,7 @@ void alfont_get_string(ALFONT_FONT *f, const char *s , char **out){
 			if (ret == -1) { //If the ret is -1, the final one will can be a shortcutted character.
 				//store the last character to precedingchar character
 				//get the final character
-				set_uformat(curr_uformat);
+				_restore_uformat(curr_uformat);
 				while (*s_pointer_temp != '\0') {
 					f->precedingchar = *s_pointer_temp;
 					s_pointer_temp++;
@@ -4381,7 +4397,7 @@ void alfont_get_string(ALFONT_FONT *f, const char *s , char **out){
 		}
 
 		setlocale(LC_CTYPE,f->language);
-		set_uformat(U_UNICODE);
+		_set_uformat(U_UNICODE);
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen*sizeof(wchar_t));
@@ -4392,7 +4408,7 @@ void alfont_get_string(ALFONT_FONT *f, const char *s , char **out){
 		if (ret == -1) { //If the ret is -1, the final one will can be a shortcutted character.
 			//store the last character to precedingchar character
 			//get the final character
-			set_uformat(curr_uformat);
+			_restore_uformat(curr_uformat);
 			while (*s_pointer_temp != '\0') {
 				f->precedingchar = *s_pointer_temp;
 				s_pointer_temp++;
@@ -4407,7 +4423,7 @@ void alfont_get_string(ALFONT_FONT *f, const char *s , char **out){
 		}
 		#endif
 		//recover to original codepage
-		set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
 	}
   }
 
@@ -4464,12 +4480,12 @@ void alfont_get_string(ALFONT_FONT *f, const char *s , char **out){
            	lpszW = (char *)s_pointer;
         }
         else {
-			set_uformat(U_UNICODE);
+			_set_uformat(U_UNICODE);
         }
   	}
 	#else
 	setlocale(LC_CTYPE,f->language);
-	set_uformat(U_UNICODE);
+	_set_uformat(U_UNICODE);
 
 	#ifdef ALFONT_LINUX
 	nLen = strlen(s_pointer) * 5 + 1;
@@ -4514,7 +4530,7 @@ void alfont_get_string(ALFONT_FONT *f, const char *s , char **out){
   #endif
 
   if (f->type==2) {
-	set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
   }
 }
 
@@ -4590,7 +4606,7 @@ int alfont_need_uconvert(ALFONT_FONT *f, const char *str) {
 			if (ret == -1) { //If the ret is -1, the final one will can be a shortcutted character.
 				//store the last character to precedingchar character
 				//get the final character
-				set_uformat(curr_uformat);
+				_restore_uformat(curr_uformat);
 				while (*str_pointer_temp != '\0') {
 					f->precedingchar = *str_pointer_temp;
 					str_pointer_temp++;
@@ -4632,7 +4648,7 @@ int alfont_need_uconvert(ALFONT_FONT *f, const char *str) {
 		}
 
 		setlocale(LC_CTYPE,f->language);
-		set_uformat(U_UNICODE);
+		_set_uformat(U_UNICODE,23);
 
 		lpszW = (char *)malloc(nLen*sizeof(wchar_t));
 		memset(lpszW, 0, nLen*sizeof(wchar_t));
@@ -4643,7 +4659,7 @@ int alfont_need_uconvert(ALFONT_FONT *f, const char *str) {
 		if (ret == -1) { //If the ret is -1, the final one will can be a shortcutted character.
 			//store the last character to precedingchar character
 			//get the final character
-			set_uformat(curr_uformat);
+			_restore_uformat(curr_uformat);
 			while (*str_pointer_temp != '\0') {
 				f->precedingchar = *str_pointer_temp;
 				str_pointer_temp++;
@@ -4658,7 +4674,7 @@ int alfont_need_uconvert(ALFONT_FONT *f, const char *str) {
 		}
 		#endif
 		//recover to original codepage
-		set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
 	}
   }
 
@@ -4686,7 +4702,7 @@ int alfont_need_uconvert(ALFONT_FONT *f, const char *str) {
   #endif
 
   if (f->type==2) {
-	set_uformat(curr_uformat);
+		_restore_uformat(curr_uformat);
   }
 
   return need_unicode_convert;

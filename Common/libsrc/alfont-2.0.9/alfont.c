@@ -2126,7 +2126,12 @@ void alfont_textout_ex(BITMAP *bmp, ALFONT_FONT *f, const char *s, int x, int y,
   /* is it under or over or too far to the right of the clipping rect then
      we can assume the string is clipped */
   if ((y + f->face_h < bmp->ct) || (y > bmp->cb) || (x > bmp->cr))
-    return;
+	{
+		if (f->type == 2) {
+			_restore_uformat(curr_uformat);
+		}
+		return;
+	}
 
   //build transparency
   if (f->transparency!=255) {

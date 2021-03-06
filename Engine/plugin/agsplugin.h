@@ -275,7 +275,7 @@ public:
   virtual int Serialize(const char *address, char *buffer, int bufsize) = 0;
 protected:
   IAGSScriptManagedObject() {};
-  ~IAGSScriptManagedObject() {};
+  virtual ~IAGSScriptManagedObject() {};
 };
 
 class IAGSManagedObjectReader {

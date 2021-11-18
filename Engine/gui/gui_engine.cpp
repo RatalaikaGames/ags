@@ -50,6 +50,16 @@ extern GameSetupStruct game;
 
 bool GUIMain::HasAlphaChannel() const
 {
+    //MBG - uhhhh let's try always having an alpha channel. gui's are composited, arent they?
+    //in QFINFAMY I witnessed a BgImage>0 without an alpha channel causing the GUI to be considered not-having-an-alpha-channel (the sundial)
+    //but I also observed the BG ending up having sensible alpha-channeled contents... 
+    //because presumably the backdrop rendered with transparency due to the color key, onto a 0,0,0,0 "render target" (the BG)
+    //at that point the BG has to be considered as having an alpha channel. 
+    //maybe the actual bug is in there, and we should have ended up with a 24bpp gui, which would then at the very END get put on the screen,
+    //AGAIN with the color key.
+    //but.. well... this fixes it for now.
+    return true;
+
     if (this->BgImage > 0)
     {
         // alpha state depends on background image

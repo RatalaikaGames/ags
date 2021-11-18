@@ -539,9 +539,6 @@ namespace AGS
 
 				if (bmpToDraw->_tintSaturation > 0)
 				{
-					// RATA: HACK!! For some reason this does the trick, using the HSV shader doesn't seems to work?!
-					_legacyPixelShader = false;
-
 					if (_legacyPixelShader)
 						selectedProgram = &AGSCON::Graphics::shaders.tintLegacy;
 					else

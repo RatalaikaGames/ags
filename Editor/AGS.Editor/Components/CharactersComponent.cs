@@ -162,7 +162,7 @@ namespace AGS.Editor.Components
             foreach (ContentDocument doc in _documents.Values)
             {
                 var docItem = ((CharacterEditor)doc.Control).ItemToEdit;
-                doc.Name = item.WindowTitle;
+                doc.Name = docItem.WindowTitle;
                 _guiController.SetPropertyGridObjectList(ConstructPropertyObjectList(docItem), doc, docItem);
             }
         }
@@ -186,6 +186,7 @@ namespace AGS.Editor.Components
                 else
                 {
                     OnItemIDChanged(itemBeingEdited);
+                    OnCharacterIDChanged?.Invoke(this, new CharacterIDChangedEventArgs(itemBeingEdited, itemBeingEdited.ID));
                 }
             }
             else if (propertyName == Character.PROPERTY_NAME_STARTINGROOM)

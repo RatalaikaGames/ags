@@ -717,7 +717,7 @@ void String::Reverse()
         return;
     BecomeUnique();
     for (char *fw = _meta->CStr, *bw = _meta->CStr + _meta->Length - 1;
-        *fw; ++fw, --bw)
+        fw < bw; ++fw, --bw)
     {
         std::swap(*fw, *bw);
     }

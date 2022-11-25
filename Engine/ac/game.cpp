@@ -546,8 +546,11 @@ void free_do_once_tokens()
 
 
 // Free all the memory associated with the game
+// TODO: call this when exiting the game (currently only called in RunAGSGame)
 void unload_game_file()
 {
+    close_translation();
+
     play.FreeViewportsAndCameras();
 
     characterScriptObjNames.clear();
@@ -901,17 +904,24 @@ int Game_ChangeTranslation(const char *newFilename)
     {
         close_translation();
         strcpy(transFileName, "");
+        usetup.translation = "";
         return 1;
     }
 
     String oldTransFileName;
     oldTransFileName = transFileName;
 
-    if (!init_translation(newFilename, oldTransFileName.LeftSection('.'), false))
+    if (init_translation(newFilename, oldTransFileName.LeftSection('.'), false))
+    {
+        usetup.translation = newFilename;
+        return 1;
+    }
+    else
     {
         strcpy(transFileName, oldTransFileName);
         return 0;
     }
+    
 
     platform->SetTranslation(newFilename);
 

@@ -415,10 +415,11 @@ String String::Section(char separator, size_t first, size_t last,
 
 std::vector<String> String::Split(char separator) const
 {
+    if (separator == 0)
+        return std::vector<String>{GetCStr()};
+
     std::vector<String> result;
-    if (!_meta || !separator)
-        return result;
-    const char *ptr = _meta->CStr;
+    const char *ptr = GetCStr();
     while (*ptr)
     {
         const char *found_cstr = strchr(ptr, separator);
@@ -714,6 +715,7 @@ void String::Reverse()
 {
     if (!_meta || GetLength() <= 1)
         return;
+    BecomeUnique();
     for (char *fw = _meta->CStr, *bw = _meta->CStr + _meta->Length - 1;
         *fw; ++fw, --bw)
     {

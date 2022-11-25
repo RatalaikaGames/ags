@@ -12,7 +12,7 @@
 //
 //=============================================================================
 
-#include <stdio.h>
+#include <cstdio>
 #include "ac/asset_helper.h"
 #include "ac/common.h"
 #include "ac/gamesetup.h"

@@ -12,9 +12,7 @@
 //
 //=============================================================================
 
-#include <stdio.h>
-
-#include "core/types.h"
+#include <cstdio>
 #include "gui/guidialog.h"
 
 #include "ac/common.h"

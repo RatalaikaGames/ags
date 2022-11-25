@@ -12,8 +12,7 @@
 //
 //=============================================================================
 
-#include <stdio.h>
-
+#include <cstdio>
 #include "ac/string.h"
 #include "ac/common.h"
 #include "ac/display.h"

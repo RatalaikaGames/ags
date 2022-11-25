@@ -12,6 +12,7 @@
 //
 //=============================================================================
 
+#include <cstdio>
 #include <vector>
 #include <stdio.h>
 #include <alfont.h>

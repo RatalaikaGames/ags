@@ -12,7 +12,7 @@
 //
 //=============================================================================
 
-#include <stdio.h>
+#include <cstdio>
 #include "ac/audiocliptype.h"
 #include "ac/dialogtopic.h"
 #include "ac/gamesetupstruct.h"

@@ -57,6 +57,11 @@ namespace AGS.Editor
             _native.Initialize();
         }
 
+        public void NewWorkingDirSet(String workingDir)
+        {
+            _native.NewWorkingDirSet(workingDir);
+        }
+
         public void NewGameLoaded(Game game, List<string> errors)
         {
             _native.NewGameLoaded(game, errors);
@@ -368,9 +373,9 @@ namespace AGS.Editor
             return _native.LoadRoomScript(roomFileName);
         }
 
-        public void CompileScript(Script script, string[] preProcessedData, Game game, bool isRoomScript)
+        public void CompileScript(Script script, string[] preProcessedData, Game game)
         {
-            _native.CompileScript(script, preProcessedData, game, isRoomScript);
+            _native.CompileScript(script, preProcessedData, game);
         }
 
         public void CreateDataFile(string[] fileList, int splitSize, string baseFileName, bool isGameEXE)

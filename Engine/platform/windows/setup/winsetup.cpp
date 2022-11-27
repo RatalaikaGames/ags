@@ -15,7 +15,7 @@
 #include "core/platform.h"
 
 #if AGS_PLATFORM_OS_WINDOWS
-
+#define NOMINMAX
 #include <windows.h>
 #include <commctrl.h>
 #include <crtdbg.h>
@@ -152,13 +152,13 @@ void WinConfig::Load(const ConfigTree &cfg)
     DataDirectory = INIreadstring(cfg, "misc", "datadir", DataDirectory);
     UserSaveDir = INIreadstring(cfg, "misc", "user_data_dir");
     // Backward-compatible resolution type
-    GameResType = (GameResolutionType)INIreadint(cfg, "misc", "defaultres", GameResType);
+    GameResType = (GameResolutionType)INIreadint(cfg, "gameproperties", "legacy_resolution", GameResType);
     if (GameResType < kGameResolution_Undefined || GameResType >= kNumGameResolutions)
         GameResType = kGameResolution_Undefined;
-    GameResolution.Width = INIreadint(cfg, "misc", "game_width", GameResolution.Width);
-    GameResolution.Height = INIreadint(cfg, "misc", "game_height", GameResolution.Height);
-    GameColourDepth = INIreadint(cfg, "misc", "gamecolordepth", GameColourDepth);
-    LetterboxByDesign = INIreadint(cfg, "misc", "letterbox", 0) != 0;
+    GameResolution.Width = INIreadint(cfg, "gameproperties", "resolution_width", GameResolution.Width);
+    GameResolution.Height = INIreadint(cfg, "gameproperties", "resolution_height", GameResolution.Height);
+    GameColourDepth = INIreadint(cfg, "gameproperties", "resolution_bpp", GameColourDepth);
+    LetterboxByDesign = INIreadint(cfg, "gameproperties", "legacy_letterbox", 0) != 0;
 
     GfxDriverId = INIreadstring(cfg, "graphics", "driver", GfxDriverId);
     GfxFilterId = INIreadstring(cfg, "graphics", "filter", GfxFilterId);
@@ -171,7 +171,11 @@ void WinConfig::Load(const ConfigTree &cfg)
     RefreshRate = INIreadint(cfg, "graphics", "refresh", RefreshRate);
     Windowed = INIreadint(cfg, "graphics", "windowed", Windowed ? 1 : 0) != 0;
     VSync = INIreadint(cfg, "graphics", "vsync", VSync ? 1 : 0) != 0;
-    RenderAtScreenRes = INIreadint(cfg, "graphics", "render_at_screenres", RenderAtScreenRes ? 1 : 0) != 0;
+    int locked_render_at_screenres = INIreadint(cfg, "gameproperties", "render_at_screenres", -1);
+    if (locked_render_at_screenres < 0)
+        RenderAtScreenRes = INIreadint(cfg, "graphics", "render_at_screenres", RenderAtScreenRes ? 1 : 0) != 0;
+    else
+        RenderAtScreenRes = locked_render_at_screenres != 0;
 
     AntialiasSprites = INIreadint(cfg, "misc", "antialias", AntialiasSprites ? 1 : 0) != 0;
 
@@ -685,7 +689,8 @@ INT_PTR WinSetupDialog::OnInitDialog(HWND hwnd)
         EnableWindow(_hUseVoicePack, FALSE);
     if (INIreadint(_cfgIn, "disabled", "filters", 0) != 0)
         EnableWindow(_hGfxFilterList, FALSE);
-    if (INIreadint(_cfgIn, "disabled", "render_at_screenres", 0) != 0)
+    if (INIreadint(_cfgIn, "disabled", "render_at_screenres", 0) != 0 ||
+        INIreadint(_cfgIn, "gameproperties", "render_at_screenres", -1) >= 0)
         EnableWindow(_hRenderAtScreenRes, FALSE);
 
     RECT win_rect, gfx_rect, adv_rect, border;
@@ -699,8 +704,8 @@ INT_PTR WinSetupDialog::OnInitDialog(HWND hwnd)
     _baseSize.Width = (adv_rect.right + (gfx_rect.left - win_rect.left)) - win_rect.left;
     _baseSize.Height = adv_rect.bottom - win_rect.top + border.bottom;
 
-    MoveWindow(_hwnd, max(0, win_rect.left + (_winSize.Width - _baseSize.Width) / 2),
-                      max(0, win_rect.top + (_winSize.Height - _baseSize.Height) / 2),
+    MoveWindow(_hwnd, std::max<int>(0, win_rect.left + (_winSize.Width - _baseSize.Width) / 2),
+                      std::max<int>(0, win_rect.top + (_winSize.Height - _baseSize.Height) / 2),
                       _baseSize.Width, _baseSize.Height, TRUE);
     SetFocus(GetDlgItem(_hwnd, IDOK));
     return FALSE; // notify WinAPI that we set focus ourselves
@@ -845,8 +850,8 @@ void WinSetupDialog::ShowAdvancedOptions()
 
     RECT win_rect;
     GetWindowRect(_hwnd, &win_rect);
-    MoveWindow(_hwnd, max(0, win_rect.left + (_baseSize.Width - _winSize.Width) / 2),
-                      max(0, win_rect.top + (_baseSize.Height - _winSize.Height) / 2),
+    MoveWindow(_hwnd, std::max<int>(0, win_rect.left + (_baseSize.Width - _winSize.Width) / 2),
+                      std::max<int>(0, win_rect.top + (_baseSize.Height - _winSize.Height) / 2),
                       _winSize.Width, _winSize.Height, TRUE);
 
     int offset = _winSize.Height - _baseSize.Height;
@@ -1006,12 +1011,12 @@ void WinSetupDialog::FillScalingList(HWND hlist, GameFrameSetup &frame_setup, bo
 {
     ResetContent(hlist);
 
-    const int min_scale = min(_winCfg.GameResolution.Width / _minGameSize.Width, _winCfg.GameResolution.Height / _minGameSize.Height);
+    const int min_scale = std::min(_winCfg.GameResolution.Width / _minGameSize.Width, _winCfg.GameResolution.Height / _minGameSize.Height);
     const Size max_size = windowed ? _maxWindowSize : _winCfg.ScreenSize;
     const int max_scale = _winCfg.GameResolution.IsNull() ? 1 :
-        min(max_size.Width / _winCfg.GameResolution.Width, max_size.Height / _winCfg.GameResolution.Height);
-    _maxGameScale = max(1, max_scale);
-    _minGameScale = -max(1, min_scale);
+        std::min(max_size.Width / _winCfg.GameResolution.Width, max_size.Height / _winCfg.GameResolution.Height);
+    _maxGameScale = std::max(1, max_scale);
+    _minGameScale = -std::max(1, min_scale);
 
     if (windowed)
         AddString(hlist, "None (original game size)", 1 + kNumFrameScaleDef);

@@ -22,6 +22,7 @@
 #include "util/mutex.h"
 #include "util/mutex_lock.h"
 #include "util/string.h"
+#include "debug/out.h"
 
 using namespace Common;
 
@@ -94,15 +95,15 @@ void sound_cache_free(char* buffer, bool is_wave)
 }
 
 
-char* get_cached_sound(const AssetPath &asset_name, bool is_wave, long* size)
+char* get_cached_sound(const AssetPath &asset_name, bool is_wave, size_t &size)
 {
 	AGS::Engine::MutexLock _lock(_sound_cache_mutex);
 
 #ifdef SOUND_CACHE_DEBUG
-    Debug::Printf("get_cached_sound(%s %d)\n", asset_name.first.GetCStr(), (unsigned int)is_wave);
+    Debug::Printf("get_cached_sound(%s %d)\n", asset_name.Name.GetCStr(), (unsigned int)is_wave);
 #endif
 
-    *size = 0;
+    size = 0;
 
     int i;
     for (i = 0; i < psp_audio_cachesize; i++)
@@ -110,14 +111,14 @@ char* get_cached_sound(const AssetPath &asset_name, bool is_wave, long* size)
         if (sound_cache_entries[i].data == nullptr)
             continue;
 
-        if (strcmp(asset_name.second, sound_cache_entries[i].file_name) == 0)
+        if (strcmp(asset_name.Name, sound_cache_entries[i].file_name) == 0)
         {
 #ifdef SOUND_CACHE_DEBUG
             Debug::Printf("..found in slot %d\n", i);
 #endif
             sound_cache_entries[i].reference++;
             sound_cache_entries[i].last_used = sound_cache_counter++;
-            *size = sound_cache_entries[i].size;
+            size = sound_cache_entries[i].size;
 
             return sound_cache_entries[i].data;
         }
@@ -129,7 +130,7 @@ char* get_cached_sound(const AssetPath &asset_name, bool is_wave, long* size)
 
     if (is_wave)
     {
-        PACKFILE *wavin = PackfileFromAsset(asset_name);
+        PACKFILE *wavin = PackfileFromAsset(asset_name, size);
         if (wavin != nullptr)
         {
             wave = load_wav_pf(wavin);
@@ -138,7 +139,7 @@ char* get_cached_sound(const AssetPath &asset_name, bool is_wave, long* size)
     }  
     else
     {
-        mp3in = PackfileFromAsset(asset_name);
+        mp3in = PackfileFromAsset(asset_name, size);
         if (mp3in == nullptr)
         {
             return nullptr;
@@ -178,13 +179,12 @@ char* get_cached_sound(const AssetPath &asset_name, bool is_wave, long* size)
 
     if (is_wave)
     {
-        *size = 0;
+        size = 0; // ??? CHECKME
         newdata = (char*)wave;
     }
     else
     {
-        *size = platform->allegro_flength(mp3in->userdata);
-        newdata = (char *)malloc(*size);
+        newdata = (char *)malloc(size);
 
         if (newdata == nullptr)
         {
@@ -192,7 +192,7 @@ char* get_cached_sound(const AssetPath &asset_name, bool is_wave, long* size)
             return nullptr;
         }
 
-        pack_fread(newdata, *size, mp3in);
+        pack_fread(newdata, size, mp3in);
         pack_fclose(mp3in);
     }
 
@@ -218,13 +218,13 @@ char* get_cached_sound(const AssetPath &asset_name, bool is_wave, long* size)
                 free(sound_cache_entries[i].data);
 	}
 	
-        sound_cache_entries[i].size = *size;
+        sound_cache_entries[i].size = size;
         sound_cache_entries[i].data = newdata;
 
         if (sound_cache_entries[i].file_name)
             free(sound_cache_entries[i].file_name);
-        sound_cache_entries[i].file_name = (char*)malloc(strlen(asset_name.second) + 1);
-        strcpy(sound_cache_entries[i].file_name, asset_name.second);
+        sound_cache_entries[i].file_name = (char*)malloc(strlen(asset_name.Name) + 1);
+        strcpy(sound_cache_entries[i].file_name, asset_name.Name);
         sound_cache_entries[i].reference = 1;
         sound_cache_entries[i].last_used = sound_cache_counter++;
         sound_cache_entries[i].is_wave = is_wave;

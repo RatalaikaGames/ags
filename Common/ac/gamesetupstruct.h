@@ -74,6 +74,7 @@ struct GameSetupStruct: public GameSetupStructBase {
     std::vector<Common::String> dialogScriptNames;
     char              guid[MAX_GUID_LENGTH];
     char              saveGameFileExtension[MAX_SG_EXT_LENGTH];
+    // NOTE: saveGameFolderName is generally used to create game subdirs in common user directories
     char              saveGameFolderName[MAX_SG_FOLDER_LEN];
     int               roomCount;
     int              *roomNumbers;
@@ -152,8 +153,8 @@ struct GameSetupStruct: public GameSetupStructBase {
     void ReadFromSaveGame_v321(Common::Stream *in, char* gswas, ccScript* compsc, CharacterInfo* chwas,
                                    WordsDictionary *olddict, char** mesbk);
 
-    void ReadFromSavegame(Common::PStream in);
-    void WriteForSavegame(Common::PStream out);
+    void ReadFromSavegame(Common::Stream *in);
+    void WriteForSavegame(Common::Stream *out);
 };
 
 //=============================================================================

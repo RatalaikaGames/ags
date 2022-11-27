@@ -68,7 +68,6 @@ inline LPWSTR WINAPI AtlA2WHelper(LPWSTR lpw, LPCSTR lpa, int nChars)
 extern int ags_mgetbutton();
 extern void update_audio_system_on_game_loop();
 extern volatile char want_exit;
-extern volatile int timerloop;
 extern char lastError[300];
 CVMR9Graph *graph = NULL;
 
@@ -109,25 +108,25 @@ int dxmedia_play_video_3d(const char* filename, IDirect3DDevice9 *device, bool u
     return -1;
   }
 
+
   OAFilterState filterState = State_Running;
   while ((filterState != State_Stopped) && (!want_exit))
   {
     WaitForNextFrame();
-    timerloop = 0;
 
     if (!useAVISound)
       update_audio_system_on_game_loop();
 
     filterState = graph->GetState();
 
-    int key;
+    int key, mbut, mwheelz;
     if (run_service_key_controls(key)) {
       if ((canskip == 1) && (key == 27))
         break;
       if (canskip >= 2)
         break;
     }
-    if ((ags_mgetbutton() >= 0) && (canskip == 3))
+    if (run_service_mb_controls(mbut, mwheelz) && mbut >= 0 && (canskip == 3))
       break;
 
     //device->Present(NULL, NULL, 0, NULL);

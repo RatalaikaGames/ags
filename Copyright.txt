@@ -22,6 +22,7 @@ Ferdinand Thiessen
 Francesco Ariis
 Gilad Shaham
 Ivan Mogilko
+James Duong
 Janet Gilbert
 Jochen Schleu
 Joe Lee
@@ -44,6 +45,7 @@ Stefano Collavini
 Steve McCrea
 Steven Poulton
 Sunit Das
+Thierry Crozat
 Tobias Hansen
 Tom Vandepoele
 Tzach Shabtay

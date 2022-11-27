@@ -11,7 +11,6 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
-
 #include "ac/character.h"
 #include "ac/charactercache.h"
 #include "ac/dialog.h"
@@ -35,6 +34,7 @@
 #include "gfx/bitmap.h"
 #include "gfx/ddb.h"
 #include "gui/guilabel.h"
+#include "platform/base/agsplatformdriver.h"
 #include "plugin/plugin_engine.h"
 #include "script/cc_error.h"
 #include "script/exports.h"
@@ -358,7 +358,7 @@ HGameInitError InitGameState(const LoadedGameEntities &ents, GameDataVersion dat
         // TODO: find a way to either automate this list of strings or make it more visible (shared & easier to find in engine code)
         // TODO: stack-allocated strings, here and in other similar places
         const String scapi_names[kScriptAPI_Current + 1] = {"v3.2.1", "v3.3.0", "v3.3.4", "v3.3.5", "v3.4.0", "v3.4.1", "v3.5.0", "v3.5.0.7"};
-        Debug::Printf(kDbgMsg_Init, "Requested script API: %s (%d), compat level: %s (%d)",
+        Debug::Printf(kDbgMsg_Info, "Requested script API: %s (%d), compat level: %s (%d)",
                     base_api >= 0 && base_api <= kScriptAPI_Current ? scapi_names[base_api].GetCStr() : "unknown", base_api,
                     compat_api >= 0 && compat_api <= kScriptAPI_Current ? scapi_names[compat_api].GetCStr() : "unknown", compat_api);
     }
@@ -375,26 +375,6 @@ HGameInitError InitGameState(const LoadedGameEntities &ents, GameDataVersion dat
         return new GameInitError(kGameInitErr_NoFonts);
     if (game.audioClipTypes.size() > MAX_AUDIO_TYPES)
         return new GameInitError(kGameInitErr_TooManyAudioTypes, String::FromFormat("Required: %u, max: %d", game.audioClipTypes.size(), MAX_AUDIO_TYPES));
-
-    //
-    // 2. Apply overriding config settings
-    //
-    // The earlier versions of AGS provided support for "upscaling" low-res
-    // games (320x200 and 320x240) to hi-res (640x400 and 640x480
-    // respectively). The script API has means for detecting if the game is
-    // running upscaled, and game developer could use this opportunity to setup
-    // game accordingly (e.g. assign hi-res fonts, etc).
-    // This feature is officially deprecated since 3.1.0, however the engine
-    // itself still supports it, technically.
-    // This overriding option re-enables "upscaling". It works ONLY for low-res
-    // resolutions, such as 320x200 and 320x240.
-    if (usetup.override_upscale)
-    {
-        if (game.GetResolutionType() == kGameResolution_320x200)
-            game.SetGameResolution(kGameResolution_640x400);
-        else if (game.GetResolutionType() == kGameResolution_320x240)
-            game.SetGameResolution(kGameResolution_640x480);
-    }
 
     //
     // 3. Allocate and init game objects

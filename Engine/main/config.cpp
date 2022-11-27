@@ -36,6 +36,15 @@
 #include "util/string_utils.h"
 #include "media/audio/audio_system.h"
 
+// DAVIDE - looks like these are not reachable for us here
+#if AGS_PLATFORM_OS_WINDOWS && !defined(DIGI_DIRECTAMX)
+#define DIGI_DIRECTX(n)          AL_ID('D','X','A'+(n),' ')
+#define DIGI_DIRECTAMX(n)        AL_ID('A','X','A'+(n),' ')
+#define DIGI_WAVOUTID(n)         AL_ID('W','O','A'+(n),' ')
+#define MIDI_WIN32MAPPER         AL_ID('W','3','2','M')
+#define MIDI_WIN32(n)            AL_ID('W','3','2','A'+(n))
+#define MIDI_WIN32_IN(n)         AL_ID('W','3','2','A'+(n))
+#endif
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -48,29 +57,6 @@ extern GameState play;
 
 // Filename of the default config file, the one found in the game installation
 const String DefaultConfigFileName = "acsetup.cfg";
-
-// Replace the filename part of complete path WASGV with INIFIL
-// TODO: get rid of this and use proper lib path function instead
-void INIgetdirec(char *wasgv, const char *inifil) {
-    int u = strlen(wasgv) - 1;
-
-    for (u = strlen(wasgv) - 1; u >= 0; u--) {
-        if ((wasgv[u] == '\\') || (wasgv[u] == '/')) {
-            memcpy(&wasgv[u + 1], inifil, strlen(inifil) + 1);
-            break;
-        }
-    }
-
-    if (u <= 0) {
-        // no slashes - either the path is just "f:acwin.exe"
-        if (strchr(wasgv, ':') != nullptr)
-            memcpy(strchr(wasgv, ':') + 1, inifil, strlen(inifil) + 1);
-        // or it's just "acwin.exe" (unlikely)
-        else
-            strcpy(wasgv, inifil);
-    }
-
-}
 
 bool INIreaditem(const ConfigTree &cfg, const String &sectn, const String &item, String &value)
 {
@@ -289,32 +275,19 @@ void graphics_mode_get_defaults(bool windowed, ScreenSizeSetup &scsz_setup, Game
     }
 }
 
-String find_default_cfg_file(const char *alt_cfg_file)
+String find_default_cfg_file()
 {
-    // Try current directory for config first; else try exe dir
-    String filename = String::FromFormat("%s/%s", platform->DirectoryGetCurrent().GetCStr(), DefaultConfigFileName.GetCStr());
-    if (!Common::File::TestReadFile(filename))
-    {
-        char conffilebuf[512];
-        strcpy(conffilebuf, alt_cfg_file);
-        fix_filename_case(conffilebuf);
-        fix_filename_slashes(conffilebuf);
-        INIgetdirec(conffilebuf, DefaultConfigFileName);
-        filename = conffilebuf;
-    }
-    return filename;
+    return Path::ConcatPaths(usetup.startup_dir, DefaultConfigFileName);
 }
 
 String find_user_global_cfg_file()
 {
-    String parent_dir = PathOrCurDir(platform->GetUserGlobalConfigDirectory());
-    return String::FromFormat("%s/%s", parent_dir.GetCStr(), DefaultConfigFileName.GetCStr());
+    return Path::ConcatPaths(GetGlobalUserConfigDir().FullDir, DefaultConfigFileName);
 }
 
 String find_user_cfg_file()
 {
-    String parent_dir = MakeSpecialSubDir(PathOrCurDir(platform->GetUserConfigDirectory()));
-    return String::FromFormat("%s/%s", parent_dir.GetCStr(), DefaultConfigFileName.GetCStr());
+    return Path::ConcatPaths(GetGameUserConfigDir().FullDir, DefaultConfigFileName);
 }
 
 void config_defaults()
@@ -331,25 +304,13 @@ void config_defaults()
     usetup.translation = "";
 }
 
-void read_game_data_location(const ConfigTree &cfg)
+void read_game_data_location(const ConfigTree &cfg, String &data_dir, String &data_file)
 {
-    usetup.data_files_dir = INIreadstring(cfg, "misc", "datadir", usetup.data_files_dir);
-    if (!usetup.data_files_dir.IsEmpty())
-    {
-        // strip any trailing slash
-        // TODO: move this to Path namespace later
-        AGS::Common::Path::FixupPath(usetup.data_files_dir);
-#if AGS_PLATFORM_OS_WINDOWS
-        // if the path is just x:\ don't strip the slash
-        if (!(usetup.data_files_dir.GetLength() == 3 && usetup.data_files_dir[1u] == ':'))
-        {
-            usetup.data_files_dir.TrimRight('/');
-        }
-#else
-        usetup.data_files_dir.TrimRight('/');
-#endif
-    }
-    usetup.main_data_filename = INIreadstring(cfg, "misc", "datafile", usetup.main_data_filename);
+    data_dir = INIreadstring(cfg, "misc", "datadir");
+    data_dir = Path::MakePathNoSlash(data_dir);
+    data_file = INIreadstring(cfg, "misc", "datafile");
+    if (!data_file.IsEmpty() && is_relative_filename(data_file))
+        data_file = Path::ConcatPaths(data_dir, data_file);
 }
 
 void read_legacy_audio_config(const ConfigTree &cfg)
@@ -381,6 +342,15 @@ void read_legacy_audio_config(const ConfigTree &cfg)
 
 void read_legacy_graphics_config(const ConfigTree &cfg)
 {
+    // Pre-3.* game resolution setup
+    int default_res = INIreadint(cfg, "misc", "defaultres", 0);
+    int screen_res = INIreadint(cfg, "misc", "screenres", 0);
+    if ((default_res == kGameResolution_320x200 ||
+        default_res == kGameResolution_320x240) && screen_res > 0)
+    {
+        usetup.override_upscale = true; // run low-res game in high-res mode
+    }
+
     usetup.Screen.DisplayMode.Windowed = INIreadint(cfg, "misc", "windowed") > 0;
     usetup.Screen.DriverID = INIreadstring(cfg, "misc", "gfxdriver", usetup.Screen.DriverID);
 
@@ -414,6 +384,15 @@ void read_legacy_graphics_config(const ConfigTree &cfg)
     }
 
     usetup.Screen.DisplayMode.RefreshRate = INIreadint(cfg, "misc", "refresh");
+}
+
+bool read_config_with_game_location(const String &path, String &data_dir, String &data_file)
+{
+    ConfigTree cfg;
+    String def_cfg_file = Path::ConcatPaths(path, DefaultConfigFileName);
+    IniUtil::Read(def_cfg_file, cfg);
+    read_game_data_location(cfg, data_dir, data_file);
+    return !(data_dir.IsEmpty() && data_file.IsEmpty());
 }
 
 // Variables used for mobile port configs
@@ -601,7 +580,7 @@ void apply_config(const ConfigTree &cfg)
         {
             usetup.override_script_os = eOS_Mac;
         }
-        usetup.override_upscale = INIreadint(cfg, "override", "upscale") > 0;
+        usetup.override_upscale = INIreadint(cfg, "override", "upscale", usetup.override_upscale) > 0;
     }
 
     // Apply logging configuration
@@ -626,11 +605,8 @@ void post_config()
     if (!usetup.Screen.WinGameFrame.IsValid())
         usetup.Screen.WinGameFrame = GameFrameSetup(kFrame_MaxRound);
     
-    // TODO: helper functions to remove slash in paths (or distinct path type)
-    if (usetup.user_data_dir.GetLast() == '/' || usetup.user_data_dir.GetLast() == '\\')
-        usetup.user_data_dir.ClipRight(1);
-    if (usetup.shared_data_dir.GetLast() == '/' || usetup.shared_data_dir.GetLast() == '\\')
-        usetup.shared_data_dir.ClipRight(1);
+    usetup.user_data_dir = Path::MakePathNoSlash(usetup.user_data_dir);
+    usetup.shared_data_dir = Path::MakePathNoSlash(usetup.shared_data_dir);
 }
 
 void save_config_file()
@@ -669,7 +645,7 @@ void save_config_file()
     cfg["mouse"]["speed"] = String::FromFormat("%f", Mouse::GetSpeed());
     cfg["language"]["translation"] = usetup.translation;
 
-    String cfg_file = find_user_cfg_file();
+    String cfg_file = PreparePathForWriting(GetGameUserConfigDir(), DefaultConfigFileName);
     if (!cfg_file.IsEmpty())
         IniUtil::Merge(cfg_file, cfg);
 #endif // AGS_WRITE_USER_CONFIG_ON_EXIT

@@ -26,6 +26,7 @@
 #include "ac/dynamicsprite.h"
 #include "ac/gamesetup.h"
 #include "ac/gamesetupstruct.h"
+#include "ac/gamestate.h"
 #include "ac/global_audio.h"
 #include "ac/global_plugin.h"
 #include "ac/global_walkablearea.h"
@@ -37,6 +38,7 @@
 #include "ac/path_helper.h"
 #include "ac/roomstatus.h"
 #include "ac/string.h"
+#include "ac/dynobj/cc_dynamicobject_addr_and_manager.h"
 #include "font/fonts.h"
 #include "util/string_compat.h"
 #include "debug/debug_log.h"
@@ -408,18 +410,16 @@ void IAGSEngine::BlitSpriteRotated(int32 x, int32 y, BITMAP *bmp, int32 angle)
 }
 
 extern void domouse(int);
-extern int  mgetbutton();
 
 void IAGSEngine::PollSystem () {
 
     domouse(DOMOUSE_NOCURSOR);
     update_polled_stuff_if_runtime();
-    int mbut = mgetbutton();
-    if (mbut > NONE)
+    int mbut, mwheelz;
+    if (run_service_mb_controls(mbut, mwheelz) && mbut >= 0 && !play.IsIgnoringInput())
         pl_run_plugin_hooks (AGSE_MOUSECLICK, mbut);
-
     int kp;
-    if (run_service_key_controls(kp)) {
+    if (run_service_key_controls(kp) && !play.IsIgnoringInput()) {
         pl_run_plugin_hooks (AGSE_KEYPRESS, kp);
     }
 
@@ -559,7 +559,6 @@ void IAGSEngine::GetTextExtent (int32 font, const char *text, int32 *width, int3
 }
 void IAGSEngine::PrintDebugConsole (const char *text) {
     debug_script_log("[PLUGIN] %s", text);
-    platform->WriteStdOut("[PLUGIN] %s", text);
 }
 int IAGSEngine::IsChannelPlaying (int32 channel) {
     return ::IsChannelPlaying (channel);
@@ -578,7 +577,7 @@ void IAGSEngine::PlaySoundChannel (int32 channel, int32 soundType, int32 volume,
         quit("IAGSEngine::PlaySoundChannel: streamed samples cannot loop");
 
     // TODO: find out how engine was supposed to decide on where to load the sound from
-    AssetPath asset_name("", filename);
+    AssetPath asset_name(filename, "audio");
 
     if (soundType == PSND_WAVE)
         newcha = my_load_wave (asset_name, volume, loop);
@@ -833,7 +832,8 @@ int IAGSEngine::IsRunningUnderDebugger()
 
 void IAGSEngine::GetPathToFileInCompiledFolder(const char*fileName, char *buffer)
 {
-    get_install_dir_path(buffer, fileName);
+    // TODO: this is very unsafe, deprecate and make a better API function if still necessary
+    strcpy(buffer, PathFromInstallDir(fileName).GetCStr());
 }
 
 void IAGSEngine::BreakIntoDebugger()
@@ -1044,7 +1044,7 @@ Engine::GameInitError pl_register_plugins(const std::vector<Common::PluginInfo> 
         String expect_filename = apl->library.GetFilenameForLib(apl->filename);
         if (apl->library.Load(apl->filename))
         {
-          AGS::Common::Debug::Printf(kDbgMsg_Init, "Plugin '%s' loaded as '%s', resolving imports...", apl->filename, expect_filename.GetCStr());
+          AGS::Common::Debug::Printf(kDbgMsg_Info, "Plugin '%s' loaded as '%s', resolving imports...", apl->filename, expect_filename.GetCStr());
 
           if (apl->library.GetFunctionAddress("AGS_PluginV2") == nullptr) {
               quitprintf("Plugin '%s' is an old incompatible version.", apl->filename);
@@ -1061,19 +1061,19 @@ Engine::GameInitError pl_register_plugins(const std::vector<Common::PluginInfo> 
         }
         else
         {
-          AGS::Common::Debug::Printf(kDbgMsg_Init, "Plugin '%s' could not be loaded (expected '%s'), trying built-in plugins...",
+          AGS::Common::Debug::Printf(kDbgMsg_Info, "Plugin '%s' could not be loaded (expected '%s'), trying built-in plugins...",
               apl->filename, expect_filename.GetCStr());
           if (pl_use_builtin_plugin(apl))
           {
-            AGS::Common::Debug::Printf(kDbgMsg_Init, "Build-in plugin '%s' found and being used.", apl->filename);
+            AGS::Common::Debug::Printf(kDbgMsg_Info, "Build-in plugin '%s' found and being used.", apl->filename);
           }
           else
           {
             // Plugin loading has failed at this point, try using built-in plugin function stubs
             if (RegisterPluginStubs((const char*)apl->filename))
-              AGS::Common::Debug::Printf(kDbgMsg_Init, "Placeholder functions for the plugin '%s' found.", apl->filename);
+              AGS::Common::Debug::Printf(kDbgMsg_Info, "Placeholder functions for the plugin '%s' found.", apl->filename);
             else
-              AGS::Common::Debug::Printf(kDbgMsg_Init, "No placeholder functions for the plugin '%s' found. The game might fail to load!", apl->filename);
+              AGS::Common::Debug::Printf(kDbgMsg_Info, "No placeholder functions for the plugin '%s' found. The game might fail to load!", apl->filename);
             continue;
           }
         }

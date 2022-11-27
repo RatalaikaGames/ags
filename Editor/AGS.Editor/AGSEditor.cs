@@ -98,8 +98,9 @@ namespace AGS.Editor
          * 1: 3.0.2.1
          * 2: 3.4.0.1    - WorkspaceState section
          * 3: 3.5.0.11
+         * 4: 3.5.1 (?)
         */
-        public const int LATEST_USER_DATA_XML_VERSION_INDEX = 3;
+        public const int LATEST_USER_DATA_XML_VERSION_INDEX = 4;
         public const string AUDIO_VOX_FILE_NAME = "audio.vox";
 
         private const string USER_DATA_FILE_NAME = GAME_FILE_NAME + USER_DATA_FILE_SUFFIX;
@@ -132,8 +133,10 @@ namespace AGS.Editor
         private FileSystemWatcher _fileWatcher = null;
         private FileStream _lockFile = null;
 
-        private static readonly string[] _scriptAPIVersionMacros;
-        private static readonly string[] _scriptCompatLevelMacros;
+        private static readonly IDictionary<ScriptAPIVersion, string> _scriptAPIVersionMacros =
+            new SortedDictionary<ScriptAPIVersion, string>();
+        private static readonly IDictionary<ScriptAPIVersion, string> _scriptCompatLevelMacros =
+            new SortedDictionary<ScriptAPIVersion, string>();
 
         private static AGSEditor _instance;
 
@@ -156,19 +159,17 @@ namespace AGS.Editor
 
         static AGSEditor()
         {
-            _scriptAPIVersionMacros = new string[Enum.GetNames(typeof(ScriptAPIVersion)).Length];
             foreach (ScriptAPIVersion v in Enum.GetValues(typeof(ScriptAPIVersion)))
             {
                 if (v == ScriptAPIVersion.Highest)
                     continue; // don't enlist "Highest" constant
-                _scriptAPIVersionMacros[(int)v] = "SCRIPT_API_" + v.ToString();
+                _scriptAPIVersionMacros[v] = "SCRIPT_API_" + v.ToString();
             }
-            _scriptCompatLevelMacros = new string[Enum.GetNames(typeof(ScriptAPIVersion)).Length];
             foreach (ScriptAPIVersion v in Enum.GetValues(typeof(ScriptAPIVersion)))
             {
                 if (v == ScriptAPIVersion.Highest)
                     continue; // don't enlist "Highest" constant
-                _scriptCompatLevelMacros[(int)v] = "SCRIPT_COMPAT_" + v.ToString();
+                _scriptCompatLevelMacros[v] = "SCRIPT_COMPAT_" + v.ToString();
             }
             BuildTargetsInfo.RegisterBuildTarget(new BuildTargetDataFile());
             BuildTargetsInfo.RegisterBuildTarget(new BuildTargetWindows());
@@ -881,7 +882,7 @@ namespace AGS.Editor
                     continue; // skip Highest constant
                 if (v > _game.Settings.ScriptAPIVersionReal)
                     continue;
-                preprocessor.DefineMacro(_scriptAPIVersionMacros[(int)v], "1");
+                preprocessor.DefineMacro(_scriptAPIVersionMacros[v], "1");
             }
             foreach (ScriptAPIVersion v in Enum.GetValues(typeof(ScriptAPIVersion)))
             {
@@ -889,14 +890,14 @@ namespace AGS.Editor
                     continue; // skip Highest constant
                 if (v < _game.Settings.ScriptCompatLevelReal)
                     continue;
-                preprocessor.DefineMacro(_scriptCompatLevelMacros[(int)v], "1");
+                preprocessor.DefineMacro(_scriptCompatLevelMacros[v], "1");
             }
         }
 
 		/// <summary>
 		/// Preprocesses and then compiles the script using the supplied headers.
 		/// </summary>
-		public void CompileScript(Script script, List<Script> headers, CompileMessages errors, bool isRoomScript)
+		public void CompileScript(Script script, List<Script> headers, CompileMessages errors)
 		{
 			IPreprocessor preprocessor = CompilerFactory.CreatePreprocessor(AGS.Types.Version.AGS_EDITOR_VERSION);
 			DefineMacrosAccordingToGameSettings(preprocessor);
@@ -934,7 +935,7 @@ namespace AGS.Editor
 			}
 			else
 			{
-				Factory.NativeProxy.CompileScript(script, preProcessedCode.ToArray(), _game, isRoomScript);
+				Factory.NativeProxy.CompileScript(script, preProcessedCode.ToArray(), _game);
 			}
 		}
 
@@ -969,18 +970,18 @@ namespace AGS.Editor
 
                 foreach (Script script in GetInternalScriptModules())
                 {
-                    CompileScript(script, headers, errors, false);
+                    CompileScript(script, headers, errors);
                     _game.ScriptsToCompile.Add(new ScriptAndHeader(null, script));
                 }
 
                 foreach (ScriptAndHeader scripts in _game.RootScriptFolder.AllItemsFlat)
                 {
                     headers.Add(scripts.Header);
-                    CompileScript(scripts.Script, headers, errors, false);
+                    CompileScript(scripts.Script, headers, errors);
                     _game.ScriptsToCompile.Add(scripts);					
                 }
 
-                CompileScript(dialogScripts, headers, errors, false);
+                CompileScript(dialogScripts, headers, errors);
                 _game.ScriptsToCompile.Add(new ScriptAndHeader(null, dialogScripts));
 			}
             catch (CompileMessage ex)
@@ -1238,6 +1239,8 @@ namespace AGS.Editor
 
             Utilities.EnsureStandardSubFoldersExist();
 
+            forceRebuild |= _game.WorkspaceState.RequiresRebuild;
+
             if (PreCompileGame != null)
             {
 				PreCompileGameEventArgs evArgs = new PreCompileGameEventArgs(forceRebuild);
@@ -1272,7 +1275,8 @@ namespace AGS.Editor
 					{
 						CreateCompiledFiles(errors, forceRebuild);
 					}
-				}
+                    _game.WorkspaceState.RequiresRebuild = false;
+                }
 			}
 
             Factory.GUIController.ShowOutputPanel(errors);
@@ -1538,7 +1542,6 @@ namespace AGS.Editor
             NativeProxy.WritePrivateProfileString("graphics", "filter", _game.DefaultSetup.GraphicsFilter, configFilePath);
             NativeProxy.WritePrivateProfileString("graphics", "vsync", _game.DefaultSetup.VSync ? "1" : "0", configFilePath);
             NativeProxy.WritePrivateProfileString("misc", "antialias", _game.DefaultSetup.AAScaledSprites ? "1" : "0", configFilePath);
-            NativeProxy.WritePrivateProfileString("misc", "notruecolor", _game.DefaultSetup.DowngradeTo16bit ? "1" : "0", configFilePath);
             bool render_at_screenres = _game.Settings.RenderAtScreenResolution == RenderAtScreenResolution.UserDefined ?
                 _game.DefaultSetup.RenderAtScreenResolution : _game.Settings.RenderAtScreenResolution == RenderAtScreenResolution.True;
             NativeProxy.WritePrivateProfileString("graphics", "render_at_screenres", render_at_screenres ? "1" : "0", configFilePath);

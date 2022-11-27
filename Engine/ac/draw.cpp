@@ -109,8 +109,6 @@ extern int displayed_room;
 extern CharacterExtras *charextra;
 extern CharacterInfo*playerchar;
 extern int eip_guinum;
-extern ScreenOverlay screenover[MAX_SCREEN_OVERLAYS];
-extern int numscreenover;
 extern int is_complete_overlay;
 extern int cur_mode,cur_cursor;
 extern int mouse_frame,mouse_delay;
@@ -1519,7 +1517,7 @@ int construct_object_gfx(int aa, int *drawnWidth, int *drawnHeight, bool alwaysU
 
     // check whether the image should be flipped
     int isMirrored = 0;
-    if ( (objs[aa].view >= 0) &&
+    if ( (objs[aa].view != (uint16_t)-1) &&
         (views[objs[aa].view].loops[objs[aa].loop].frames[objs[aa].frame].pic == objs[aa].num) &&
         ((views[objs[aa].view].loops[objs[aa].loop].frames[objs[aa].frame].flags & VFLG_FLIPSPRITE) != 0)) {
             isMirrored = 1;
@@ -2124,7 +2122,7 @@ void draw_fps(const Rect &viewport)
     color_t text_color = fpsDisplay->GetCompatibleColor(14);
 
     char base_buffer[20];
-    if (frames_per_second < 1000) {
+    if (!isTimerFpsMaxed()) {
         sprintf(base_buffer, "%d", frames_per_second);
     } else {
         sprintf(base_buffer, "unlimited");
@@ -2167,7 +2165,7 @@ void draw_gui_and_overlays()
             add_thing_to_draw(screenover[gg].bmp, screenover[gg].x, screenover[gg].y, TRANS_OPAQUE, false);
         else if (screenover[gg].type != OVER_TEXTMSG && screenover[gg].type != OVER_PICTURE) {
             int tdxp, tdyp;
-            get_overlay_position(gg, &tdxp, &tdyp);
+            get_overlay_position(screenover[gg], &tdxp, &tdyp);
             add_thing_to_draw(screenover[gg].bmp, tdxp, tdyp, 0, screenover[gg].hasAlphaChannel);
         }
     }
@@ -2250,7 +2248,7 @@ void draw_gui_and_overlays()
         if (screenover[gg].type == OVER_TEXTMSG || screenover[gg].type == OVER_PICTURE)
         {
             int tdxp, tdyp;
-            get_overlay_position(gg, &tdxp, &tdyp);
+            get_overlay_position(screenover[gg], &tdxp, &tdyp);
             add_thing_to_draw(screenover[gg].bmp, tdxp, tdyp, 0, false);
         }
     }
@@ -2526,7 +2524,7 @@ void construct_engine_overlay()
         invalidate_sprite(0, 0, debugConsole, false);
     }
 
-    if (display_fps)
+    if (display_fps != kFPS_Hide)
         draw_fps(viewport);
 }
 

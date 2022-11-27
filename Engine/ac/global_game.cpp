@@ -11,10 +11,7 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
-
 #include <math.h>
-#include <stdio.h>
-
 #include "core/platform.h"
 #include "ac/audiocliptype.h"
 #include "ac/global_game.h"
@@ -59,8 +56,10 @@
 #include "core/assetmanager.h"
 #include "main/config.h"
 #include "main/game_file.h"
+#include "util/path.h"
 #include "util/string_utils.h"
 #include "media/audio/audio_system.h"
+#include "platform/base/agsplatformdriver.h"
 
 using namespace AGS::Common;
 
@@ -71,8 +70,6 @@ extern ExecutingScript*curscript;
 extern int displayed_room;
 extern int game_paused;
 extern SpriteCache spriteset;
-extern int frames_per_second;
-extern char gamefilenamebuf[200];
 extern GameSetup usetup;
 extern unsigned int load_new_game;
 extern int load_new_game_restore;
@@ -141,16 +138,19 @@ int IsGamePaused() {
     return 0;
 }
 
-int GetSaveSlotDescription(int slnum,char*desbuf) {
+bool GetSaveSlotDescription(int slnum, String &description) {
+    if (read_savedgame_description(get_save_game_path(slnum), description))
+        return true;
+    description.Format("INVALID SLOT %d", slnum);
+    return false;
+}
+
+int GetSaveSlotDescription(int slnum, char *desbuf) {
     VALIDATE_STRING(desbuf);
     String description;
-    if (read_savedgame_description(get_save_game_path(slnum), description))
-    {
-        strcpy(desbuf, description);
-        return 1;
-    }
-    sprintf(desbuf,"INVALID SLOT %d", slnum);
-    return 0;
+    bool res = GetSaveSlotDescription(slnum, description);
+    snprintf(desbuf, MAX_MAXSTRLEN, "%s", description.GetCStr());
+    return res ? 1 : 0;
 }
 
 int LoadSaveSlotScreenshot(int slnum, int width, int height) {
@@ -179,6 +179,32 @@ int LoadSaveSlotScreenshot(int slnum, int width, int height) {
     add_dynamic_sprite(gotSlot, newPic);
 
     return gotSlot;
+}
+
+void FillSaveList(std::vector<SaveListItem> &saves, size_t max_count)
+{
+    if (max_count == 0)
+        return; // duh
+
+    String svg_dir = get_save_game_directory();
+    String svg_suff = get_save_game_suffix();
+    String searchPath = Path::ConcatPaths(svg_dir, String::FromFormat("agssave.???%s", svg_suff.GetCStr()));
+
+    al_ffblk ffb;
+    for (int don = al_findfirst(searchPath, &ffb, FA_SEARCH); !don; don = al_findnext(&ffb))
+    {
+        const char *numberExtension = strstr(ffb.name, ".") + 1;
+        int saveGameSlot = atoi(numberExtension);
+        // only list games .000 to .099 (to allow higher slots for other perposes)
+        if (saveGameSlot > 99)
+            continue;
+        String description;
+        GetSaveSlotDescription(saveGameSlot, description);
+        saves.push_back(SaveListItem(saveGameSlot, description, ffb.time));
+        if (saves.size() >= max_count)
+            break;
+    }
+    al_findclose(&ffb);
 }
 
 void SetGlobalInt(int index,int valu) {
@@ -230,10 +256,8 @@ int RunAGSGame (const char *newgame, unsigned int mode, int data) {
     }
 
     if ((mode & RAGMODE_LOADNOW) == 0) {
-        // need to copy, since the script gets destroyed
-        get_install_dir_path(gamefilenamebuf, newgame);
-        ResPaths.GamePak.Path = gamefilenamebuf;
-        ResPaths.GamePak.Name = get_filename(gamefilenamebuf);
+        ResPaths.GamePak.Path = PathFromInstallDir(newgame);
+        ResPaths.GamePak.Name = newgame;
         play.takeover_data = data;
         load_new_game_restore = -1;
 
@@ -258,8 +282,12 @@ int RunAGSGame (const char *newgame, unsigned int mode, int data) {
     // Adjust config (NOTE: normally, RunAGSGame would need a redesign to allow separate config etc per each game)
     usetup.translation = ""; // reset to default, prevent from trying translation file of game A in game B
 
-    if (Common::AssetManager::SetDataFile(ResPaths.GamePak.Path) != Common::kAssetNoError)
+    AssetMgr->RemoveAllLibraries();
+
+    // TODO: refactor and share same code with the startup!
+    if (AssetMgr->AddLibrary(ResPaths.GamePak.Path) != Common::kAssetNoError)
         quitprintf("!RunAGSGame: unable to load new game file '%s'", ResPaths.GamePak.Path.GetCStr());
+    engine_assign_assetpaths();
 
     show_preload();
 
@@ -366,10 +394,6 @@ void SetRestartPoint() {
 
 
 void SetGameSpeed(int newspd) {
-    // if Ctrl+E has been used to max out frame rate, lock it there
-    auto maxed_framerate = (frames_per_second >= 1000) && (display_fps == 2);
-    if (maxed_framerate) { return; }
-
     newspd += play.game_speed_modifier;
     if (newspd>1000) newspd=1000;
     if (newspd<10) newspd=10;
@@ -866,9 +890,9 @@ int SaveScreenShot(const char*namm) {
     String svg_dir = get_save_game_directory();
 
     if (strchr(namm,'.') == nullptr)
-        fileName.Format("%s%s.bmp", svg_dir.GetCStr(), namm);
+        fileName = Path::MakePath(svg_dir, namm, "bmp");
     else
-        fileName.Format("%s%s", svg_dir.GetCStr(), namm);
+        fileName = Path::ConcatPaths(svg_dir, namm);
 
     Bitmap *buffer = CopyScreenIntoBitmap(play.GetMainViewport().GetWidth(), play.GetMainViewport().GetHeight());
     if (!buffer->SaveToFile(fileName, palette) != 0)
@@ -1030,40 +1054,29 @@ void SetGraphicalVariable (const char *varName, int p_value) {
         theVar->Value = p_value;
 }
 
-void scrWait(int nloops) {
+int WaitImpl(int skip_type, int nloops)
+{
     if ((nloops < 1) && (loaded_game_file_version >= kGameVersion_262)) // 2.62+
         quit("!Wait: must wait at least 1 loop");
 
     play.wait_counter = nloops;
-    play.key_skip_wait = 0;
+    play.key_skip_wait = skip_type;
 
     GameLoopUntilValueIsZeroOrLess(&play.wait_counter);
+
+    if (play.wait_counter < 0)
+        return 1;
+    return 0;
+}
+
+void scrWait(int nloops) {
+    WaitImpl(SKIP_AUTOTIMER, nloops);
 }
 
 int WaitKey(int nloops) {
-    if ((nloops < 1) && (loaded_game_file_version >= kGameVersion_262)) // 2.62+
-        quit("!WaitKey: must wait at least 1 loop");
-
-    play.wait_counter = nloops;
-    play.key_skip_wait = 1;
-
-    GameLoopUntilValueIsZeroOrLess(&play.wait_counter);
-
-    if (play.wait_counter < 0)
-        return 1;
-    return 0;
+    return WaitImpl(SKIP_KEYPRESS | SKIP_AUTOTIMER, nloops);
 }
 
 int WaitMouseKey(int nloops) {
-    if ((nloops < 1) && (loaded_game_file_version >= kGameVersion_262)) // 2.62+
-        quit("!WaitMouseKey: must wait at least 1 loop");
-
-    play.wait_counter = nloops;
-    play.key_skip_wait = 3;
-
-    GameLoopUntilValueIsZeroOrLess(&play.wait_counter);
-
-    if (play.wait_counter < 0)
-        return 1;
-    return 0;
+    return WaitImpl(SKIP_KEYPRESS | SKIP_MOUSECLICK | SKIP_AUTOTIMER, nloops);
 }

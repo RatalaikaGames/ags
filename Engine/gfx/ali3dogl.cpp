@@ -335,7 +335,7 @@ void OGLGraphicsDriver::FirstTimeInit()
 #else
   ogl_v_str = (const char*)glGetString(GL_VERSION);
 #endif
-  Debug::Printf(kDbgMsg_Init, "Running OpenGL: %s", ogl_v_str.GetCStr());
+  Debug::Printf(kDbgMsg_Info, "Running OpenGL: %s", ogl_v_str.GetCStr());
 
   // Initialize default sprite batch, it will be used when no other batch was activated
   OGLGraphicsDriver::InitSpriteBatch(0, _spriteBatchDesc[0]);
@@ -1887,17 +1887,12 @@ void OGLGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, 
   speed *= 2;  // harmonise speeds with software driver which is faster
   for (int a = 1; a < 255; a += speed)
   {
-    int timerValue = *_loopTimer;
     d3db->SetTransparency(fadingOut ? a : (255 - a));
     this->_render(false);
 
-    do
-    {
-      if (_pollingCallback)
-        _pollingCallback();
-      platform->YieldCPU();
-    }
-    while (timerValue == *_loopTimer);
+    if (_pollingCallback)
+      _pollingCallback();
+    WaitForNextFrame();
   }
 
   if (fadingOut)

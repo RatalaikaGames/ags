@@ -28,6 +28,7 @@
 #include "ac/game.h"
 #include "ac/gamesetup.h"
 #include "ac/gamesetupstruct.h"
+#include "ac/gamestate.h"
 #include "ac/global_debug.h"
 #include "ac/global_display.h"
 #include "ac/global_game.h"
@@ -79,7 +80,6 @@ extern int in_leaves_screen;
 extern int inside_script,in_graph_script;
 extern int no_blocking_functions;
 extern CharacterInfo*playerchar;
-extern GameState play;
 extern int mouse_ifacebut_xoffs,mouse_ifacebut_yoffs;
 extern int cur_mode;
 extern RoomObject*objs;
@@ -88,7 +88,6 @@ extern RoomStatus*croom;
 extern CharacterExtras *charextra;
 extern SpriteCache spriteset;
 extern int cur_mode,cur_cursor;
-extern volatile int timerloop;
 
 // Checks if user interface should remain disabled for now
 static int ShouldStayInWaitMode();
@@ -241,19 +240,14 @@ static void check_mouse_controls()
         wasbutdown=0;
     }
 
-    int mbut = ags_mgetbutton();
-    if (mbut>NONE) {
-        lock_mouse_on_click();
+    int mbut = NONE;
+    int mwheelz = 0;
+    if (run_service_mb_controls(mbut, mwheelz) && mbut >= 0) {
 
-        CutsceneSkipStyle skip = get_cutscene_skipstyle();
-        if (skip == eSkipSceneMouse || skip == eSkipSceneKeyMouse ||
-            (mbut == RIGHT && skip == eSkipSceneEscOrRMB))
-        {
-            start_skipping_cutscene();
-        }
+        check_skip_cutscene_mclick(mbut);
 
-        if (play.fast_forward) { }
-        else if ((play.wait_counter > 0) && (play.key_skip_wait > 1))
+        if (play.fast_forward || play.IsIgnoringInput()) { /* do nothing if skipping cutscene or input disabled */ }
+        else if ((play.wait_counter > 0) && (play.key_skip_wait & SKIP_MOUSECLICK) != 0)
             play.wait_counter = -1;
         else if (is_text_overlay > 0) {
             if (play.cant_skip_speech & SKIP_MOUSECLICK)
@@ -274,12 +268,10 @@ static void check_mouse_controls()
         else setevent(EV_TEXTSCRIPT,TS_MCLICK,mbut+1);
         //    else RunTextScriptIParam(gameinst,"on_mouse_click",aa+1);
     }
-    mbut = ags_check_mouse_wheel();
-    if (mbut !=0)
-        lock_mouse_on_click();
-    if (mbut < 0)
+
+    if (mwheelz < 0)
         setevent (EV_TEXTSCRIPT, TS_MCLICK, 9);
-    else if (mbut > 0)
+    else if (mwheelz > 0)
         setevent (EV_TEXTSCRIPT, TS_MCLICK, 8);
 }
 
@@ -306,7 +298,7 @@ static int get_active_shifts()
 
 // Runs service key controls, returns false if service key combinations were handled
 // and no more processing required, otherwise returns true and provides current keycode and key shifts.
-bool run_service_key_controls(int &kgn)
+bool run_service_key_controls(int &key_out)
 {
     // check keypresses
     static int old_key_shifts = 0; // for saving shift modes
@@ -369,47 +361,110 @@ bool run_service_key_controls(int &kgn)
         return false;
     }
 
+    // debug console
+    if ((keycode == '`') && (play.debug_mode > 0)) {
+        display_console = !display_console;
+        return false;
+    }
+
+    if ((keycode == eAGSKeyCodeCtrlE) && (display_fps == kFPS_Forced)) {
+        // if --fps paramter is used, Ctrl+E will max out frame rate
+        setTimerFps(isTimerFpsMaxed() ? frames_per_second : 1000);
+        return false;
+    }
+
+    if ((keycode == eAGSKeyCodeCtrlD) && (play.debug_mode > 0)) {
+        // ctrl+D - show info
+        char infobuf[900];
+        int ff;
+        // MACPORT FIX 9/6/5: added last %s
+        sprintf(infobuf, "In room %d %s[Player at %d, %d (view %d, loop %d, frame %d)%s%s%s",
+            displayed_room, (noWalkBehindsAtAll ? "(has no walk-behinds)" : ""), playerchar->x, playerchar->y,
+            playerchar->view + 1, playerchar->loop, playerchar->frame,
+            (IsGamePaused() == 0) ? "" : "[Game paused.",
+            (play.ground_level_areas_disabled == 0) ? "" : "[Ground areas disabled.",
+            (IsInterfaceEnabled() == 0) ? "[Game in Wait state" : "");
+        for (ff = 0; ff<croom->numobj; ff++) {
+            if (ff >= 8) break; // buffer not big enough for more than 7
+            sprintf(&infobuf[strlen(infobuf)],
+                "[Object %d: (%d,%d) size (%d x %d) on:%d moving:%s animating:%d slot:%d trnsp:%d clkble:%d",
+                ff, objs[ff].x, objs[ff].y,
+                (spriteset[objs[ff].num] != nullptr) ? game.SpriteInfos[objs[ff].num].Width : 0,
+                (spriteset[objs[ff].num] != nullptr) ? game.SpriteInfos[objs[ff].num].Height : 0,
+                objs[ff].on,
+                (objs[ff].moving > 0) ? "yes" : "no", objs[ff].cycling,
+                objs[ff].num, objs[ff].transparent,
+                ((objs[ff].flags & OBJF_NOINTERACT) != 0) ? 0 : 1);
+        }
+        Display(infobuf);
+        int chd = game.playercharacter;
+        char bigbuffer[STD_BUFFER_SIZE] = "CHARACTERS IN THIS ROOM:[";
+        for (ff = 0; ff < game.numcharacters; ff++) {
+            if (game.chars[ff].room != displayed_room) continue;
+            if (strlen(bigbuffer) > 430) {
+                strcat(bigbuffer, "and more...");
+                Display(bigbuffer);
+                strcpy(bigbuffer, "CHARACTERS IN THIS ROOM (cont'd):[");
+            }
+            chd = ff;
+            sprintf(&bigbuffer[strlen(bigbuffer)],
+                "%s (view/loop/frm:%d,%d,%d  x/y/z:%d,%d,%d  idleview:%d,time:%d,left:%d walk:%d anim:%d follow:%d flags:%X wait:%d zoom:%d)[",
+                game.chars[chd].scrname, game.chars[chd].view + 1, game.chars[chd].loop, game.chars[chd].frame,
+                game.chars[chd].x, game.chars[chd].y, game.chars[chd].z,
+                game.chars[chd].idleview, game.chars[chd].idletime, game.chars[chd].idleleft,
+                game.chars[chd].walking, game.chars[chd].animating, game.chars[chd].following,
+                game.chars[chd].flags, game.chars[chd].wait, charextra[chd].zoom);
+        }
+        Display(bigbuffer);
+        return false;
+    }
+
+    if ((keycode == eAGSKeyCodeAltV) && (key[KEY_LCONTROL] || key[KEY_RCONTROL]) && (play.wait_counter < 1) && (is_text_overlay == 0) && (restrict_until == 0)) {
+        // make sure we can't interrupt a Wait()
+        // and desync the music to cutscene
+        play.debug_mode++;
+        script_debug(1, 0);
+        play.debug_mode--;
+        return false;
+    }
+
     // No service operation triggered? return active keypress and shifts to caller
-    kgn = keycode;
+    key_out = keycode;
+    return true;
+}
+
+bool run_service_mb_controls(int &mbut, int &mwheelz)
+{
+    int mb = ags_mgetbutton();
+    int mz = ags_check_mouse_wheel();
+    if (mb == NONE && mz == 0)
+        return false;
+    lock_mouse_on_click(); // do not claim
+    mbut = mb;
+    mwheelz = mz;
     return true;
 }
 
 // Runs default keyboard handling
 static void check_keyboard_controls()
 {
-    int kgn;
-
     // First check for service engine's combinations (mouse lock, display mode switch, and so forth)
+    int kgn;
     if (!run_service_key_controls(kgn)) {
         return;
     }
-
-    // Now check for in-game controls
-
-    // if (kgn == eAGSKeyCodeF9) { restart_game(); return; }
-    // if (kgn == eAGSKeyCodeCtrlB) { Display("numover: %d character movesped: %d, animspd: %d",numscreenover,playerchar->walkspeed,playerchar->animspeed); return; }
-    // if (kgn == eAGSKeyCodeCtrlB) { CreateTextOverlay(50,60,170,FONT_SPEECH,14,"This is a test screen overlay which shouldn't disappear"); return; }
-    // if (kgn == eAGSKeyCodeCtrlB) { Display("Crashing"); strcpy(NULL, NULL); return; }
-    // if (kgn == eAGSKeyCodeCtrlB) { FaceLocation (game.playercharacter, playerchar->x + 1, playerchar->y); return; }
-    // if (kgn == eAGSKeyCodeCtrlB) { SetCharacterIdle (game.playercharacter, 5, 0); return; }
-    // if (kgn == eAGSKeyCodeCtrlB) { Display("Some for?ign text"); return; }
-    // if (kgn == eAGSKeyCodeCtrlB) { do_conversation(5); return; }
-
-    check_skip_cutscene_keypress (kgn);
-
+    // Then, check cutscene skip
+    check_skip_cutscene_keypress(kgn);
     if (play.fast_forward) { 
         return; 
     }
-
+    if (play.IsIgnoringInput()) {
+        return;
+    }
+    // Now check for in-game controls
     if (pl_run_plugin_hooks(AGSE_KEYPRESS, kgn)) {
         // plugin took the keypress
         debug_script_log("Keypress code %d taken by plugin", kgn);
-        return;
-    }
-
-    // debug console
-    if ((kgn == '`') && (play.debug_mode > 0)) {
-        display_console = !display_console;
         return;
     }
 
@@ -427,80 +482,9 @@ static void check_keyboard_controls()
         return;
     }
 
-    if ((play.wait_counter > 0) && (play.key_skip_wait > 0)) {
+    if ((play.wait_counter > 0) && (play.key_skip_wait & SKIP_KEYPRESS) != 0) {
         play.wait_counter = -1;
         debug_script_log("Keypress code %d ignored - in Wait", kgn);
-        return;
-    }
-
-    if ((kgn == eAGSKeyCodeCtrlE) && (display_fps == 2)) {
-        // if --fps paramter is used, Ctrl+E will max out frame rate
-        SetGameSpeed(1000);
-        display_fps = 2;
-        return;
-    }
-
-    if ((kgn == eAGSKeyCodeCtrlD) && (play.debug_mode > 0)) {
-        // ctrl+D - show info
-        char infobuf[900];
-        int ff;
-        // MACPORT FIX 9/6/5: added last %s
-        sprintf(infobuf,"In room %d %s[Player at %d, %d (view %d, loop %d, frame %d)%s%s%s",
-            displayed_room, (noWalkBehindsAtAll ? "(has no walk-behinds)" : ""), playerchar->x,playerchar->y,
-            playerchar->view + 1, playerchar->loop,playerchar->frame,
-            (IsGamePaused() == 0) ? "" : "[Game paused.",
-            (play.ground_level_areas_disabled == 0) ? "" : "[Ground areas disabled.",
-            (IsInterfaceEnabled() == 0) ? "[Game in Wait state" : "");
-        for (ff=0;ff<croom->numobj;ff++) {
-            if (ff >= 8) break; // buffer not big enough for more than 7
-            sprintf(&infobuf[strlen(infobuf)],
-                "[Object %d: (%d,%d) size (%d x %d) on:%d moving:%s animating:%d slot:%d trnsp:%d clkble:%d",
-                ff, objs[ff].x, objs[ff].y,
-                (spriteset[objs[ff].num] != nullptr) ? game.SpriteInfos[objs[ff].num].Width : 0,
-                (spriteset[objs[ff].num] != nullptr) ? game.SpriteInfos[objs[ff].num].Height : 0,
-                objs[ff].on,
-                (objs[ff].moving > 0) ? "yes" : "no", objs[ff].cycling,
-                objs[ff].num, objs[ff].transparent,
-                ((objs[ff].flags & OBJF_NOINTERACT) != 0) ? 0 : 1 );
-        }
-        Display(infobuf);
-        int chd = game.playercharacter;
-        char bigbuffer[STD_BUFFER_SIZE] = "CHARACTERS IN THIS ROOM:[";
-        for (ff = 0; ff < game.numcharacters; ff++) {
-            if (game.chars[ff].room != displayed_room) continue;
-            if (strlen(bigbuffer) > 430) {
-                strcat(bigbuffer, "and more...");
-                Display(bigbuffer);
-                strcpy(bigbuffer, "CHARACTERS IN THIS ROOM (cont'd):[");
-            }
-            chd = ff;
-            sprintf(&bigbuffer[strlen(bigbuffer)], 
-                "%s (view/loop/frm:%d,%d,%d  x/y/z:%d,%d,%d  idleview:%d,time:%d,left:%d walk:%d anim:%d follow:%d flags:%X wait:%d zoom:%d)[",
-                game.chars[chd].scrname, game.chars[chd].view+1, game.chars[chd].loop, game.chars[chd].frame,
-                game.chars[chd].x, game.chars[chd].y, game.chars[chd].z,
-                game.chars[chd].idleview, game.chars[chd].idletime, game.chars[chd].idleleft,
-                game.chars[chd].walking, game.chars[chd].animating, game.chars[chd].following,
-                game.chars[chd].flags, game.chars[chd].wait, charextra[chd].zoom);
-        }
-        Display(bigbuffer);
-
-        return;
-    }
-
-    // if (kgn == key_ctrl_u) {
-    //     play.debug_mode++;
-    //     script_debug(5,0);
-    //     play.debug_mode--;
-    //     return;
-    // }
-
-    if ((kgn == eAGSKeyCodeAltV) && (key[KEY_LCONTROL] || key[KEY_RCONTROL]) && (play.wait_counter < 1) && (is_text_overlay == 0) && (restrict_until == 0)) {
-        // make sure we can't interrupt a Wait()
-        // and desync the music to cutscene
-        play.debug_mode++;
-        script_debug (1,0);
-        play.debug_mode--;
-
         return;
     }
 
@@ -738,29 +722,12 @@ static void game_loop_update_fps()
 }
 
 float get_current_fps() {
-    // if wanted frames_per_second is >= 1000, that means we have maxed out framerate so return the frame rate we're seeing instead
-    auto maxed_framerate = (frames_per_second >= 1000) && (display_fps == 2);
+    // if we have maxed out framerate then return the frame rate we're seeing instead
     // fps must be greater that 0 or some timings will take forever.
-    if (maxed_framerate && fps > 0.0f) {
+    if (isTimerFpsMaxed() && fps > 0.0f) {
         return fps;
     }
     return frames_per_second;
-}
-
-void PollUntilNextFrame()
-{
-    #ifdef CONSOLE_VERSION
-    //timing handled by vsync; but do this once
-    update_polled_stuff_if_runtime();
-    return;
-    #endif
-
-    // make sure we poll, cos a low framerate (eg 5 fps) could stutter
-    // mp3 music
-    while (timerloop == 0 && play.fast_forward == 0) {
-        update_polled_stuff_if_runtime();
-        platform->YieldCPU();
-    }
 }
 
 void set_loop_counter(unsigned int new_counter) {
@@ -784,7 +751,6 @@ void UpdateGameOnce(bool checkControls, IDriverDependantBitmap *extraBitmap, int
 
     ccNotifyScriptStillAlive ();
     our_eip=1;
-    timerloop=0;
 
     game_loop_check_problems_at_start();
 

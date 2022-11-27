@@ -43,7 +43,6 @@ using namespace AGS::Engine;
 extern int proper_exit;
 extern AGSPlatformDriver *platform;
 extern IGraphicsDriver *gfxDriver;
-extern volatile int timerloop;
 
 
 IGfxDriverFactory *GfxFactory = nullptr;
@@ -483,7 +482,7 @@ bool graphics_mode_init_any(const Size game_size, const ScreenSetup &setup, cons
     const bool ignore_device_ratio = setup.DisplayMode.Windowed || scsz.SizeDef == kScreenDef_Explicit;
     GameFrameSetup gameframe = setup.DisplayMode.Windowed ? setup.WinGameFrame : setup.FsGameFrame;
     const String scale_option = make_scaling_option(gameframe);
-    Debug::Printf(kDbgMsg_Init, "Graphic settings: driver: %s, windowed: %s, screen def: %s, screen size: %d x %d, match device ratio: %s, game scale: %s",
+    Debug::Printf(kDbgMsg_Info, "Graphic settings: driver: %s, windowed: %s, screen def: %s, screen size: %d x %d, match device ratio: %s, game scale: %s",
         setup.DriverID.GetCStr(),
         setup.DisplayMode.Windowed ? "yes" : "no", screen_sz_def_options[scsz.SizeDef],
         scsz.Size.Width, scsz.Size.Height,
@@ -577,7 +576,7 @@ bool graphics_mode_set_dm(const DisplayMode &dm)
     if (dm.RefreshRate >= 50)
         request_refresh_rate(dm.RefreshRate);
 
-    if (!gfxDriver->SetDisplayMode(dm, &timerloop))
+    if (!gfxDriver->SetDisplayMode(dm, nullptr))
     {
         Debug::Printf(kDbgMsg_Error, "Failed to init gfx mode. Error: %s", get_allegro_error());
         return false;

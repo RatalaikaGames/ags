@@ -17,23 +17,16 @@
 //=============================================================================
 
 #include <thread>
-#include <stdio.h>
-
 #include "util/wgt2allg.h"
 #include "platform/base/agsplatformdriver.h"
 #include "ac/common.h"
 #include "ac/runtime_defines.h"
-#include "ac/game.h"
 #include "util/string_utils.h"
 #include "util/stream.h"
-#include "util/file.h"
-#include "game/main_game_file.h"
-#include "game/savegame.h"
 #include "gfx/bitmap.h"
 #include "plugin/agsplugin.h"
 #include "ac/timer.h"
 #include "media/audio/audio_system.h"
-#include "util/path.h"
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
@@ -48,15 +41,13 @@ using namespace AGS::Engine;
 const auto MaximumDelayBetweenPolling = std::chrono::milliseconds(16);
 
 AGSPlatformDriver* AGSPlatformDriver::instance = nullptr;
-bool AGSPlatformDriver::_logToStdErr = false;
-bool AGSPlatformDriver::_guiMode = false;
 AGSPlatformDriver *platform = nullptr;
 
 // ******** DEFAULT IMPLEMENTATIONS *******
 
 void AGSPlatformDriver::AboutToQuitGame() { }
 void AGSPlatformDriver::PostAllegroInit(bool windowed) { }
-void AGSPlatformDriver::PostAllegroExit() {}
+void AGSPlatformDriver::AttachToParentConsole() { }
 void AGSPlatformDriver::DisplaySwitchOut() { }
 void AGSPlatformDriver::DisplaySwitchIn() { }
 void AGSPlatformDriver::PauseApplication() { }
@@ -154,220 +145,6 @@ int AGSPlatformDriver::ConvertKeycodeToScanCode(int keycode)
 
 bool AGSPlatformDriver::LockMouseToWindow() { return false; }
 void AGSPlatformDriver::UnlockMouse() { }
-
-void AGSPlatformDriver::SetTranslation(const char* name) {}
-
-extern volatile int timerloop;
-void AGSPlatformDriver::WaitForNextFrame()
-{
-    while (timerloop == 0) 
-    { 
-        YieldCPU(); 
-    }
-}
-
-void AGSPlatformDriver::Save_DeleteSlot(int slnum)
-{
-    String nametouse;
-    nametouse = get_save_game_path(slnum);
-    PathDelete (nametouse);
-    if ((slnum >= 1) && (slnum <= MAXSAVEGAMES)) {
-        String thisname;
-        for (int i = MAXSAVEGAMES; i > slnum; i--) {
-            thisname = get_save_game_path(i);
-            if (Common::File::TestReadFile(thisname)) {
-                // Rename the highest save game to fill in the gap
-                PathRename (thisname, nametouse);
-                break;
-            }
-        }
-    }
-}
-
-Common::Stream *AGSPlatformDriver::OpenFile(eFilePurpose purpose, const Common::String &filename, Common::FileOpenMode open_mode, Common::FileWorkMode work_mode)
-{
-    return File::OpenFile(filename, open_mode, work_mode);
-}
-
-
-bool AGSPlatformDriver::DirectoryCreate(const String &path)
-{
-    #ifdef AGS_HAS_POSIX
-        return mkdir(path
-            #if ! AGS_PLATFORM_OS_WINDOWS
-            , 0755
-            #endif
-        ) == 0 || errno == EEXIST;
-    #else
-        //should be overridden in platform's driver
-        return false;
-    #endif
-}
-
-String AGSPlatformDriver::DirectorySetCurrent(const String &path)
-{
-    #ifdef AGS_HAS_POSIX
-        chdir(path);
-        return GetCurrentDirectory();
-    #else
-        //should be overridden in platform's driver
-        return "";
-    #endif
-}
-
-bool AGSPlatformDriver::DirectoryCreateAll(const String &parent, const String &path)
-{
-    //by using other functions, it should be possible for this to be the same in every platform
-
-    if (!DirectoryExists(parent.GetCStr()))
-        return false;
-    if (path.IsEmpty())
-        return true;
-    if (!Path::IsSameOrSubDir(parent, path))
-        return false;
-
-    String sub_path = Path::MakeRelativePath(parent, path);
-    String make_path = parent;
-    std::vector<String> dirs = sub_path.Split('/');
-    for (auto dir : dirs)
-    {
-        if (dir.IsEmpty() || dir.Compare(".") == 0) continue;
-        make_path.AppendChar('/');
-        make_path.Append(dir);
-        if (!DirectoryCreate(make_path))
-            return false;
-    }
-    return true;
-}
-
-String AGSPlatformDriver::DirectoryGetCurrent()
-{
-    #if AGS_HAS_POSIX
-        char buf[512];
-        getcwd(buf, 512);
-        String str(buf);
-        Path::FixupPath(str);
-        return str;
-    #else
-        //should be overridden in platform's driver
-        return "";
-    #endif
-}
-
-bool AGSPlatformDriver::DirectoryExists(const Common::String &path)
-{
-    const char* cPath = path.GetCStr();
-    #if AGS_PLATFORM_OS_WINDOWS
-        return PathFileExistsA(cPath) && PathIsDirectoryA(cPath);
-    #elif AGS_HAS_POSIX
-        struct stat path_stat;
-        if (stat(cPath, &path_stat) != 0) {
-            return false;
-        }
-        return S_ISDIR(path_stat.st_mode)!=0;
-    #else
-        //should be overridden in platform's driver
-        return false;
-    #endif
-}
-
-bool AGSPlatformDriver::PathDelete(const Common::String &path)
-{
-    const char* cPath = path.GetCStr();
-    #ifdef AGS_HAS_POSIX
-    return unlink(cPath)==0;
-    #else
-    return false;
-    #endif
-}
-
-bool AGSPlatformDriver::PathRename(const Common::String &oldpath, const Common::String &newpath)
-{
-    const char* cOldPath = oldpath.GetCStr();
-    const char* cNewPath = newpath.GetCStr();
-    #ifdef AGS_HAS_POSIX
-    return rename(cOldPath,cNewPath)==0;
-    #else
-    return false;
-    #endif
-}
-
-Stream* AGSPlatformDriver::Save_CreateSlotStream(int slnum)
-{
-    String nametouse;
-    nametouse = get_save_game_path(slnum);
-
-    return Common::File::CreateFile(nametouse);
-}
-
-struct PfStruct
-{
-    FILE* fp;
-    long length;
-    int64_t offset;
-};
-
-void* AGSPlatformDriver::allegro_fopen(eFilePurpose purpose, const char* path, int64_t offset, long length)
-{
-    FILE* fp = fopen(path,"rb");
-    if(!fp) return NULL;
-    PfStruct* ret = new PfStruct();
-    ret->fp = fp;
-    ret->length = length;
-    ret->offset = offset;
-    return ret;
-}
-int AGSPlatformDriver::allegro_fclose(void *userdata)
-{
-    PfStruct* pf = (PfStruct*)userdata;
-    int ret = fclose(pf->fp);
-    delete pf;
-    return ret;
-}
-int AGSPlatformDriver::allegro_getc(void *userdata)
-{
-    return fgetc(((PfStruct*)userdata)->fp);
-}
-int AGSPlatformDriver::allegro_ungetc(int c, void *userdata)
-{
-    return ungetc(c, ((PfStruct*)userdata)->fp);
-}
-long AGSPlatformDriver::allegro_fread(void *p, long n, void *userdata)
-{
-    PfStruct* pf = ((PfStruct*)userdata);
-    long remain = allegro_fremain(userdata);
-    if(n>remain) n = remain;
-    return fread(p, 1, n, ((PfStruct*)userdata)->fp);
-}
-int AGSPlatformDriver::allegro_putc(int c, void *userdata)
-{
-    return fputc(c, ((PfStruct*)userdata)->fp);
-}
-long AGSPlatformDriver::allegro_fwrite(const void *p, long n, void *userdata)
-{
-    return fwrite(p, 1, n, ((PfStruct*)userdata)->fp);
-}
-int AGSPlatformDriver::allegro_fseek(void *userdata, int offset) { 
-    PfStruct* pf = ((PfStruct*)userdata);
-    return fseek(pf->fp, offset, SEEK_CUR);
-}
-int AGSPlatformDriver::allegro_feof(void *userdata) { 
-    PfStruct* pf = ((PfStruct*)userdata);
-    return feof(pf->fp);
-}
-int AGSPlatformDriver::allegro_ferror(void *userdata)
-{
-    return ferror(((PfStruct*)userdata)->fp);
-}
-long AGSPlatformDriver::allegro_flength(void *userdata)
-{
-    return ((PfStruct*)userdata)->length;
-}
-long AGSPlatformDriver::allegro_fremain(void *userdata) {
-    PfStruct* pf = ((PfStruct*)userdata);
-    return pf->offset + pf->length - ftell(pf->fp);
-}
-
 
 //-----------------------------------------------
 // IOutputHandler implementation

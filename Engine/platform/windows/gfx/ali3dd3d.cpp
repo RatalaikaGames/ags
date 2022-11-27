@@ -19,7 +19,7 @@
 #include "core/platform.h"
 
 #if AGS_PLATFORM_OS_WINDOWS
-
+#define NOMINMAX
 #include "platform/windows/gfx/ali3dd3d.h"
 
 #include <allegro.h>
@@ -682,8 +682,10 @@ int D3DGraphicsDriver::_initDLLCallback(const DisplayMode &mode)
     d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
 
   /* If full screen, specify the refresh rate */
-  if ((d3dpp.Windowed == FALSE) && (mode.RefreshRate > 0))
-    d3dpp.FullScreen_RefreshRateInHz = mode.RefreshRate;
+  // TODO find a way to avoid the wrong refreshrate to be set on mode.RefreshRate
+  // for now it's best to let it set automatically, so we prevent alt tab delays due to mismatching refreshrates
+  //if ((d3dpp.Windowed == FALSE) && (mode.RefreshRate > 0))
+  //  d3dpp.FullScreen_RefreshRateInHz = mode.RefreshRate;
 
   if (_initGfxCallback != NULL)
     _initGfxCallback(&d3dpp);
@@ -1843,16 +1845,12 @@ void D3DGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, 
   speed *= 2;  // harmonise speeds with software driver which is faster
   for (int a = 1; a < 255; a += speed)
   {
-    int timerValue = *_loopTimer;
     d3db->SetTransparency(fadingOut ? a : (255 - a));
     this->_renderAndPresent(false);
-    do
-    {
-      if (_pollingCallback)
-        _pollingCallback();
-      platform->YieldCPU();
-    }
-    while (timerValue == *_loopTimer);
+
+    if (_pollingCallback)
+      _pollingCallback();
+    WaitForNextFrame();
   }
 
   if (fadingOut)

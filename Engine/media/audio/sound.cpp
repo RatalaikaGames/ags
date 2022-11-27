@@ -65,8 +65,8 @@ MYWAVE *thiswave;
 SOUNDCLIP *my_load_wave(const AssetPath &asset_name, int voll, int loop)
 {
     // Load via soundcache.
-    long dummy;
-    SAMPLE *new_sample = (SAMPLE*)get_cached_sound(asset_name, true, &dummy);
+    size_t dummy;
+    SAMPLE *new_sample = (SAMPLE*)get_cached_sound(asset_name, true, dummy);
 
     if (new_sample == nullptr)
         return nullptr;
@@ -86,10 +86,12 @@ PACKFILE *mp3in;
 MYMP3 *thistune;
 SOUNDCLIP *my_load_mp3(const AssetPath &asset_name, int voll)
 {
-    mp3in = PackfileFromAsset(asset_name);
+    size_t asset_size;
+    mp3in = PackfileFromAsset(asset_name, asset_size);
     if (mp3in == nullptr)
         return nullptr;
 
+    AGS_PACKFILE_OBJ* obj = (AGS_PACKFILE_OBJ*)mp3in->userdata;
     char *tmpbuffer = (char *)malloc(MP3CHUNKSIZE);
     if (tmpbuffer == nullptr) {
         pack_fclose(mp3in);
@@ -98,23 +100,20 @@ SOUNDCLIP *my_load_mp3(const AssetPath &asset_name, int voll)
     thistune = new MYMP3();
     thistune->in = mp3in;
     thistune->chunksize = MP3CHUNKSIZE;
-    thistune->filesize = platform->allegro_flength(mp3in->userdata);
-    thistune->done = 0;
+    thistune->filesize = obj->remains;
     thistune->vol = voll;
 
-    long remains = platform->allegro_fremain(mp3in->userdata);
-
-    // limit chunk size to remaining file length
-    if (thistune->chunksize > remains)
-        thistune->chunksize = remains;
+    if (thistune->chunksize > obj->remains)
+        thistune->chunksize = obj->remains;
 
     pack_fread(tmpbuffer, thistune->chunksize, mp3in);
 
     thistune->buffer = (char *)tmpbuffer;
 
-    AGS::Engine::MutexLock _lockMp3(_mp3_mutex);
-    thistune->stream = almp3_create_mp3stream(tmpbuffer, thistune->chunksize, (remains < 1));
-    _lockMp3.Release();
+    {
+        AGS::Engine::MutexLock _lockMp3(_mp3_mutex);
+        thistune->stream = almp3_create_mp3stream(tmpbuffer, thistune->chunksize, (obj->remains < 1));
+    }
 
     if (thistune->stream == nullptr) {
         free(tmpbuffer);
@@ -132,8 +131,8 @@ MYSTATICMP3 *thismp3;
 SOUNDCLIP *my_load_static_mp3(const AssetPath &asset_name, int voll, bool loop)
 {
     // Load via soundcache.
-    long muslen = 0;
-    char* mp3buffer = get_cached_sound(asset_name, false, &muslen);
+    size_t muslen = 0;
+    char* mp3buffer = get_cached_sound(asset_name, false, muslen);
     if (mp3buffer == nullptr)
         return nullptr;
 
@@ -169,12 +168,12 @@ SOUNDCLIP *my_load_mp3(const AssetPath &asset_name, int voll)
 {
     //MBG - hacks just for me
     AssetPath alternate;
-    alternate.first = "";
-    alternate.second = asset_name.second;
-    auto name = alternate.second.Left(alternate.second.GetLength()-3);
+    alternate.Filter = "";
+    alternate.Name = asset_name.Name;
+    auto name = alternate.Name.Left(alternate.Name.GetLength()-3);
     name.Append("ogg");
-    alternate.second = "Oggternate/";
-    alternate.second.Append(name);
+    alternate.Name = "Oggternate/";
+    alternate.Name.Append(name);
     return my_load_ogg(alternate, voll);
 }
 
@@ -182,12 +181,12 @@ SOUNDCLIP *my_load_static_mp3(const AssetPath &asset_name, int voll, bool loop)
 {
     //MBG - hacks just for me
     AssetPath alternate;
-    alternate.first = "";
-    alternate.second = asset_name.second;
-    auto name = alternate.second.Left(alternate.second.GetLength()-3);
+    alternate.Filter = "";
+    alternate.Name = asset_name.Name;
+    auto name = alternate.Name.Left(alternate.Name.GetLength()-3);
     name.Append("ogg");
-    alternate.second = "Oggternate/";
-    alternate.second.Append(name);
+    alternate.Name = "Oggternate/";
+    alternate.Name.Append(name);
     return my_load_static_ogg(alternate, voll, loop);
 }
 
@@ -199,8 +198,8 @@ MYSTATICOGG *thissogg;
 SOUNDCLIP *my_load_static_ogg(const AssetPath &asset_name, int voll, bool loop)
 {
     // Load via soundcache.
-    long muslen = 0;
-    char* mp3buffer = get_cached_sound(asset_name, false, &muslen);
+    size_t muslen = 0;
+    char* mp3buffer = get_cached_sound(asset_name, false, muslen);
     if (mp3buffer == nullptr)
         return nullptr;
 
@@ -227,10 +226,12 @@ void MYOGG_bad_feedcb(void* param, ALOGG_OGGSTREAM* ogg);
 MYOGG *thisogg;
 SOUNDCLIP *my_load_ogg(const AssetPath &asset_name, int voll)
 {
-    mp3in = PackfileFromAsset(asset_name);
+    size_t asset_size;
+    mp3in = PackfileFromAsset(asset_name, asset_size);
     if (mp3in == nullptr)
         return nullptr;
 
+    AGS_PACKFILE_OBJ* obj = (AGS_PACKFILE_OBJ*)mp3in->userdata;
     char *tmpbuffer = (char *)malloc(MP3CHUNKSIZE);
     if (tmpbuffer == nullptr) {
         pack_fclose(mp3in);
@@ -245,15 +246,13 @@ SOUNDCLIP *my_load_ogg(const AssetPath &asset_name, int voll)
     thisogg->last_ms_offs = 0;
     thisogg->last_but_one_but_one = 0;
 
-    int length = AGSPlatformDriver::GetDriver()->allegro_flength(pack_get_userdata(mp3in));
-    
-    if (thisogg->chunksize > length)
-        thisogg->chunksize = length;
+    if (thisogg->chunksize > obj->remains)
+        thisogg->chunksize = obj->remains;
 
     pack_fread(tmpbuffer, thisogg->chunksize, mp3in);
 
     thisogg->buffer = (char *)tmpbuffer;
-    thisogg->stream = alogg_create_oggstream(tmpbuffer, thisogg->chunksize, (thisogg->chunksize >= length), &MYOGG_bad_feedcb, thisogg);
+    thisogg->stream = alogg_create_oggstream(tmpbuffer, thisogg->chunksize, (obj->remains < 1),nullptr,0);
 
     if (thisogg->stream == nullptr) {
         free(tmpbuffer);
@@ -274,7 +273,8 @@ SOUNDCLIP *my_load_midi(const AssetPath &asset_name, int repet)
     if (!thismidi && psp_midi_preload_patches)
         load_midi_patches();
 
-    PACKFILE *pf = PackfileFromAsset(asset_name);
+    size_t asset_size;
+    PACKFILE *pf = PackfileFromAsset(asset_name, asset_size);
     if (!pf)
         return nullptr;
 
@@ -323,13 +323,14 @@ void remove_mod_player() {
 MYMOD *thismod = nullptr;
 SOUNDCLIP *my_load_mod(const AssetPath &asset_name, int repet)
 {
-    DUMBFILE *df = DUMBfileFromAsset(asset_name);
+    size_t asset_size;
+    DUMBFILE *df = DUMBfileFromAsset(asset_name, asset_size);
     if (!df)
         return nullptr;
 
     DUH *modPtr = nullptr;
     // determine the file extension
-    const char *lastDot = strrchr(asset_name.second, '.');
+    const char *lastDot = strrchr(asset_name.Name, '.');
     if (lastDot == nullptr)
     {
         dumbfile_close(df);

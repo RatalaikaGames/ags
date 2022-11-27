@@ -16,6 +16,7 @@
 #include "media/audio/clip_myogg.h"
 #include "media/audio/audiointernaldefs.h"
 #include "ac/common.h"               // quit()
+#include "ac/asset_helper.h"
 #include "util/mutex_lock.h"
 
 #include "platform/base/agsplatformdriver.h"
@@ -44,13 +45,28 @@ void MYOGG::poll()
 {
     if (state_ != SoundClipPlaying) { return; }
 
-    // update the buffer
-    char *tempbuf = (char *)alogg_get_oggstream_buffer(stream);
-    if (tempbuf != nullptr)
+    AGS_PACKFILE_OBJ* obj = (AGS_PACKFILE_OBJ*)in->userdata;
+    if (obj->remains > 0)
     {
-        int read = pack_fread(tempbuf, chunksize, in);
-				if(read == chunksize) read = -1; //don't ask.
-        alogg_free_oggstream_buffer(stream, read);
+        // update the buffer
+        char *tempbuf = (char *)alogg_get_oggstream_buffer(stream);
+        if (tempbuf != nullptr)
+        {
+#if 1 // DAVIDE - preserving MBG's ae29ca215891b3284315ccc3e4cc32bf20921df3
+            int read = pack_fread(tempbuf, chunksize, in);
+            if(read == chunksize) read = -1; //don't ask.
+            alogg_free_oggstream_buffer(stream, read);
+#else
+            int free_val = -1;
+            if (chunksize >= obj->remains)
+            {
+                chunksize = obj->remains;
+                free_val = chunksize;
+            }
+            pack_fread(tempbuf, chunksize, in);
+            alogg_free_oggstream_buffer(stream, free_val);
+#endif
+        }
     }
 
     int ret = alogg_poll_oggstream(stream);

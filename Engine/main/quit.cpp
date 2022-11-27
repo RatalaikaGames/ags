@@ -22,6 +22,7 @@
 #include "ac/cdaudio.h"
 #include "ac/gamesetup.h"
 #include "ac/gamesetupstruct.h"
+#include "ac/gamestate.h"
 #include "ac/roomstatus.h"
 #include "ac/translation.h"
 #include "debug/agseditordebugger.h"
@@ -38,6 +39,7 @@
 #include "gfx/graphicsdriver.h"
 #include "gfx/bitmap.h"
 #include "core/assetmanager.h"
+#include "platform/base/agsplatformdriver.h"
 #include "plugin/plugin_engine.h"
 #include "media/audio/audio_system.h"
 
@@ -89,7 +91,7 @@ void quit_check_dynamic_sprites(QuitReason qreason)
         (game.options[OPT_DEBUGMODE] != 0)) {
             // game exiting normally -- make sure the dynamic sprites
             // have been deleted
-            for (int i = 1; i < spriteset.GetSpriteSlotCount(); i++) {
+            for (size_t i = 1; i < spriteset.GetSpriteSlotCount(); i++) {
                 if (game.SpriteInfos[i].Flags & SPF_DYNAMICALLOC)
                     debug_script_warn("Dynamic sprite %d was never deleted", i);
             }
@@ -209,7 +211,7 @@ void quit_release_data()
     _CrtMemCheckpoint(&memstart);
     _CrtMemDumpStatistics( &memstart );*/
 
-    Common::AssetManager::DestroyInstance();
+    AssetMgr.reset();
 }
 
 void quit_delete_temp_files()
@@ -237,8 +239,6 @@ void allegro_bitmap_test_release()
 		gfxDriver->DestroyDDB(test_allegro_ddb);
 }
 
-char return_to_roomedit[30] = "\0";
-char return_to_room[150] = "\0";
 // quit - exits the engine, shutting down everything gracefully
 // The parameter is the message to print. If this message begins with
 // an '!' character, then it is printed as a "contact game author" error.
@@ -313,7 +313,7 @@ void quit(const char *quitmsg)
 
     proper_exit=1;
 
-    Debug::Printf(kDbgMsg_Init, "***** ENGINE HAS SHUTDOWN");
+    Debug::Printf(kDbgMsg_Alert, "***** ENGINE HAS SHUTDOWN");
 
     shutdown_debug();
 

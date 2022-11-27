@@ -305,6 +305,7 @@ target_sources(engine
     game/savegame_components.cpp
     game/savegame_components.h
     game/savegame_internal.h
+    game/savegame_v321.cpp
     game/viewport.cpp
     game/viewport.h
     gfx/ali3dexception.h
@@ -602,6 +603,9 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/.. PREFIX "Source Files" FILES ${E
 # -----------------------------------------------------------------------------
 
 add_executable(ags)
+if (LINUX)
+    install(TARGETS ags RUNTIME DESTINATION bin)
+endif ()
 
 set_target_properties(ags PROPERTIES
     CXX_STANDARD 11
@@ -651,7 +655,7 @@ if (MACOS)
     file(GLOB RESOURCE_FILES
         CONFIGURE_DEPENDS
         ../OSX/Resources/ags.icns
-        ../OSX/Resources/ac2game.dat
+        ../OSX/Resources/*.ags
         ../OSX/Resources/acsetup.cfg
         ../OSX/Resources/audio.vox
         ../OSX/Resources/music.vox

@@ -598,7 +598,7 @@ namespace AGS.Editor.Components
             Room room = (Room)parameter;
             _agsEditor.RegenerateScriptHeader(room);
             List<Script> headers = (List<Script>)_agsEditor.GetAllScriptHeaders();
-            _agsEditor.CompileScript(room.Script, headers, null, true);
+            _agsEditor.CompileScript(room.Script, headers, null);
 
             _nativeProxy.SaveRoom(room);
             room.Modified = false;
@@ -1072,9 +1072,9 @@ namespace AGS.Editor.Components
 			{
 				int numberRequested = _loadedRoom.Number;
 				_loadedRoom.Number = Convert.ToInt32(oldValue);
-
-				RenameRoom(_loadedRoom.Number, numberRequested);
-			}
+                RenameRoom(_loadedRoom.Number, numberRequested);
+                RoomListTypeConverter.RefreshRoomList();
+            }
 
             if ((propertyName == Room.PROPERTY_NAME_MASKRESOLUTION) && (_loadedRoom != null))
             {

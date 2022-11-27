@@ -11,12 +11,12 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
-
 #include "ac/object.h"
 #include "ac/common.h"
 #include "ac/gamesetupstruct.h"
 #include "ac/draw.h"
 #include "ac/character.h"
+#include "ac/gamestate.h"
 #include "ac/global_object.h"
 #include "ac/global_translation.h"
 #include "ac/objectcache.h"
@@ -155,19 +155,19 @@ void Object_SetVisible(ScriptObject *objj, int onoroff) {
 }
 
 int Object_GetView(ScriptObject *objj) {
-    if (objs[objj->id].view < 0)
+    if (objs[objj->id].view == (uint16_t)-1)
         return 0;
     return objs[objj->id].view + 1;
 }
 
 int Object_GetLoop(ScriptObject *objj) {
-    if (objs[objj->id].view < 0)
+    if (objs[objj->id].view == (uint16_t)-1)
         return 0;
     return objs[objj->id].loop;
 }
 
 int Object_GetFrame(ScriptObject *objj) {
-    if (objs[objj->id].view < 0)
+    if (objs[objj->id].view == (uint16_t)-1)
         return 0;
     return objs[objj->id].frame;
 }

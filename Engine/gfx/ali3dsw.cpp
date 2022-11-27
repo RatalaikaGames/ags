@@ -650,7 +650,6 @@ void ALSoftwareGraphicsDriver::highcolor_fade_in(Bitmap *vs, void(*draw_callback
    SetMemoryBackBuffer(bmp_buff);
    for (int a = 0; a < 256; a+=speed)
    {
-       int timerValue = *_loopTimer;
        bmp_buff->Fill(clearColor);
        set_trans_blender(0,0,0,a);
        bmp_buff->TransBlendBlt(bmp_orig, 0, 0);
@@ -661,13 +660,9 @@ void ALSoftwareGraphicsDriver::highcolor_fade_in(Bitmap *vs, void(*draw_callback
        }
        this->Vsync();
        _filter->RenderScreen(bmp_buff, offx, offy);
-       do
-       {
-         if (_pollingCallback)
-           _pollingCallback();
-         platform->Delay(1);
-       }
-       while (timerValue == *_loopTimer);
+       if (_pollingCallback)
+         _pollingCallback();
+       WaitForNextFrame();
    }
    delete bmp_buff;
 
@@ -691,7 +686,6 @@ void ALSoftwareGraphicsDriver::highcolor_fade_out(Bitmap *vs, void(*draw_callbac
     SetMemoryBackBuffer(bmp_buff);
     for (int a = 255 - speed; a > 0; a -= speed)
     {
-        int timerValue = *_loopTimer;
         bmp_buff->Fill(clearColor);
         set_trans_blender(0, 0, 0, a);
         bmp_buff->TransBlendBlt(bmp_orig, 0, 0);
@@ -702,12 +696,9 @@ void ALSoftwareGraphicsDriver::highcolor_fade_out(Bitmap *vs, void(*draw_callbac
         }
         this->Vsync();
         _filter->RenderScreen(bmp_buff, offx, offy);
-        do
-        {
-            if (_pollingCallback)
-                _pollingCallback();
-            platform->Delay(1);
-        } while (timerValue == *_loopTimer);
+        if (_pollingCallback)
+          _pollingCallback();
+        WaitForNextFrame();
     }
     delete bmp_buff;
 

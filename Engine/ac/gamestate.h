@@ -52,8 +52,8 @@ enum GameStateSvgVersion
     kGSSvgVersion_OldFormat = -1, // TODO: remove after old save support is dropped
     kGSSvgVersion_Initial   = 0,
     kGSSvgVersion_350       = 1,
-    kGSSvgVersion_3509      = 2,
-    kGSSvgVersion_3510      = 3,
+    kGSSvgVersion_350_9     = 2,
+    kGSSvgVersion_350_10    = 3,
 };
 
 
@@ -216,7 +216,6 @@ struct GameState {
     std::vector<AGS::Common::String> do_once_tokens;
     int   text_min_display_time_ms;
     int   ignore_user_input_after_text_timeout_ms;
-    AGS_Clock::time_point ignore_user_input_until_time;
     int   default_audio_type_volumes[MAX_AUDIO_TYPES];
 
     // Dynamic custom property values for characters and items
@@ -320,6 +319,18 @@ struct GameState {
     ScriptCamera *GetScriptCamera(int index);
 
     //
+    // User input management
+    //
+    // Tells if game should ignore user input right now. Note that some of the parent states
+    // may not ignore it at the same time, such as cutscene state, which may still be skipped
+    // with a key press or a mouse button.
+    bool IsIgnoringInput() const;
+    // Sets ignore input state, for the given time; if there's one already, chooses max timeout
+    void SetIgnoreInput(int timeout_ms);
+    // Clears ignore input state
+    void ClearIgnoreInput();
+
+    //
     // Voice speech management
     //
     // Tells if there's a blocking voice speech playing right now
@@ -368,6 +379,8 @@ private:
     bool  _mainViewportHasChanged;
     // Tells that room viewports need z-order resort
     bool  _roomViewportZOrderChanged;
+
+    AGS_Clock::time_point _ignoreUserInputUntilTime;
 };
 
 // Converts legacy alignment type used in script API

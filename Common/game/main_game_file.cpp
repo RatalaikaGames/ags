@@ -22,6 +22,7 @@
 #include "ac/dynobj/scriptaudioclip.h"
 #include "core/asset.h"
 #include "core/assetmanager.h"
+#include "debug/out.h"
 #include "game/main_game_file.h"
 #include "gui/guimain.h"
 #include "script/cc_error.h"
@@ -84,6 +85,12 @@ String GetMainGameFileErrorText(MainGameFileErrorType err)
         return "Format version of plugin data is not supported.";
     case kMGFErr_PluginDataSizeTooLarge:
         return "Plugin data size is too large.";
+    case kMGFErr_ExtUnexpectedEOF:
+        return "Unexpected end of file.";
+    case kMGFErr_ExtUnknown:
+        return "Unknown extension.";
+    case kMGFErr_ExtBlockDataOverlapping:
+        return "Block data overlapping.";
     }
     return "Unknown error.";
 }
@@ -118,17 +125,56 @@ bool IsMainGameLibrary(const String &filename)
     return false;
 }
 
+// Scans given directory for game data libraries, returns first found or none.
+// Tracks files with standard AGS package names:
+// - *.ags is a standart cross-platform file pattern for AGS games,
+// - ac2game.dat is a legacy file name for very old games,
+// - *.exe is a MS Win executable; it is included to this case because
+//   users often run AGS ports with Windows versions of games.
+String FindGameData(const String &path, std::function<bool(const String&)> fn_testfile)
+{
+    al_ffblk ff;
+    String test_file;
+    String pattern = path;
+    pattern.Append("/*");
+
+    if (al_findfirst(pattern, &ff, FA_ALL & ~(FA_DIREC)) != 0)
+        return "";
+    do
+    {
+        test_file = ff.name;
+        if (test_file.CompareRightNoCase(".ags") == 0 ||
+            test_file.CompareNoCase("ac2game.dat") == 0 ||
+            test_file.CompareRightNoCase(".exe") == 0)
+        {
+            test_file = Path::ConcatPaths(path, test_file);
+            if (IsMainGameLibrary(test_file) && fn_testfile(path))
+            {
+                al_findclose(&ff);
+                return test_file;
+            }
+        }
+    } while (al_findnext(&ff) == 0);
+    al_findclose(&ff);
+    return "";
+}
+
+String FindGameData(const String &path)
+{
+    return FindGameData(path, [](const String&){ return true; });
+}
+
 // Begins reading main game file from a generic stream
-HGameFileError OpenMainGameFileBase(PStream &in, MainGameSource &src)
+static HGameFileError OpenMainGameFileBase(Stream *in, MainGameSource &src)
 {
     // Check data signature
-    String data_sig = String::FromStreamCount(in.get(), MainGameSource::Signature.GetLength());
+    String data_sig = String::FromStreamCount(in, MainGameSource::Signature.GetLength());
     if (data_sig.Compare(MainGameSource::Signature))
         return new MainGameFileError(kMGFErr_SignatureFailed);
     // Read data format version and requested engine version
     src.DataVersion = (GameDataVersion)in->ReadInt32();
     if (src.DataVersion >= kGameVersion_230)
-        src.CompiledWith = StrUtil::ReadString(in.get());
+        src.CompiledWith = StrUtil::ReadString(in);
     if (src.DataVersion < kGameVersion_250)
         return new MainGameFileError(kMGFErr_FormatVersionTooOld, String::FromFormat("Required format version: %d, supported %d - %d", src.DataVersion, kGameVersion_250, kGameVersion_Current));
     if (src.DataVersion > kGameVersion_Current)
@@ -139,10 +185,8 @@ HGameFileError OpenMainGameFileBase(PStream &in, MainGameSource &src)
     {
         size_t count = in->ReadInt32();
         for (size_t i = 0; i < count; ++i)
-            src.Caps.insert(StrUtil::ReadString(in.get()));
+            src.Caps.insert(StrUtil::ReadString(in));
     }
-    // Everything is fine, return opened stream
-    src.InputStream = in;
     // Remember loaded game data version
     // NOTE: this global variable is embedded in the code too much to get
     // rid of it too easily; the easy way is to set it whenever the main
@@ -156,10 +200,11 @@ HGameFileError OpenMainGameFile(const String &filename, MainGameSource &src)
     // Cleanup source struct
     src = MainGameSource();
     // Try to open given file
-    PStream in(File::OpenFileRead(filename));
+    Stream *in = File::OpenFileRead(filename);
     if (!in)
         return new MainGameFileError(kMGFErr_FileOpenFailed, String::FromFormat("Filename: %s.", filename.GetCStr()));
     src.Filename = filename;
+    src.InputStream.reset(in);
     return OpenMainGameFileBase(in, src);
 }
 
@@ -169,15 +214,16 @@ HGameFileError OpenMainGameFileFromDefaultAsset(MainGameSource &src)
     src = MainGameSource();
     // Try to find and open main game file
     String filename = MainGameSource::DefaultFilename_v3;
-    PStream in(AssetManager::OpenAsset(filename));
+    Stream *in = AssetMgr->OpenAsset(filename);
     if (!in)
     {
         filename = MainGameSource::DefaultFilename_v2;
-        in = PStream(AssetManager::OpenAsset(filename));
+        in = AssetMgr->OpenAsset(filename);
     }
     if (!in)
         return new MainGameFileError(kMGFErr_FileOpenFailed, String::FromFormat("Filename: %s.", filename.GetCStr()));
     src.Filename = filename;
+    src.InputStream.reset(in);
     return OpenMainGameFileBase(in, src);
 }
 
@@ -390,63 +436,67 @@ HGameFileError ReadPlugins(std::vector<PluginInfo> &infos, Stream *in)
 // Create the missing audioClips data structure for 3.1.x games.
 // This is done by going through the data files and adding all music*.*
 // and sound*.* files to it.
-void BuildAudioClipArray(const AssetLibInfo &lib, std::vector<ScriptAudioClip> &audioclips)
+void BuildAudioClipArray(const std::vector<String> &assets, std::vector<ScriptAudioClip> &audioclips)
 {
     char temp_name[30];
     int temp_number;
     char temp_extension[10];
 
-    size_t number_of_files = lib.AssetInfos.size();
-    for (size_t i = 0; i < number_of_files; ++i)
+    for (const String &asset : assets)
     {
-        if (sscanf(lib.AssetInfos[i].FileName, "%5s%d.%3s", temp_name, &temp_number, temp_extension) == 3)
+        if (sscanf(asset.GetCStr(), "%5s%d.%3s", temp_name, &temp_number, temp_extension) != 3)
+            continue;
+
+        ScriptAudioClip clip;
+        if (ags_stricmp(temp_extension, "mp3") == 0)
+            clip.fileType = eAudioFileMP3;
+        else if (ags_stricmp(temp_extension, "wav") == 0)
+            clip.fileType = eAudioFileWAV;
+        else if (ags_stricmp(temp_extension, "voc") == 0)
+            clip.fileType = eAudioFileVOC;
+        else if (ags_stricmp(temp_extension, "mid") == 0)
+            clip.fileType = eAudioFileMIDI;
+        else if ((ags_stricmp(temp_extension, "mod") == 0) || (ags_stricmp(temp_extension, "xm") == 0)
+            || (ags_stricmp(temp_extension, "s3m") == 0) || (ags_stricmp(temp_extension, "it") == 0))
+            clip.fileType = eAudioFileMOD;
+        else if (ags_stricmp(temp_extension, "ogg") == 0)
+            clip.fileType = eAudioFileOGG;
+        else
+            continue;
+
+        if (ags_stricmp(temp_name, "music") == 0)
         {
-            audioclips.push_back(ScriptAudioClip());
-            ScriptAudioClip &clip = audioclips.back();
-            if (ags_stricmp(temp_name, "music") == 0)
-            {
-                clip.scriptName.Format("aMusic%d", temp_number);
-                clip.fileName.Format("music%d.%s", temp_number, temp_extension);
-                clip.bundlingType = (ags_stricmp(temp_extension, "mid") == 0) ? AUCL_BUNDLE_EXE : AUCL_BUNDLE_VOX;
-                clip.type = 2;
-                clip.defaultRepeat = 1;
-            }
-            else if (ags_stricmp(temp_name, "sound") == 0)
-            {
-                clip.scriptName.Format("aSound%d", temp_number);
-                clip.fileName.Format("sound%d.%s", temp_number, temp_extension);
-                clip.bundlingType = AUCL_BUNDLE_EXE;
-                clip.type = 3;
-            }
-            else
-            {
-                audioclips.pop_back();
-                continue;
-            }
-
-            clip.defaultVolume = 100;
-            clip.defaultPriority = 50;
-            clip.id = audioclips.size() - 1;
-
-            if (ags_stricmp(temp_extension, "mp3") == 0)
-                clip.fileType = eAudioFileMP3;
-            else if (ags_stricmp(temp_extension, "wav") == 0)
-                clip.fileType = eAudioFileWAV;
-            else if (ags_stricmp(temp_extension, "voc") == 0)
-                clip.fileType = eAudioFileVOC;
-            else if (ags_stricmp(temp_extension, "mid") == 0)
-                clip.fileType = eAudioFileMIDI;
-            else if ((ags_stricmp(temp_extension, "mod") == 0) || (ags_stricmp(temp_extension, "xm") == 0)
-                || (ags_stricmp(temp_extension, "s3m") == 0) || (ags_stricmp(temp_extension, "it") == 0))
-                clip.fileType = eAudioFileMOD;
-            else if (ags_stricmp(temp_extension, "ogg") == 0)
-                clip.fileType = eAudioFileOGG;
+            clip.scriptName.Format("aMusic%d", temp_number);
+            clip.fileName.Format("music%d.%s", temp_number, temp_extension);
+            clip.bundlingType = (ags_stricmp(temp_extension, "mid") == 0) ? AUCL_BUNDLE_EXE : AUCL_BUNDLE_VOX;
+            clip.type = 2;
+            clip.defaultRepeat = 1;
         }
+        else if (ags_stricmp(temp_name, "sound") == 0)
+        {
+            clip.scriptName.Format("aSound%d", temp_number);
+            clip.fileName.Format("sound%d.%s", temp_number, temp_extension);
+            clip.bundlingType = AUCL_BUNDLE_EXE;
+            clip.type = 3;
+            clip.defaultRepeat = 0;
+        }
+        else
+        {
+            continue;
+        }
+
+        clip.defaultVolume = 100;
+        clip.defaultPriority = 50;
+        clip.id = audioclips.size();
+        audioclips.push_back(clip);
     }
 }
 
 void ApplySpriteData(GameSetupStruct &game, const LoadedGameEntities &ents, GameDataVersion data_ver)
 {
+    if (ents.SpriteCount == 0)
+        return;
+
     // Apply sprite flags read from original format (sequential array)
     spriteset.EnlargeTo(ents.SpriteCount - 1);
     for (size_t i = 0; i < ents.SpriteCount; ++i)
@@ -519,17 +569,44 @@ void UpgradeAudio(GameSetupStruct &game, GameDataVersion data_ver)
     audiocliptypes[3].reservedChannels = 0;
 
     audioclips.reserve(1000);
-    // Read audio clip names from "music.vox", then from main library
-    // TODO: this may become inconvenient that this code has to know about
-    // "music.vox"; there might be better ways to handle this.
-    // possibly making AssetManager download several libraries at once will
-    // resolve this (as well as make it unnecessary to switch between them)
-    AssetLibInfo music_lib;
-    if (AssetManager::ReadDataFileTOC("music.vox", music_lib) == kAssetNoError)
-        BuildAudioClipArray(music_lib, audioclips);
-    const AssetLibInfo *game_lib = AssetManager::GetLibraryTOC();
-    if (game_lib)
-        BuildAudioClipArray(*game_lib, audioclips);
+    std::vector<String> assets;
+    // Read audio clip names from from registered libraries
+    for (size_t i = 0; i < AssetMgr->GetLibraryCount(); ++i)
+    {
+        const AssetLibInfo *game_lib = AssetMgr->GetLibraryInfo(i);
+        if (Path::IsDirectory(game_lib->BasePath))
+            continue; // might be a directory
+
+        for (const AssetInfo &info : game_lib->AssetInfos)
+        {
+            if (info.FileName.CompareLeftNoCase("music", 5) == 0 || info.FileName.CompareLeftNoCase("sound", 5) == 0)
+                assets.push_back(info.FileName);
+        }
+    }
+    // Append contents of the registered directories
+    // TODO: implement pattern search or asset query with callback (either of two or both)
+    // within AssetManager to avoid doing this in place here. Alternatively we could maybe
+    // make AssetManager to do directory scans by demand and fill AssetInfos...
+    // but that have to be done consistently if done at all.
+    for (size_t i = 0; i < AssetMgr->GetLibraryCount(); ++i)
+    {
+        const AssetLibInfo *game_lib = AssetMgr->GetLibraryInfo(i);
+        if (!Path::IsDirectory(game_lib->BasePath))
+            continue; // might be a library
+
+        al_ffblk ff;
+        if (al_findfirst(Path::ConcatPaths(game_lib->BasePath, "*.*"), &ff, FA_ALL & ~(FA_DIREC)) == 0)
+        {
+            do
+            {
+                if (ags_strnicmp(ff.name, "music", 5) == 0 || ags_strnicmp(ff.name, "sound", 5) == 0)
+                    assets.push_back(ff.name);
+            }
+            while (al_findnext(&ff) == 0);
+            al_findclose(&ff);
+        }
+    }
+    BuildAudioClipArray(assets, audioclips);
 
     // Copy gathered data over to game
     game.audioClipTypes = audiocliptypes;
@@ -659,12 +736,12 @@ void FixupSaveDirectory(GameSetupStruct &game)
 
 HGameFileError ReadSpriteFlags(LoadedGameEntities &ents, Stream *in, GameDataVersion data_ver)
 {
-    uint32_t sprcount;
+    size_t sprcount;
     if (data_ver < kGameVersion_256)
         sprcount = LEGACY_MAX_SPRITES_V25;
     else
         sprcount = in->ReadInt32();
-    if (sprcount > (uint32_t)SpriteCache::MAX_SPRITE_INDEX + 1)
+    if (sprcount > (size_t)SpriteCache::MAX_SPRITE_INDEX + 1)
         return new MainGameFileError(kMGFErr_TooManySprites, String::FromFormat("Count: %u, max: %u", sprcount, (uint32_t)SpriteCache::MAX_SPRITE_INDEX + 1));
 
     ents.SpriteCount = sprcount;
@@ -673,10 +750,23 @@ HGameFileError ReadSpriteFlags(LoadedGameEntities &ents, Stream *in, GameDataVer
     return HGameFileError::None();
 }
 
+static HGameFileError ReadExtBlock(LoadedGameEntities &ents, Stream *in, const String &ext_id, soff_t block_len, GameDataVersion data_ver)
+{
+    // Add extensions here checking ext_id, which is an up to 16-chars name, for example:
+    // if (ext_id.CompareNoCase("GUI_NEWPROPS") == 0)
+    // {
+    //     // read new gui properties
+    // }
+    return new MainGameFileError(kMGFErr_ExtUnknown, String::FromFormat("Type: %s", ext_id.GetCStr()));
+}
+
 HGameFileError ReadGameData(LoadedGameEntities &ents, Stream *in, GameDataVersion data_ver)
 {
     GameSetupStruct &game = ents.Game;
 
+    //-------------------------------------------------------------------------
+    // The classic data section.
+    //-------------------------------------------------------------------------
     {
         AlignedStream align_s(in, Common::kAligned_Read);
         game.GameSetupStructBase::ReadFromFile(&align_s);
@@ -743,7 +833,52 @@ HGameFileError ReadGameData(LoadedGameEntities &ents, Stream *in, GameDataVersio
     if (!err)
         return err;
     game.read_room_names(in, data_ver);
-    return err;
+
+    if (data_ver <= kGameVersion_350)
+        return HGameFileError::None();
+
+    //-------------------------------------------------------------------------
+    // All the extended data, for AGS > 3.5.0.
+    //-------------------------------------------------------------------------
+    // Read list of extension blocks. The block meta format is shared with the room files.
+    //    - 1 byte - an old-style unsigned numeric ID, for compatibility with room file format:
+    //               where 0 would indicate following string ID,
+    //               and 0xFF indicates end of extension list.
+    //    - 16 bytes - string ID of an extension.
+    //    - 8 bytes - length of extension data, in bytes.
+    while (true)
+    {
+        int b = in->ReadByte();
+        if (b < 0)
+            return new MainGameFileError(kMGFErr_ExtUnexpectedEOF);
+        if (b == 0xFF)
+            break; // end of list
+        if (b != 0) // we don't support numeric ids here
+            return new MainGameFileError(kMGFErr_ExtUnknown);
+        // Extension meta data
+        String ext_id = String::FromStreamCount(in, 16);
+        soff_t block_len = in->ReadInt64();
+        soff_t block_end = in->GetPosition() + block_len;
+        // Read game data itself
+        err = ReadExtBlock(ents, in, ext_id, block_len, data_ver);
+        if (!err)
+            return err;
+        // After each block test if the stream position is where expected
+        soff_t cur_pos = in->GetPosition();
+        if (cur_pos > block_end)
+        {
+            return new MainGameFileError(kMGFErr_ExtBlockDataOverlapping,
+                String::FromFormat("Extension: %s, expected to end at offset: %u, finished reading at %u.", ext_id.GetCStr(), block_end, cur_pos));
+        }
+        else if (cur_pos < block_end)
+        {
+            Debug::Printf(kDbgMsg_Warn, "WARNING: game data blocks nonsequential, ext %s expected to end at %u, finished reading at %u",
+                ext_id.GetCStr(), block_end, cur_pos);
+            in->Seek(block_end, Common::kSeekBegin);
+        }
+    };
+
+    return HGameFileError::None();
 }
 
 HGameFileError UpdateGameData(LoadedGameEntities &ents, GameDataVersion data_ver)
@@ -779,6 +914,18 @@ HGameFileError UpdateGameData(LoadedGameEntities &ents, GameDataVersion data_ver
     }
     FixupSaveDirectory(game);
     return HGameFileError::None();
+}
+
+void PreReadGameData(GameSetupStruct &game, Stream *in, GameDataVersion data_ver)
+{
+    {
+        AlignedStream align_s(in, Common::kAligned_Read);
+        game.ReadFromFile(&align_s);
+    }
+    // Discard game messages we do not need here
+    delete[] game.load_messages;
+    game.load_messages = nullptr;
+    game.read_savegame_info(in, data_ver);
 }
 
 } // namespace Common

@@ -135,6 +135,7 @@ void restore_after_dialog();
 Common::String get_save_game_directory();
 Common::String get_save_game_suffix();
 void set_save_game_suffix(const Common::String &suffix);
+// Returns full path to the save for the given slot number
 Common::String get_save_game_path(int slotNum);
 void restore_game_dialog();
 void save_game_dialog();
@@ -158,7 +159,8 @@ long write_screen_shot_for_vista(Common::Stream *out, Common::Bitmap *screenshot
 bool is_in_cutscene();
 CutsceneSkipStyle get_cutscene_skipstyle();
 void start_skipping_cutscene ();
-void check_skip_cutscene_keypress (int kgn);
+bool check_skip_cutscene_keypress(int kgn);
+bool check_skip_cutscene_mclick(int mbut);
 void initialize_skippable_cutscene();
 void stop_fast_forwarding();
 
@@ -179,11 +181,18 @@ void get_message_text (int msnum, char *buffer, char giveErr = 1);
 
 bool unserialize_audio_script_object(int index, const char *objectType, const char *serializedData, int dataSize);
 
+// Notifies the game objects that certain sprite was updated.
+// This make them update their render states, caches, and so on.
+void game_sprite_updated(int sprnum);
+// Notifies the game objects that certain sprite was deleted.
+// Those which used that sprite will reset to dummy sprite 0, update their render states and caches.
+void game_sprite_deleted(int sprnum);
+
 extern int in_new_room;
 extern int new_room_pos;
 extern int new_room_x, new_room_y, new_room_loop;
 extern int displayed_room;
-extern int frames_per_second;
+extern int frames_per_second; // fixed game fps, set by script
 extern unsigned int loopcounter;
 extern void set_loop_counter(unsigned int new_counter);
 extern int game_paused;

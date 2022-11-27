@@ -62,7 +62,6 @@ extern ccInstance *dialogScriptsInst;
 extern int in_new_room;
 extern CharacterInfo*playerchar;
 extern SpriteCache spriteset;
-extern volatile int timerloop;
 extern AGSPlatformDriver *platform;
 extern int cur_mode,cur_cursor;
 extern IGraphicsDriver *gfxDriver;
@@ -542,7 +541,11 @@ void DialogOptions::Prepare(int _dlgnum, bool _runGameLoopsInBackground)
 
 void DialogOptions::Show()
 {
-  if (numdisp<1) quit("!DoDialog: all options have been turned off");
+  if (numdisp < 1)
+  {
+      debug_script_warn("Dialog: all options have been turned off, stopping dialog.");
+      return;
+  }
   // Don't display the options if there is only one and the parser
   // is not enabled.
   if (!((numdisp > 1) || (parserInput != nullptr) || (play.show_single_dialog_option)))
@@ -861,7 +864,6 @@ bool DialogOptions::Run()
       }
       else
       {
-        timerloop = 0;
         update_audio_system_on_game_loop();
         render_graphics(ddb, dirtyx, dirtyy);
       }
@@ -873,7 +875,7 @@ bool DialogOptions::Run()
       }
 
       int gkey;
-      if (run_service_key_controls(gkey)) {
+      if (run_service_key_controls(gkey) && !play.IsIgnoringInput()) {
         if (parserInput) {
           wantRefresh = true;
           // type into the parser 
@@ -957,9 +959,10 @@ bool DialogOptions::Run()
           parserActivated = 1;
       }
 
-      int mouseButtonPressed = ags_mgetbutton();
-
-      if (mouseButtonPressed != NONE)
+      int mouseButtonPressed = NONE;
+      int mouseWheelTurn = 0;
+      if (run_service_mb_controls(mouseButtonPressed, mouseWheelTurn) && mouseButtonPressed >= 0 &&
+          !play.IsIgnoringInput())
       {
         if (mouseison < 0 && !new_custom_render)
         {
@@ -1000,7 +1003,6 @@ bool DialogOptions::Run()
 
       if (usingCustomRendering)
       {
-        int mouseWheelTurn = ags_check_mouse_wheel();
         if (mouseWheelTurn != 0)
         {
             runDialogOptionMouseClickHandlerFunc.params[0].SetDynamicObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
@@ -1053,6 +1055,7 @@ bool DialogOptions::Run()
       {
           WaitForNextFrame();
       }
+
       return true; // continue running loop
 }
 
@@ -1094,8 +1097,9 @@ int show_dialog_options(int _dlgnum, int sayChosenOption, bool _runGameLoopsInBa
   DlgOpt.Close();  
 
   int dialog_choice = DlgOpt.chose;
-  if (dialog_choice != CHOSE_TEXTPARSER)
+  if (dialog_choice >= 0) // NOTE: this condition also excludes CHOSE_TEXTPARSER
   {
+    assert(dialog_choice >= 0 && dialog_choice < MAXTOPICOPTIONS);
     DialogTopic *dialog_topic = DlgOpt.dtop;
     int &option_flags = dialog_topic->optionflags[dialog_choice];
     const char *option_name = DlgOpt.dtop->optionnames[dialog_choice];
@@ -1196,9 +1200,13 @@ void do_conversation(int dlgnum)
         set_mouse_cursor(CURS_ARROW);
       }
     }
-    else 
+    else if (chose >= 0)
     {
       tocar = run_dialog_script(dtop, dlgnum, dtop->entrypoints[chose], chose + 1);
+    }
+    else
+    {
+      tocar = RUN_DIALOG_STOP_DIALOG;
     }
 
     if (tocar == RUN_DIALOG_GOTO_PREVIOUS) {
@@ -1219,9 +1227,7 @@ void do_conversation(int dlgnum)
       }
       dlgnum = tocar;
     }
-
   }
-
 }
 
 // end dialog manager

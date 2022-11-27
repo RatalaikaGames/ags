@@ -71,13 +71,11 @@ extern ViewStruct*views;
 extern RoomObject*objs;
 extern ScriptInvItem scrInv[MAX_INV];
 extern SpriteCache spriteset;
-extern ScreenOverlay screenover[MAX_SCREEN_OVERLAYS];
 extern Bitmap *walkable_areas_temp;
 extern IGraphicsDriver *gfxDriver;
 extern Bitmap **actsps;
 extern int is_text_overlay;
 extern int said_speech_line;
-extern int numscreenover;
 extern int said_text;
 extern int our_eip;
 extern CCCharacter ccDynamicCharacter;
@@ -2805,7 +2803,7 @@ void _displayspeech(const char*texx, int aschar, int xx, int yy, int widd, int i
         char_thinking = aschar;
 
     our_eip=155;
-    _display_at(tdxp,tdyp,bwidth,texx,0,textcol, isThought, allowShrink, overlayPositionFixed);
+    _display_at(tdxp, tdyp, bwidth, texx, DISPLAYTEXT_SPEECH, textcol, isThought, allowShrink, overlayPositionFixed);
     our_eip=156;
     if ((play.in_conversation > 0) && (game.options[OPT_SPEECHTYPE] == 3))
         closeupface = nullptr;

@@ -35,6 +35,7 @@
 #include "ac/dynobj/cc_inventory.h"
 #include "util/math.h"
 #include "media/audio/audio_system.h"
+#include "ac/timer.h"
 
 using namespace AGS::Common;
 
@@ -45,7 +46,6 @@ extern ScriptInvItem scrInv[MAX_INV];
 extern int mouse_ifacebut_xoffs,mouse_ifacebut_yoffs;
 extern SpriteCache spriteset;
 extern int mousex,mousey;
-extern volatile int timerloop;
 extern int evblocknum;
 extern CharacterInfo*playerchar;
 extern AGSPlatformDriver *platform;
@@ -351,13 +351,12 @@ void InventoryScreen::RedrawOverItem(Bitmap *ds, int isonitem)
 
 bool InventoryScreen::Run()
 {
-    if (ags_kbhit() != 0)
+    int kgn;
+    if (run_service_key_controls(kgn) && !play.IsIgnoringInput())
     {
         return false; // end inventory screen loop
     }
 
-        timerloop = 0;
-        //ags_domouse(DOMOUSE_UPDATE);
         update_audio_system_on_game_loop();
         refresh_gui_screen();
 
@@ -371,7 +370,11 @@ bool InventoryScreen::Run()
         if ((isonitem<0) | (isonitem>=numitems) | (isonitem >= top_item + num_visible_items))
             isonitem=-1;
 
-        int mclick = ags_mgetbutton();
+        int mclick, mwheelz;
+        if (!run_service_mb_controls(mclick, mwheelz) || play.IsIgnoringInput()) {
+            mclick = NONE;
+        }
+
         if (mclick == LEFT) {
             if ((mousey<0) | (mousey>windowhit) | (mousex<0) | (mousex>windowwid))
                 return true; // continue inventory screen loop

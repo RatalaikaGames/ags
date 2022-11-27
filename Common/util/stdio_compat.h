@@ -18,12 +18,6 @@
 #include <stdio.h>
 #include <stdint.h>
 
-//these arent stdio. they shouldnt be in a file named stdiocompat.
-#ifndef AGS_HAS_NO_SYS_TYPES_H
-#include <sys/types.h>
-#include <sys/stat.h>
-#endif
-
 typedef int64_t file_off_t;
 
 #ifdef __cplusplus
@@ -34,6 +28,7 @@ int	 ags_fseek(FILE * stream, file_off_t offset, int whence);
 file_off_t	 ags_ftell(FILE * stream);
 
 int ags_file_exists(const char *path);
+int ags_directory_exists(const char *path);
 int ags_path_exists(const char *path);
 file_off_t ags_file_size(const char *path);
 

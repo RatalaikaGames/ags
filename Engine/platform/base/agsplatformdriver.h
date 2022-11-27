@@ -86,6 +86,7 @@ struct AGSPlatformDriver
     virtual void AboutToQuitGame();
     virtual void Delay(int millis);
     virtual void DisplayAlert(const char*, ...) = 0;
+    virtual void AttachToParentConsole();
     virtual int  GetLastSystemError() { return errno; }
     // Get root directory for storing per-game shared data
     virtual const char *GetAllUsersDataDirectory() { return "."; }
@@ -213,11 +214,12 @@ struct AGSPlatformDriver
     virtual long allegro_fremain(void *userdata); 
 
     static AGSPlatformDriver *GetDriver();
+
     // Set whether PrintMessage should output to stdout or stderr
-    static void SetOutputToErr(bool on) { _logToStdErr = on; }
+    void SetOutputToErr(bool on) { _logToStdErr = on; }
     // Set whether DisplayAlert is allowed to show modal GUIs on some systems;
     // it will print to either stdout or stderr otherwise, depending on above flag
-    static void SetGUIMode(bool on) { _guiMode = on; }
+    void SetGUIMode(bool on) { _guiMode = on; }
 
     //-----------------------------------------------
     // IOutputHandler implementation
@@ -231,17 +233,10 @@ protected:
     // separate implementation, one for each kind of output, but
     // with both going through PlatformDriver need to figure a better
     // design first.
-    static bool _logToStdErr;
+    bool _logToStdErr = false;
     // Defines whether engine is allowed to display important warnings
     // and errors by showing a message box kind of GUI.
-    static bool _guiMode;
-
-    //-----------------------------------------------
-    // UNUSED THINGS. SHOULD BE DELETED?
-    //-----------------------------------------------
-    virtual const char* _deprecated_GetNoMouseErrorString() { return NULL; }
-    //-----------------------------------------------
-
+    bool _guiMode = false;
 
 private:
     static AGSPlatformDriver *instance;

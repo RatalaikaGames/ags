@@ -11,16 +11,12 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
-
 #include "ac/game.h"
-
 #include "ac/common.h"
 #include "ac/view.h"
-#include "ac/audiocliptype.h"
 #include "ac/audiochannel.h"
 #include "ac/character.h"
 #include "ac/charactercache.h"
-#include "ac/characterextras.h"
 #include "ac/dialogtopic.h"
 #include "ac/draw.h"
 #include "ac/dynamicsprite.h"
@@ -29,7 +25,6 @@
 #include "ac/gamesetupstruct.h"
 #include "ac/gamestate.h"
 #include "ac/global_audio.h"
-#include "ac/global_character.h"
 #include "ac/global_display.h"
 #include "ac/global_game.h"
 #include "ac/global_gui.h"
@@ -37,101 +32,84 @@
 #include "ac/global_translation.h"
 #include "ac/gui.h"
 #include "ac/hotspot.h"
+#include "ac/keycode.h"
 #include "ac/lipsync.h"
 #include "ac/mouse.h"
-#include "ac/movelist.h"
 #include "ac/objectcache.h"
 #include "ac/overlay.h"
 #include "ac/path_helper.h"
 #include "ac/sys_events.h"
-#include "ac/region.h"
 #include "ac/richgamemedia.h"
-#include "ac/room.h"
-#include "ac/roomobject.h"
 #include "ac/roomstatus.h"
-#include "ac/runtime_defines.h"
-#include "ac/screenoverlay.h"
 #include "ac/spritecache.h"
 #include "ac/string.h"
-#include "ac/system.h"
-#include "ac/timer.h"
 #include "ac/translation.h"
 #include "ac/dynobj/all_dynamicclasses.h"
 #include "ac/dynobj/all_scriptclasses.h"
-#include "ac/dynobj/cc_audiochannel.h"
-#include "ac/dynobj/cc_audioclip.h"
 #include "ac/dynobj/scriptcamera.h"
 #include "debug/debug_log.h"
 #include "debug/out.h"
 #include "device/mousew32.h"
 #include "font/fonts.h"
 #include "game/savegame.h"
-#include "game/savegame_components.h"
-#include "game/savegame_internal.h"
-#include "gui/animatingguibutton.h"
 #include "gfx/bitmap.h"
 #include "gfx/graphicsdriver.h"
-#include "gfx/gfxfilter.h"
+#include "gui/guibutton.h"
 #include "gui/guidialog.h"
 #include "main/engine.h"
-#include "main/graphics_mode.h"
-#include "main/main.h"
 #include "media/audio/audio_system.h"
-#include "plugin/agsplugin.h"
+#include "platform/base/agsplatformdriver.h"
 #include "plugin/plugin_engine.h"
-#include "script/cc_error.h"
-#include "script/runtimescriptvalue.h"
 #include "script/script.h"
 #include "script/script_runtime.h"
 #include "util/alignedstream.h"
-#include "util/filestream.h" // TODO: needed only because plugins expect file handle
+#include "util/directory.h"
+#include "util/file.h"
 #include "util/path.h"
+
+#if 1 // DAVIDE - for RestoreData and other savegame symbols
+#include "game/savegame_internal.h"
+#include "game/savegame_components.h"
 #include "util/string_utils.h"
-#include "ac/keycode.h"
+#include "ac/movelist.h"
+
+// see savegame_components.cpp
+#include "ac/runtime_defines.h"
+#include "gui/animatingguibutton.h"
+#include "gfx/allegrobitmap.h"
+#include "plugin/agsplugin.h"
+#include "script/cc_error.h"
+
+extern AnimatingGUIButton animbuts[MAX_ANIMATING_BUTTONS];
+extern int numAnimButs;
+extern Common::Bitmap *raw_saved_screen;
+
+// duplicating savegame_v321.cpp ...urgh
+static const int32_t MAGICNUMBER = 0xbeefcafe;
+#endif
 
 using namespace AGS::Common;
 using namespace AGS::Engine;
 
 extern ScriptAudioChannel scrAudioChannel[MAX_SOUND_CHANNELS + 1];
-extern int time_between_timers;
-extern int cur_mode,cur_cursor;
 extern SpeechLipSyncLine *splipsync;
 extern int numLipLines, curLipLine, curLipLinePhoneme;
 
-extern CharacterExtras *charextra;
 extern DialogTopic *dialog;
-
-extern int ifacepopped;  // currently displayed pop-up GUI (-1 if none)
-extern int mouse_on_iface;   // mouse cursor is over this interface
-extern int mouse_ifacebut_xoffs,mouse_ifacebut_yoffs;
-
-extern AnimatingGUIButton animbuts[MAX_ANIMATING_BUTTONS];
-extern int numAnimButs;
-
-extern ScreenOverlay screenover[MAX_SCREEN_OVERLAYS];
-extern int numscreenover;
-extern int is_complete_overlay,is_text_overlay;
-
-#if AGS_PLATFORM_OS_IOS || AGS_PLATFORM_OS_ANDROID
-extern int psp_gfx_renderer;
-#endif
 
 extern int obj_lowest_yp, char_lowest_yp;
 
+// These are referenced only for deletion in unload_game_file()
 extern int actSpsCount;
 extern Bitmap **actsps;
 extern IDriverDependantBitmap* *actspsbmp;
-// temporary cache of walk-behind for this actsps image
 extern Bitmap **actspswb;
 extern IDriverDependantBitmap* *actspswbbmp;
 extern CachedActSpsData* actspswbcache;
 extern Bitmap **guibg;
 extern IDriverDependantBitmap **guibgbmp;
-extern char transFileName[MAX_PATH];
+
 extern color palette[256];
-extern unsigned int loopcounter;
-extern Bitmap *raw_saved_screen;
-extern Bitmap *dynamicallyCreatedSurfaces[MAX_DYNAMIC_SURFACES];
 extern IGraphicsDriver *gfxDriver;
 
 //=============================================================================
@@ -196,7 +174,6 @@ String saveGameDirectory = "./";
 // Custom save game parent directory
 String saveGameParent;
 
-const char* sgnametemplate = "agssave.%03d";
 String saveGameSuffix;
 
 int game_paused=0;
@@ -327,9 +304,8 @@ void set_debug_mode(bool on)
 
 void set_game_speed(int new_fps) {
     frames_per_second = new_fps;
-    time_between_timers = 1000 / new_fps;
-
-    install_int_ex(dj_timer_handler,MSEC_TO_TIMER(time_between_timers));
+    if (!isTimerFpsMaxed()) // if in maxed mode, don't update timer for now
+        setTimerFps(new_fps);
 }
 
 extern int cbuttfont;
@@ -367,13 +343,14 @@ void set_save_game_suffix(const String &suffix)
     saveGameSuffix = suffix;
 }
 
-String get_save_game_path(int slotNum) {
-    String filename;
-    filename.Format(sgnametemplate, slotNum);
-    String path = saveGameDirectory;
-    path.Append(filename);
-    path.Append(saveGameSuffix);
-    return path;
+String get_save_game_filename(int slotNum)
+{
+    return String::FromFormat("agssave.%03d%s", slotNum, saveGameSuffix.GetCStr());
+}
+
+String get_save_game_path(int slotNum)
+{
+    return Path::ConcatPaths(saveGameDirectory, get_save_game_filename(slotNum));
 }
 
 // Convert a path possibly containing path tags into acceptable save path
@@ -391,17 +368,15 @@ bool MakeSaveGameDir(const String &newFolder, ResolvedPath &rp)
     {
         if (saveGameParent.IsEmpty())
         {
-            base_dir = PathOrCurDir(platform->GetUserSavedgamesDirectory());
+            base_dir = PathFromInstallDir(platform->GetUserSavedgamesDirectory());
             newSaveGameDir.ReplaceMid(0, UserSavedgamesRootToken.GetLength(), base_dir);
         }
         else
         {
             // If there is a custom save parent directory, then replace
             // not only root token, but also first subdirectory
-            newSaveGameDir.ClipSection('/', 0, 1);
-            if (!newSaveGameDir.IsEmpty())
-                newSaveGameDir.PrependChar('/');
-            newSaveGameDir.Prepend(saveGameParent);
+            newSaveGameDir.ClipSection('/', 0, 1); // TODO: Path helper function for this?
+            newSaveGameDir = Path::ConcatPaths(saveGameParent, newSaveGameDir);
             base_dir = saveGameParent;
         }
     }
@@ -411,13 +386,13 @@ bool MakeSaveGameDir(const String &newFolder, ResolvedPath &rp)
         // safe save path with default name
         if (saveGameParent.IsEmpty())
         {
-            base_dir = PathOrCurDir(platform->GetUserSavedgamesDirectory());
-            newSaveGameDir.Format("%s/%s/%s", base_dir.GetCStr(), game.saveGameFolderName, newFolder.GetCStr());
+            base_dir = PathFromInstallDir(platform->GetUserSavedgamesDirectory());
+            newSaveGameDir = Path::ConcatPaths(Path::ConcatPaths(base_dir, game.saveGameFolderName), newFolder);
         }
         else
         {
             base_dir = saveGameParent;
-            newSaveGameDir.Format("%s/%s", saveGameParent.GetCStr(), newFolder.GetCStr());
+            newSaveGameDir = Path::ConcatPaths(saveGameParent, newFolder);
         }
         // For games made in the safe-path-aware versions of AGS, report a warning
         if (game.options[OPT_SAFEFILEPATHS])
@@ -426,8 +401,8 @@ bool MakeSaveGameDir(const String &newFolder, ResolvedPath &rp)
                 newFolder.GetCStr(), newSaveGameDir.GetCStr());
         }
     }
-    rp.BaseDir = Path::MakeTrailingSlash(base_dir);
-    rp.FullPath = Path::MakeTrailingSlash(newSaveGameDir);
+    rp.BaseDir = base_dir;
+    rp.FullPath = newSaveGameDir;
     return true;
 }
 
@@ -448,8 +423,8 @@ bool SetSaveGameDirectoryPath(const char *newFolder, bool explicit_path)
     String newSaveGameDir;
     if (explicit_path)
     {
-        newSaveGameDir = Path::MakeTrailingSlash(newFolder);
-        if (!platform->DirectoryCreate(newSaveGameDir))
+        newSaveGameDir = PathFromInstallDir(newFolder);
+        if (!Directory::CreateDirectory(newSaveGameDir))
             return false;
     }
     else
@@ -465,13 +440,13 @@ bool SetSaveGameDirectoryPath(const char *newFolder, bool explicit_path)
         newSaveGameDir = rp.FullPath;
     }
 
-    String newFolderTempFile = String::FromFormat("%s""agstmp.tmp", newSaveGameDir.GetCStr());
-    if (!Common::File::TestCreateFile(newFolderTempFile))
+    String newFolderTempFile = Path::ConcatPaths(newSaveGameDir, "agstmp.tmp");
+    if (!File::TestCreateFile(newFolderTempFile))
         return false;
 
     // copy the Restart Game file, if applicable
-    String restartGamePath = String::FromFormat("%s""agssave.%d%s", saveGameDirectory.GetCStr(), RESTART_POINT_SAVE_GAME_NUMBER, saveGameSuffix.GetCStr());
-    Stream *restartGameFile = Common::File::OpenFileRead(restartGamePath);
+    String restartGamePath = Path::ConcatPaths(saveGameDirectory, get_save_game_filename(RESTART_POINT_SAVE_GAME_NUMBER));
+    Stream *restartGameFile = File::OpenFileRead(restartGamePath);
     if (restartGameFile != nullptr)
     {
         long fileSize = restartGameFile->GetLength();
@@ -479,8 +454,8 @@ bool SetSaveGameDirectoryPath(const char *newFolder, bool explicit_path)
         restartGameFile->Read(mbuffer, fileSize);
         delete restartGameFile;
 
-        restartGamePath.Format("%s""agssave.%d%s", newSaveGameDir.GetCStr(), RESTART_POINT_SAVE_GAME_NUMBER, saveGameSuffix.GetCStr());
-        restartGameFile = Common::File::CreateFile(restartGamePath);
+        restartGamePath = Path::ConcatPaths(newSaveGameDir, get_save_game_filename(RESTART_POINT_SAVE_GAME_NUMBER));
+        restartGameFile = File::CreateFile(restartGamePath);
         restartGameFile->Write(mbuffer, fileSize);
         delete restartGameFile;
         free(mbuffer);
@@ -673,10 +648,6 @@ const char* Game_GetGlobalStrings(int index) {
 
     return CreateNewScriptString(play.globalstrings[index]);
 }
-
-
-
-char gamefilenamebuf[200];
 
 
 // ** GetGameParameter replacement functions
@@ -903,29 +874,19 @@ int Game_ChangeTranslation(const char *newFilename)
     if ((newFilename == nullptr) || (newFilename[0] == 0))
     {
         close_translation();
-        strcpy(transFileName, "");
         usetup.translation = "";
         return 1;
     }
 
-    String oldTransFileName;
-    oldTransFileName = transFileName;
-
-    if (init_translation(newFilename, oldTransFileName.LeftSection('.'), false))
+    String oldTransFileName = get_translation_name();
+    if (init_translation(newFilename, oldTransFileName, false))
     {
         usetup.translation = newFilename;
+        //platform->SetTranslation(newFilename); // DAVIDE TODO: see if we want this
         return 1;
     }
-    else
-    {
-        strcpy(transFileName, oldTransFileName);
-        return 0;
-    }
-    
 
-    platform->SetTranslation(newFilename);
-
-    return 1;
+    return 0;
 }
 
 ScriptAudioClip *Game_GetAudioClip(int index)
@@ -1083,82 +1044,22 @@ long write_screen_shot_for_vista(Stream *out, Bitmap *screenshot)
     return fileSize;
 }
 
-void WriteGameSetupStructBase_Aligned(Stream *out)
+Bitmap *create_savegame_screenshot()
 {
-    AlignedStream align_s(out, Common::kAligned_Write);
-    game.GameSetupStructBase::WriteToFile(&align_s);
+    int usewid = data_to_game_coord(play.screenshot_width);
+    int usehit = data_to_game_coord(play.screenshot_height);
+    const Rect &viewport = play.GetMainViewport();
+    if (usewid > viewport.GetWidth())
+        usewid = viewport.GetWidth();
+    if (usehit > viewport.GetHeight())
+        usehit = viewport.GetHeight();
+
+    if ((play.screenshot_width < 16) || (play.screenshot_height < 16))
+        quit("!Invalid game.screenshot_width/height, must be from 16x16 to screen res");
+
+    return CopyScreenIntoBitmap(usewid, usehit);
 }
 
-#define MAGICNUMBER 0xbeefcafe
-
-void create_savegame_screenshot(Bitmap *&screenShot)
-{
-    if (game.options[OPT_SAVESCREENSHOT]) {
-        int usewid = data_to_game_coord(play.screenshot_width);
-        int usehit = data_to_game_coord(play.screenshot_height);
-        const Rect &viewport = play.GetMainViewport();
-        if (usewid > viewport.GetWidth())
-            usewid = viewport.GetWidth();
-        if (usehit > viewport.GetHeight())
-            usehit = viewport.GetHeight();
-
-        if ((play.screenshot_width < 16) || (play.screenshot_height < 16))
-            quit("!Invalid game.screenshot_width/height, must be from 16x16 to screen res");
-
-        screenShot = CopyScreenIntoBitmap(usewid, usehit);
-    }
-}
-
-void save_game(int slotn, const char*descript) {
-
-    // dont allow save in rep_exec_always, because we dont save
-    // the state of blocked scripts
-    can_run_delayed_command();
-
-    if (inside_script) {
-        strcpy(curscript->postScriptSaveSlotDescription[curscript->queue_action(ePSASaveGame, slotn, "SaveGameSlot")], descript);
-        return;
-    }
-
-    if (platform->GetDiskFreeSpaceMB() < 2) {
-        Display("ERROR: There is not enough disk space free to save the game. Clear some disk space and try again.");
-        return;
-    }
-
-    VALIDATE_STRING(descript);
-
-    Common::PStream out = Common::PStream(platform->Save_CreateSlotStream(slotn));
-    if (out == NULL)
-        quit("save_game: unable to open savegame file for writing");
-
-    Bitmap *screenShot = nullptr;
-
-    // Screenshot
-    create_savegame_screenshot(screenShot);
-
-    SaveGameCommonHeader(out, descript, screenShot);
-
-    update_polled_stuff_if_runtime();
-
-    // Actual dynamic game data is saved here
-    SaveGameState(out);
-
-    #ifdef AGS_HAS_RICH_GAME_MEDIA
-    if (screenShot != NULL)
-    {
-        int screenShotOffset = out->GetPosition() - sizeof(RICH_GAME_MEDIA_HEADER);
-        int screenShotSize = write_screen_shot_for_vista(out.get(), screenShot);
-
-        out->Seek(12, kSeekBegin);
-        out->WriteInt32(screenShotOffset);
-        out->Seek(4);
-        out->WriteInt32(screenShotSize);
-    }
-    #endif
-
-    if (screenShot != nullptr)
-        delete screenShot;
-}
 
 HSaveError restore_game_head_dynamic_values(Stream *in, RestoredData &r_data)
 {
@@ -1405,7 +1306,7 @@ void ReadOverlays_Aligned(Stream *in)
     AlignedStream align_s(in, Common::kAligned_Read);
     for (int i = 0; i < numscreenover; ++i)
     {
-        screenover[i].ReadFromFile(&align_s);
+        screenover[i].ReadFromFile(&align_s, 0); // DAVIDE TODO: see if version can be non-0
         align_s.Reset();
     }
 }
@@ -1661,6 +1562,55 @@ HSaveError restore_game_data(Stream *in, SavegameVersion svg_version, const Pres
     return HSaveError::None();
 }
 
+void save_game(int slotn, const char*descript) {
+
+    // dont allow save in rep_exec_always, because we dont save
+    // the state of blocked scripts
+    can_run_delayed_command();
+
+    if (inside_script) {
+        strcpy(curscript->postScriptSaveSlotDescription[curscript->queue_action(ePSASaveGame, slotn, "SaveGameSlot")], descript);
+        return;
+    }
+
+    if (platform->GetDiskFreeSpaceMB() < 2) {
+        Display("ERROR: There is not enough disk space free to save the game. Clear some disk space and try again.");
+        return;
+    }
+
+    VALIDATE_STRING(descript);
+    String nametouse = get_save_game_path(slotn);
+    UBitmap screenShot;
+    if (game.options[OPT_SAVESCREENSHOT] != 0)
+        screenShot.reset(create_savegame_screenshot());
+
+    Engine::UStream out(StartSavegame(nametouse, descript, screenShot.get()));
+    if (out == nullptr)
+    {
+        Display("ERROR: Unable to open savegame file for writing!");
+        return;
+    }
+
+    update_polled_stuff_if_runtime();
+
+    // Actual dynamic game data is saved here
+    SaveGameState(out.get());
+
+    if (screenShot != nullptr)
+    {
+        int screenShotOffset = out->GetPosition() - sizeof(RICH_GAME_MEDIA_HEADER);
+        int screenShotSize = write_screen_shot_for_vista(out.get(), screenShot.get());
+
+        update_polled_stuff_if_runtime();
+
+        out.reset(Common::File::OpenFile(nametouse, Common::kFile_Open, Common::kFile_ReadWrite));
+        out->Seek(12, kSeekBegin);
+        out->WriteInt32(screenShotOffset);
+        out->Seek(4);
+        out->WriteInt32(screenShotSize);
+    }
+}
+
 int gameHasBeenRestored = 0;
 int oldeip;
 
@@ -1702,6 +1652,21 @@ bool read_savedgame_screenshot(const String &savedgame, int &want_shot)
     return true;
 }
 
+
+// Test if the game file contains expected GUID / legacy id
+bool test_game_guid(const String &filepath, const String &guid, int legacy_id)
+{
+    MainGameSource src;
+    HGameFileError err = OpenMainGameFileFromDefaultAsset(src);
+    if (!err)
+        return false;
+    GameSetupStruct g;
+    PreReadGameData(g, src.InputStream.get(), src.DataVersion);
+    if (!guid.IsEmpty())
+        return guid.CompareNoCase(g.guid) == 0;
+    return legacy_id == g.uniqueid;
+}
+
 HSaveError load_game(const String &path, int slotNumber, bool &data_overwritten)
 {
     data_overwritten = false;
@@ -1723,24 +1688,41 @@ HSaveError load_game(const String &path, int slotNumber, bool &data_overwritten)
         return new SavegameError(kSvgErr_DifferentColorDepth, String::FromFormat("Running: %d-bit, saved in: %d-bit.", game.GetColorDepth(), desc.ColorDepth));
 
     // saved with different game file
-    if (Path::ComparePaths(desc.MainDataFilename, ResPaths.GamePak.Name))
+    // if savegame is modern enough then test game GUIDs
+    if (!desc.GameGuid.IsEmpty() || desc.LegacyID != 0)
     {
-        // [IKM] 2012-11-26: this is a workaround, indeed.
-        // Try to find wanted game's executable; if it does not exist,
-        // continue loading savedgame in current game, and pray for the best
-        get_install_dir_path(gamefilenamebuf, desc.MainDataFilename);
-        if (Common::File::TestReadFile(gamefilenamebuf))
+        if (desc.GameGuid.Compare(game.guid) != 0 && desc.LegacyID != game.uniqueid)
         {
-            RunAGSGame (desc.MainDataFilename, 0, 0);
+            // Try to find wanted game's data using game id
+            String gamefile = FindGameData(ResPaths.DataDir,
+                [&desc](const String &filepath) { return test_game_guid(filepath, desc.GameGuid, desc.LegacyID); });
+            if (Common::File::TestReadFile(gamefile))
+            {
+                RunAGSGame(desc.MainDataFilename, 0, 0);
+                load_new_game_restore = slotNumber;
+                return HSaveError::None();
+            }
+            return new SavegameError(kSvgErr_GameGuidMismatch);
+        }
+    }
+    // if it's old then do the stupid old-style filename test
+    // TODO: remove filename test after deprecating old saves
+    else if (desc.MainDataFilename.Compare(ResPaths.GamePak.Name))
+    {
+        String gamefile = Path::ConcatPaths(ResPaths.DataDir, desc.MainDataFilename);
+        if (Common::File::TestReadFile(gamefile))
+        {
+            RunAGSGame(desc.MainDataFilename, 0, 0);
             load_new_game_restore = slotNumber;
             return HSaveError::None();
         }
-        Common::Debug::Printf(kDbgMsg_Warn, "WARNING: the saved game '%s' references game file '%s', but it cannot be found in the current directory. Trying to restore in the running game instead.",
-            path.GetCStr(), desc.MainDataFilename.GetCStr());
+        // if it does not exist, continue loading savedgame in current game, and pray for the best
+        Common::Debug::Printf(kDbgMsg_Warn, "WARNING: the saved game '%s' references game file '%s' (title: '%s'), but it cannot be found in the current directory. Trying to restore in the running game instead.",
+            path.GetCStr(), desc.MainDataFilename.GetCStr(), desc.GameTitle.GetCStr());
     }
 
     // do the actual restore
-    err = RestoreGameState(src.InputStream, src.Version);
+    err = RestoreGameState(src.InputStream.get(), src.Version);
     data_overwritten = true;
     if (!err)
         return err;
@@ -1802,14 +1784,28 @@ void start_skipping_cutscene () {
 
 }
 
-void check_skip_cutscene_keypress (int kgn) {
+bool check_skip_cutscene_keypress (int kgn) {
 
     CutsceneSkipStyle skip = get_cutscene_skipstyle();
     if (skip == eSkipSceneAnyKey || skip == eSkipSceneKeyMouse ||
         (kgn == 27 && (skip == eSkipSceneEscOnly || skip == eSkipSceneEscOrRMB)))
     {
         start_skipping_cutscene();
+        return true;
     }
+    return false;
+}
+
+bool check_skip_cutscene_mclick(int mbut)
+{
+    CutsceneSkipStyle skip = get_cutscene_skipstyle();
+    if (skip == eSkipSceneMouse || skip == eSkipSceneKeyMouse ||
+        (mbut == RIGHT && skip == eSkipSceneEscOrRMB))
+    {
+        start_skipping_cutscene();
+        return true;
+    }
+    return false;
 }
 
 // Helper functions used by StartCutscene/EndCutscene, but also
@@ -2096,6 +2092,104 @@ bool unserialize_audio_script_object(int index, const char *objectType, const ch
         return false;
     }
     return true;
+}
+
+void game_sprite_updated(int sprnum)
+{
+    // Check if this sprite is assigned to any game object, and update them if necessary
+    // room objects cache
+    if (croom != nullptr)
+    {
+        for (size_t i = 0; i < (size_t)croom->numobj; ++i)
+        {
+            if (objs[i].num == sprnum)
+                objcache[i].sppic = -1;
+        }
+    }
+    // character cache
+    for (size_t i = 0; i < (size_t)game.numcharacters; ++i)
+    {
+        if (charcache[i].sppic == sprnum)
+            charcache[i].sppic = -1;
+    }
+    // gui backgrounds
+    for (size_t i = 0; i < (size_t)game.numgui; ++i)
+    {
+        if (guis[i].BgImage == sprnum)
+        {
+            guis_need_update = 1;
+            break; // setting gui update flag once is enough
+        }
+    }
+    // gui buttons
+    for (size_t i = 0; i < (size_t)numguibuts; ++i)
+    {
+        if (guibuts[i].CurrentImage == sprnum)
+        {
+            guis_need_update = 1;
+            break; // setting gui update flag once is enough
+        }
+    }
+}
+
+void game_sprite_deleted(int sprnum)
+{
+    // Check if this sprite is assigned to any game object, and update them if necessary
+    // room objects and their cache
+    if (croom != nullptr)
+    {
+        for (size_t i = 0; i < (size_t)croom->numobj; ++i)
+        {
+            if (objs[i].num == sprnum)
+            {
+                objs[i].num = 0;
+                objcache[i].sppic = -1;
+            }
+        }
+    }
+    // character cache
+    for (size_t i = 0; i < (size_t)game.numcharacters; ++i)
+    {
+        if (charcache[i].sppic == sprnum)
+            charcache[i].sppic = -1;
+    }
+    // gui backgrounds
+    for (size_t i = 0; i < (size_t)game.numgui; ++i)
+    {
+        if (guis[i].BgImage == sprnum)
+        {
+            guis[i].BgImage = 0;
+            guis_need_update = 1;
+        }
+    }
+    // gui buttons
+    for (size_t i = 0; i < (size_t)numguibuts; ++i)
+    {
+        if (guibuts[i].Image == sprnum)
+            guibuts[i].Image = 0;
+        if (guibuts[i].MouseOverImage == sprnum)
+            guibuts[i].MouseOverImage = 0;
+        if (guibuts[i].PushedImage == sprnum)
+            guibuts[i].PushedImage = 0;
+
+        if (guibuts[i].CurrentImage == sprnum)
+        {
+            guibuts[i].CurrentImage = 0;
+            guis_need_update = 1;
+        }
+    }
+    // views
+    for (size_t v = 0; v < (size_t)game.numviews; ++v)
+    {
+        for (size_t l = 0; l < (size_t)views[v].numLoops; ++l)
+        {
+            for (size_t f = 0; f < (size_t)views[v].loops[l].numFrames; ++f)
+            {
+                if (views[v].loops[l].frames[f].pic == sprnum)
+                    views[v].loops[l].frames[f].pic = 0;
+            }
+        }
+    }
 }
 
 //=============================================================================

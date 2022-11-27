@@ -12,7 +12,6 @@
 //
 //=============================================================================
 
-#include "core/types.h"
 #include "ac/global_hotspot.h"
 #include "ac/common.h"
 #include "ac/common_defines.h"
@@ -20,6 +19,7 @@
 #include "ac/draw.h"
 #include "ac/event.h"
 #include "ac/gamesetupstruct.h"
+#include "ac/gamestate.h"
 #include "ac/global_character.h"
 #include "ac/global_translation.h"
 #include "ac/hotspot.h"

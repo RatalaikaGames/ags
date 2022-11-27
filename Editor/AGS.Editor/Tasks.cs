@@ -111,6 +111,7 @@ namespace AGS.Editor
             List<string> errors = new List<string>();
 
             Directory.SetCurrentDirectory(gameDirectory);
+            Factory.NativeProxy.NewWorkingDirSet(gameDirectory);
             AddFontIfNotAlreadyThere(0);
             AddFontIfNotAlreadyThere(1);
             AddFontIfNotAlreadyThere(2);
@@ -230,12 +231,13 @@ namespace AGS.Editor
 
             if (xmlVersionIndex < 19)
             {
-                game.Settings.GameFileName = AGSEditor.Instance.BaseGameFileName;
+                game.Settings.GameFileName = AGSEditor.Instance.BaseGameFileName ??
+                    Path.GetFileName(game.DirectoryPath);
 
                 var buildNames = new Dictionary<string, string>();
                 foreach (IBuildTarget target in BuildTargetsInfo.GetRegisteredBuildTargets())
                 {
-                    buildNames[target.Name] = AGSEditor.Instance.BaseGameFileName;
+                    buildNames[target.Name] = game.Settings.GameFileName;
                 }
                 game.WorkspaceState.SetLastBuildGameFiles(buildNames);
             }
@@ -417,8 +419,11 @@ namespace AGS.Editor
             _runningGameWithDebugger = withDebugger;
             // custom game install directory (points to where all supplemental data files are)
             // TODO: get audio and speech paths from a kind of shared config
-            parameter += " --runfromide " + Path.Combine(AGSEditor.OUTPUT_DIRECTORY, BuildTargetWindows.WINDOWS_DIRECTORY) +
-                         " " + AudioClip.AUDIO_CACHE_DIRECTORY + " " + "Speech";
+            parameter += " --runfromide " +
+                Path.Combine(AGSEditor.OUTPUT_DIRECTORY, BuildTargetWindows.WINDOWS_DIRECTORY) +
+                " " + Factory.AGSEditor.GameDirectory +
+                " " + AudioClip.AUDIO_CACHE_DIRECTORY +
+                " " + "Speech";
 
             RunEXEFile(Path.Combine(AGSEditor.DEBUG_OUTPUT_DIRECTORY, Factory.AGSEditor.BaseGameFileName + ".exe"), parameter, true);
 

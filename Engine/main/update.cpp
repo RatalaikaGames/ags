@@ -61,8 +61,6 @@ extern int facetalkBlinkLoop;
 extern bool facetalk_qfg4_override_placement_x, facetalk_qfg4_override_placement_y;
 extern SpeechLipSyncLine *splipsync;
 extern int numLipLines, curLipLine, curLipLinePhoneme;
-extern ScreenOverlay screenover[MAX_SCREEN_OVERLAYS];
-extern int numscreenover;
 extern int is_text_overlay;
 extern IGraphicsDriver *gfxDriver;
 
@@ -190,11 +188,9 @@ void update_script_timers()
 void update_cycling_views()
 {
 	// update graphics for object if cycling view
-  for (int aa=0;aa<croom->numobj;aa++) {
-
-	  RoomObject * obj = &objs[aa];
-
-	  obj->UpdateCyclingView();
+  for (int i = 0; i < croom->numobj; ++i)
+  {
+      objs[i].UpdateCyclingView(i);
   }
 }
 
@@ -287,7 +283,7 @@ void update_speech_and_messages()
       else if (play.cant_skip_speech & SKIP_AUTOTIMER)
       {
         remove_screen_overlay(OVER_TEXTMSG);
-        play.ignore_user_input_until_time = AGS_Clock::now() + std::chrono::milliseconds(play.ignore_user_input_after_text_timeout_ms);
+        play.SetIgnoreInput(play.ignore_user_input_after_text_timeout_ms);
       }
     }
   }

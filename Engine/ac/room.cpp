@@ -223,9 +223,14 @@ void convert_room_background_to_game_res()
     for (size_t i = 0; i < thisroom.BgFrameCount; ++i)
         thisroom.BgFrames[i].Graphic = FixBitmap(thisroom.BgFrames[i].Graphic, bkg_width, bkg_height);
 
-    // Fix walk-behinds to match room background
-    // TODO: would not we need to do similar to each mask if they were 1:1 in hires room?
+    // Fix masks to match resized room background
+    // Walk-behind is always 1:1 with room background size
     thisroom.WalkBehindMask = FixBitmap(thisroom.WalkBehindMask, bkg_width, bkg_height);
+    int mask_width = bkg_width / thisroom.MaskResolution;
+    int mask_height = bkg_height / thisroom.MaskResolution;
+    thisroom.HotspotMask = FixBitmap(thisroom.HotspotMask, mask_width, mask_height);
+    thisroom.RegionMask = FixBitmap(thisroom.RegionMask, mask_width, mask_height);
+    thisroom.WalkAreaMask = FixBitmap(thisroom.WalkAreaMask, mask_width, mask_height);
 }
 
 
@@ -463,8 +468,8 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
     if (newnum == 0) {
         // support both room0.crm and intro.crm
         // 2.70: Renamed intro.crm to room0.crm, to stop it causing confusion
-        if ((loaded_game_file_version < kGameVersion_270 && Common::AssetManager::DoesAssetExist("intro.crm")) ||
-            (loaded_game_file_version >= kGameVersion_270 && !Common::AssetManager::DoesAssetExist(room_filename)))
+        if ((loaded_game_file_version < kGameVersion_270 && AssetMgr->DoesAssetExist("intro.crm")) ||
+            (loaded_game_file_version >= kGameVersion_270 && !AssetMgr->DoesAssetExist(room_filename)))
         {
             room_filename = "intro.crm";
         }
@@ -524,6 +529,10 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
     our_eip=203;
     in_new_room=1;
 
+    set_color_depth(game.GetColorDepth());
+    // Make sure the room gfx and masks are matching game's native res
+    convert_room_background_to_game_res();
+
     // walkable_areas_temp is used by the pathfinder to generate a
     // copy of the walkable areas - allocate it here to save time later
     delete walkable_areas_temp;
@@ -539,9 +548,6 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
     update_polled_stuff_if_runtime();
     redo_walkable_areas();
     update_polled_stuff_if_runtime();
-
-    set_color_depth(game.GetColorDepth());
-    convert_room_background_to_game_res();
     recache_walk_behinds();
     update_polled_stuff_if_runtime();
 
@@ -581,7 +587,7 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
         for (cc=0;cc<croom->numobj;cc++) {
             croom->obj[cc].x=thisroom.Objects[cc].X;
             croom->obj[cc].y=thisroom.Objects[cc].Y;
-            croom->obj[cc].num = std::max<int16_t>(0, thisroom.Objects[cc].Sprite);
+            croom->obj[cc].num = Math::InRangeOrDef<uint16_t>(thisroom.Objects[cc].Sprite, 0);
             croom->obj[cc].on=thisroom.Objects[cc].IsOn;
             croom->obj[cc].view=-1;
             croom->obj[cc].loop=0;
@@ -597,8 +603,10 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
             croom->obj[cc].blocking_width = 0;
             croom->obj[cc].blocking_height = 0;
             if (thisroom.Objects[cc].Baseline>=0)
-                //        croom->obj[cc].baseoffs=thisroom.Objects.Baseline[cc]-thisroom.Objects[cc].y;
                 croom->obj[cc].baseline=thisroom.Objects[cc].Baseline;
+            if (thisroom.Objects[cc].Sprite > UINT16_MAX)
+                debug_script_warn("Warning: object's (id %d) sprite %d outside of internal range (%d), reset to 0",
+                    cc, thisroom.Objects[cc].Sprite, UINT16_MAX);
         }
         for (size_t i = 0; i < (size_t)MAX_WALK_BEHINDS; ++i)
             croom->walkbehind_base[i] = thisroom.WalkBehinds[i].Baseline;

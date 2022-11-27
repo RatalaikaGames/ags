@@ -11,7 +11,6 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
-
 #ifndef __AGS_EE_GAME__SAVEGAMECOMPONENTS_H
 #define __AGS_EE_GAME__SAVEGAMECOMPONENTS_H
 
@@ -27,7 +26,7 @@ namespace Engine
 {
 
 using Common::Stream;
-typedef std::shared_ptr<Stream> PStream;
+using Common::Interaction;
 
 struct PreservedParams;
 struct RestoredData;
@@ -35,9 +34,9 @@ struct RestoredData;
 namespace SavegameComponents
 {
     // Reads all available components from the stream
-    HSaveError    ReadAll(PStream in, SavegameVersion svg_version, const PreservedParams &pp, RestoredData &r_data);
+    HSaveError    ReadAll(Stream *in, SavegameVersion svg_version, const PreservedParams &pp, RestoredData &r_data);
     // Writes a full list of common components to the stream
-    HSaveError    WriteAllCommon(PStream out);
+    HSaveError    WriteAllCommon(Stream *out);
 
     // Utility functions for reading and writing legacy interactions,
     // or their "times run" counters separately.

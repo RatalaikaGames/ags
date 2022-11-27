@@ -40,7 +40,6 @@ namespace BitmapHelper = AGS::Common::BitmapHelper;
 
 extern char ignore_bounds; // from mousew32
 extern IGraphicsDriver *gfxDriver;
-extern volatile int timerloop; // ac_timer
 extern GameSetup usetup;
 
 
@@ -150,7 +149,6 @@ int CSCIWaitMessage(CSCIMessage * cscim)
     prepare_gui_screen(win_x, win_y, win_width, win_height, true);
 
     while (1) {
-        timerloop = 0;
         update_audio_system_on_game_loop();
         refresh_gui_screen();
 
@@ -158,7 +156,7 @@ int CSCIWaitMessage(CSCIMessage * cscim)
         cscim->code = 0;
         smcode = 0;
         int keywas;
-        if (run_service_key_controls(keywas)) {
+        if (run_service_key_controls(keywas) && !play.IsIgnoringInput()) {
             if (keywas == 13) {
                 cscim->id = finddefaultcontrol(CNF_DEFAULT);
                 cscim->code = CM_COMMAND;
@@ -177,7 +175,8 @@ int CSCIWaitMessage(CSCIMessage * cscim)
             }
         }
 
-        if (ags_mgetbutton() != NONE) {
+        int mbut, mwheelz;
+        if (run_service_mb_controls(mbut, mwheelz) && mbut >= 0 && !play.IsIgnoringInput()) {
             if (checkcontrols()) {
                 cscim->id = controlid;
                 cscim->code = CM_COMMAND;

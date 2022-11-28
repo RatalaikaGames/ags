@@ -12,7 +12,6 @@
 //
 //=============================================================================
 
-#include "core/types.h"
 #include "ac/spritecache.h"
 #include "gui/guimain.h"
 #include "gui/guislider.h"

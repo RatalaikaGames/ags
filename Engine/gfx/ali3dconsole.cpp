@@ -1233,16 +1233,15 @@ namespace AGS
 				if (speed <= 0) speed = 16;
 				speed *= 2;  // harmonise speeds with software driver which is faster
 
-				int timerValue = *_loopTimer;
-				for(;;)
+				for (int a = 1; a < 255; a += speed)
 				{
-					int elapsed = *_loopTimer - timerValue;
-					int a = speed * elapsed + 1;
-					if(a>255) break;
-
 					ddb->SetTransparency(fadingOut ? a : (255 - a));
 					this->_renderAndPresent(false);
 					update_polled_mp3();
+
+					if (_pollingCallback)
+						_pollingCallback();
+					WaitForNextFrame();
 				}
 
 				if (fadingOut)

@@ -75,7 +75,7 @@
 #include "util/misc.h"
 #include "util/path.h"
 
-#ifndef DIGI_DIRECTX // DAVIDE - not sure why we can't find it
+#if AGS_PLATFORM_OS_WINDOWS && !defined(DIGI_DIRECTX)
 #define DIGI_DIRECTX(n)          AL_ID('D','X','A'+(n),' ')
 #endif
 

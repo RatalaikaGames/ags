@@ -23,6 +23,9 @@
 
 #include "core/platform.h"
 #define AGS_DDRAW_GAMMA_CONTROL (AGS_PLATFORM_OS_WINDOWS)
+#ifdef AGS_RATA
+#undef AGS_DDRAW_GAMMA_CONTROL
+#endif
 
 #include <allegro.h>
 

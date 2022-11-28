@@ -315,12 +315,14 @@ public:
   // register a script function with the system
   AGSIFUNC(void) RegisterScriptFunction (const char *name, void *address);
 #ifdef WINDOWS_VERSION
+# ifndef AGS_RATA
   // get game window handle
   AGSIFUNC(HWND) GetWindowHandle();
   // get reference to main DirectDraw interface
   AGSIFUNC(LPDIRECTDRAW2) GetDirectDraw2 ();
   // get the DDraw surface associated with a bitmap
   AGSIFUNC(LPDIRECTDRAWSURFACE2) GetBitmapSurface (BITMAP *);
+#endif
 #endif
   // get a reference to the screen bitmap
   AGSIFUNC(BITMAP *) GetScreen ();
@@ -466,8 +468,10 @@ public:
 
   // *** BELOW ARE INTERFACE VERSION 14 AND ABOVE ONLY
 #ifdef WINDOWS_VERSION
+# ifndef AGS_RATA
   // get reference to main DirectSound interface
   AGSIFUNC(LPDIRECTSOUND) GetDirectSound();
+# endif
 #endif
   // disable AGS sound engine
   AGSIFUNC(void)   DisableSound();
@@ -532,10 +536,12 @@ public:
 
   // *** BELOW ARE INTERFACE VERSION 23 AND ABOVE ONLY
 #ifdef WINDOWS_VERSION
+# ifndef AGS_RATA
   // get reference to keyboard Direct Input device
   AGSIFUNC(LPDIRECTINPUTDEVICE) GetDirectInputKeyboard();
   // get reference to mouse Direct Input device
   AGSIFUNC(LPDIRECTINPUTDEVICE) GetDirectInputMouse();
+# endif
 #endif
   // install a replacement renderer for the specified font number
   AGSIFUNC(IAGSFontRenderer*) ReplaceFontRenderer(int fontNumber, IAGSFontRenderer* newRenderer);

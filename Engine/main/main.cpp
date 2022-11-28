@@ -54,6 +54,9 @@
 #if AGS_PLATFORM_OS_WINDOWS && !AGS_PLATFORM_DEBUG
 #define USE_CUSTOM_EXCEPTION_HANDLER
 #endif
+#ifdef AGS_RATA
+#undef USE_CUSTOM_EXCEPTION_HANDLER
+#endif
 
 using namespace AGS::Common;
 using namespace AGS::Engine;

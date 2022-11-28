@@ -23,20 +23,18 @@
 #include <thread>
 #include "platform/base/agsplatformdriver.h"
 
-#define PPG_USE_CUSTOM_WAITFORNEXTFRAME // DAVIDE - comment to have original behavior
+#ifdef AGS_RATA
+#define AGS_RATA_USE_CUSTOM_WAITFORNEXTFRAME // DPASCA - comment to have original behavior
+#endif
 
-#ifdef PPG_USE_CUSTOM_WAITFORNEXTFRAME
+#ifdef AGS_RATA_USE_CUSTOM_WAITFORNEXTFRAME
 #include "util/wgt2allg.h" // END_OF_FUNCTION macro
 
 volatile int timerloop=0;
 int time_between_timers=25;  // in milliseconds
 
 // our timer, used to keep game running at same speed on all systems
-#if defined(WINDOWS_VERSION)
-void __cdecl dj_timer_handler() {
-#else
 extern "C" void dj_timer_handler() {
-#endif
     timerloop++;
 }
 END_OF_FUNCTION(dj_timer_handler);
@@ -81,7 +79,7 @@ bool isTimerFpsMaxed()
     return framerate_maxed;
 }
 
-#ifndef PPG_USE_CUSTOM_WAITFORNEXTFRAME
+#ifndef AGS_RATA_USE_CUSTOM_WAITFORNEXTFRAME
 void WaitForNextFrame()
 {
     auto now = AGS_Clock::now();

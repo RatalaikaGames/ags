@@ -189,7 +189,8 @@ void play_flc_file(int numb,int playflags) {
 #if AGS_FLI_FROM_PACK_FILE
     size_t asset_size;
     PACKFILE *pf = PackfileFromAsset(AssetPath("", flicname), asset_size);
-    if (play_fli_pf(pf, (BITMAP*)fli_buffer->GetAllegroBitmap(), fli_callback)==FLI_ERROR)
+    //if (play_fli_pf(pf, (BITMAP*)fli_buffer->GetAllegroBitmap(), fli_callback)==FLI_ERROR)
+    Debug::Printf("FLI/FLC animation requires Allegro 4.4.3 or above"); // DPASCA -
 #else
     if (play_fli(flicname, (BITMAP*)fli_buffer->GetAllegroBitmap(), 0, fli_callback)==FLI_ERROR)
 #endif

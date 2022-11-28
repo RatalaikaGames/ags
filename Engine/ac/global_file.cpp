@@ -20,6 +20,7 @@
 #include "ac/runtime_defines.h"
 #include "ac/string.h"
 #include "debug/debug_log.h"
+#include "util/directory.h"
 #include "util/path.h"
 #include "util/stream.h"
 

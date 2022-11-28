@@ -34,6 +34,7 @@
 #include "core/asset.h"
 #include "main/engine.h"
 #include "main/game_file.h"
+#include "util/directory.h"
 #include "util/path.h"
 #include "util/string.h"
 #include "util/string_utils.h"
@@ -45,16 +46,6 @@ extern GameSetupStruct game;
 extern AGSPlatformDriver *platform;
 
 extern int MAXSTRLEN;
-
-// TODO: the asset path configuration should certainly be revamped at some
-// point, with uniform method of configuring auxiliary paths and packages.
-
-// Installation directory, may contain absolute or relative path
-String installDirectory;
-// Installation directory, containing audio files
-String installAudioDirectory;
-// Installation directory, containing voice-over files
-String installVoiceDirectory;
 
 // object-based File routines
 
@@ -88,10 +79,10 @@ int File_Delete(const char *fnmm) {
   if (!ResolveScriptPath(fnmm, false, rp))
     return 0;
 
-  if (platform->PathDelete(rp.FullPath))
+  if (::remove(rp.FullPath) == 0)
       return 1;
   if (errno == ENOENT && !rp.AltPath.IsEmpty() && rp.AltPath.Compare(rp.FullPath) != 0)
-      return platform->PathDelete(rp.AltPath) ? 1 : 0;
+      return ::remove(rp.AltPath) == 0 ? 1 : 0;
   return 0;
 }
 
@@ -421,7 +412,7 @@ bool ResolveWritePathAndCreateDirs(const String &sc_path, ResolvedPath &rp)
 {
     if (!ResolveScriptPath(sc_path, false, rp))
         return false;
-    if (!platform->DirectoryCreateAll(rp.BaseDir, Path::GetDirectoryPath(rp.FullPath)))
+    if (!Directory::CreateAllDirectories(rp.BaseDir, Path::GetDirectoryPath(rp.FullPath)))
     {
         debug_script_warn("ResolveScriptPath: failed to create all subdirectories: %s", rp.FullPath.GetCStr());
         return false;
@@ -527,7 +518,6 @@ PACKFILE *PackfileFromAsset(const AssetPath &path, size_t &asset_size)
         return pack_fopen_vtable(&ags_packfile_vtable, obj);
     }
     return nullptr;
->>>>>>> v.3.5.1.0
 }
 
 DUMBFILE *DUMBfileFromAsset(const AssetPath &path, size_t &asset_size)

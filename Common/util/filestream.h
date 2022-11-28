@@ -18,9 +18,10 @@
 #ifndef __AGS_CN_UTIL__FILESTREAM_H
 #define __AGS_CN_UTIL__FILESTREAM_H
 
+#include <stdio.h>
+
 #include "util/datastream.h"
 #include "util/file.h" // TODO: extract filestream mode constants
-#include "util/stdio_compat.h"
 
 namespace AGS
 {
@@ -30,44 +31,46 @@ namespace Common
 class FileStream : public DataStream
 {
 public:
+
+    // Represents an open file object
+    // The constructor may raise std::runtime_error if 
+    // - there is an issue opening the file (does not exist, locked, permissions, etc)
+    // - the open mode could not be determined
     FileStream(const String &file_name, FileOpenMode open_mode, FileWorkMode work_mode,
         DataEndianess stream_endianess = kLittleEndian);
-    virtual ~FileStream();
+    ~FileStream() override;
 
-    virtual bool    HasErrors() const;
-    virtual void    Close();
-    virtual bool    Flush();
+    bool    HasErrors() const override;
+    void    Close() override;
+    bool    Flush() override;
 
     // Is stream valid (underlying data initialized properly)
-    virtual bool    IsValid() const;
+    bool    IsValid() const override;
     // Is end of stream
-    virtual bool    EOS() const;
+    bool    EOS() const override;
     // Total length of stream (if known)
-    virtual soff_t  GetLength() const;
+    soff_t  GetLength() const override;
     // Current position (if known)
-    virtual soff_t  GetPosition() const;
-    virtual bool    CanRead() const;
-    virtual bool    CanWrite() const;
-    virtual bool    CanSeek() const;
+    soff_t  GetPosition() const override;
+    bool    CanRead() const override;
+    bool    CanWrite() const override;
+    bool    CanSeek() const override;
 
-    virtual size_t  Read(void *buffer, size_t size);
-    virtual int32_t ReadByte();
-    virtual size_t  Write(const void *buffer, size_t size);
-    virtual int32_t WriteByte(uint8_t b);
+    size_t  Read(void *buffer, size_t size) override;
+    int32_t ReadByte() override;
+    size_t  Write(const void *buffer, size_t size) override;
+    int32_t WriteByte(uint8_t b) override;
 
-    virtual bool  Seek(soff_t offset, StreamSeek origin);
+    bool    Seek(soff_t offset, StreamSeek origin) override;
 
 protected:
     FileStream(FileOpenMode open_mode, FileWorkMode work_mode, DataEndianess stream_endianess = kLittleEndian);
-
+private:
     void            Open(const String &file_name, FileOpenMode open_mode, FileWorkMode work_mode);
 
+    FILE                *_file;
     const FileOpenMode  _openMode;
     const FileWorkMode  _workMode;
-
-private:
-    FILE                *_file;
-
 };
 
 } // namespace Common

@@ -16,8 +16,6 @@
 // Game initialization
 //
 
-#include <stdio.h>
-
 #include "ac/common.h"
 #include "ac/characterinfo.h"
 #include "ac/game.h"

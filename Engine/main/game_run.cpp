@@ -18,8 +18,6 @@
 
 #include <limits>
 #include <chrono>
-#include <stdio.h>
-
 #include "ac/common.h"
 #include "ac/characterextras.h"
 #include "ac/characterinfo.h"

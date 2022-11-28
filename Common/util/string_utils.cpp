@@ -86,10 +86,10 @@ void StrUtil::ReadString(char *cstr, Stream *in, size_t buf_limit)
     cstr[len] = 0;
 }
 
-void StrUtil::ReadString(String *s, Stream *in)
+void StrUtil::ReadString(String &s, Stream *in)
 {
     size_t len = in->ReadInt32();
-    s->ReadCount(in, len);
+    s.ReadCount(in, len);
 }
 
 void StrUtil::ReadString(char **cstr, Stream *in)

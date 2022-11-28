@@ -12,7 +12,6 @@
 //
 //=============================================================================
 
-#include "core/types.h"
 #include "ac/global_dynamicsprite.h"
 #include "util/wgt2allg.h" // Allegro RGB, PALETTE
 #include "ac/draw.h"

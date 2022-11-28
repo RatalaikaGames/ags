@@ -19,6 +19,10 @@
 #define AGS_HAS_DIRECT3D (AGS_PLATFORM_OS_WINDOWS)
 #define AGS_HAS_OPENGL (AGS_PLATFORM_OS_WINDOWS || AGS_PLATFORM_OS_ANDROID || AGS_PLATFORM_OS_IOS || AGS_PLATFORM_OS_LINUX)
 
+#ifdef AGS_RATA_EXCLUDE_OPENGL // DPASCA - selectively exclude it
+#undef AGS_HAS_OPENGL
+#endif
+
 #include "gfx/ali3dsw.h"
 #include "gfx/gfxfilter_allegro.h"
 

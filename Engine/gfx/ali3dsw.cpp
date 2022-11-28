@@ -27,16 +27,6 @@
 #include "platform/base/agsplatformdriver.h"
 #include "ac/timer.h"
 
-#if defined(WIN32) && !defined(GFX_DIRECTX) // DPASCA - make up for alwin.h somehow not being included
-#define GFX_DIRECTX              AL_ID('D','X','A','C')
-#define GFX_DIRECTX_ACCEL        AL_ID('D','X','A','C')
-#define GFX_DIRECTX_SAFE         AL_ID('D','X','S','A')
-#define GFX_DIRECTX_SOFT         AL_ID('D','X','S','O')
-#define GFX_DIRECTX_WIN          AL_ID('D','X','W','N')
-#define GFX_DIRECTX_OVL          AL_ID('D','X','O','V')
-#define GFX_GDI                  AL_ID('G','D','I','B')
-#endif
-
 #if AGS_DDRAW_GAMMA_CONTROL
 // NOTE: this struct and variables are defined internally in Allegro
 typedef struct DDRAW_SURFACE {

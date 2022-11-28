@@ -114,7 +114,7 @@ struct AGSPlatformDriver
     virtual void PlayVideo(const char* name, int skip, int flags);
     virtual void InitialiseAbufAtStartup();
     virtual void PostAllegroInit(bool windowed);
-    virtual void PostAllegroExit();
+    virtual void PostAllegroExit() = 0;
     virtual void FinishedUsingGraphicsMode();
     virtual SetupReturnValue RunSetup(const Common::ConfigTree &cfg_in, Common::ConfigTree &cfg_out);
     virtual void SetGameWindowIcon();

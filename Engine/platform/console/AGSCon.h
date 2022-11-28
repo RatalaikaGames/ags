@@ -63,7 +63,6 @@ namespace AGSCON
 		{
 			TriangleList,
 			TriangleStrip,
-			TriangleFan
 		};
 
 		enum class ShaderStage

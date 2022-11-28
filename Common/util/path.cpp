@@ -22,6 +22,8 @@ namespace Common
 namespace Path
 {
 
+#ifdef AGS_HAS_POSIX // DPASCA - MBG's change, as in file.cpp
+
 bool IsDirectory(const String &filename)
 {
     // stat() does not like trailing slashes, remove them
@@ -40,6 +42,8 @@ bool IsFileOrDir(const String &filename)
     String fixed_path = MakePathNoSlash(filename);
     return ags_path_exists(fixed_path.GetCStr()) != 0;
 }
+
+#endif // AGS_HAS_POSIX
 
 String GetFilename(const String &path)
 {

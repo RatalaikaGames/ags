@@ -25,6 +25,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <shlwapi.h>
+#pragma comment(lib,"shlwapi.lib") // DPASCA - for PathFileExistsA()
 #endif
 
 int	 ags_fseek(FILE * stream, file_off_t offset, int whence)

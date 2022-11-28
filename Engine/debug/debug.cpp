@@ -60,7 +60,14 @@ int break_on_next_script_step = 0;
 volatile int game_paused_in_debugger = 0;
 
 #if AGS_PLATFORM_OS_WINDOWS
+# ifdef AGS_RATA
+HWND editor_window_handle = 0;
 
+IAGSEditorDebugger *GetEditorDebugger(const char *instanceToken)
+{
+    return nullptr;
+}
+# else // AGS_RATA
 #include "platform/windows/debug/namedpipesagsdebugger.h"
 
 HWND editor_window_handle = 0;
@@ -69,7 +76,7 @@ IAGSEditorDebugger *GetEditorDebugger(const char *instanceToken)
 {
     return new NamedPipesAGSDebugger(instanceToken);
 }
-
+# endif // AGS_RATA
 #else   // AGS_PLATFORM_OS_WINDOWS
 
 IAGSEditorDebugger *GetEditorDebugger(const char *instanceToken)

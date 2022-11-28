@@ -159,6 +159,8 @@ String File::GetCMode(FileOpenMode open_mode, FileWorkMode work_mode)
     return mode;
 }
 
+#ifdef AGS_HAS_POSIX // DPASCA - replicating MBG's change
+
 Stream *File::OpenFile(const String &filename, FileOpenMode open_mode, FileWorkMode work_mode)
 {
     FileStream *fs = nullptr;
@@ -176,6 +178,8 @@ Stream *File::OpenFile(const String &filename, FileOpenMode open_mode, FileWorkM
     }
     return fs;
 }
+
+#endif // AGS_HAS_POSIX
 
 } // namespace Common
 } // namespace AGS

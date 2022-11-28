@@ -84,7 +84,11 @@ public:
   {
     if (_library)
     {
+#if 0 // DPASCA - adding necessary typecast
       return (FreeLibrary(_library) != 0);
+#else
+      return (FreeLibrary((HMODULE)_library) != 0);
+#endif
     }
     else
     {
@@ -94,7 +98,11 @@ public:
 
   void *GetFunctionAddress(AGS::Common::String functionName)
   {
+#if 0 // DPASCA - adding necessary typecast
     return GetProcAddress(_library, functionName.GetCStr());
+#else
+    return GetProcAddress((HMODULE)_library, functionName.GetCStr());
+#endif
   }
 
 private:

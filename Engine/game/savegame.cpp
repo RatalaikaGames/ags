@@ -11,82 +11,49 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
-
-#include "ac/game.h"
-
-#include "ac/common.h"
-#include "ac/view.h"
-#include "ac/audiocliptype.h"
-#include "ac/audiochannel.h"
 #include "ac/character.h"
-#include "ac/charactercache.h"
-#include "ac/characterextras.h"
-#include "ac/dialogtopic.h"
+#include "ac/common.h"
 #include "ac/draw.h"
 #include "ac/dynamicsprite.h"
 #include "ac/event.h"
-#include "ac/gamesetup.h"
+#include "ac/game.h"
 #include "ac/gamesetupstruct.h"
 #include "ac/gamestate.h"
+#include "ac/gamesetup.h"
 #include "ac/global_audio.h"
 #include "ac/global_character.h"
-#include "ac/global_display.h"
-#include "ac/global_game.h"
-#include "ac/global_gui.h"
-#include "ac/global_object.h"
-#include "ac/global_translation.h"
 #include "ac/gui.h"
-#include "ac/hotspot.h"
-#include "ac/lipsync.h"
 #include "ac/mouse.h"
-#include "ac/movelist.h"
-#include "ac/objectcache.h"
 #include "ac/overlay.h"
-#include "ac/path_helper.h"
-#include "ac/sys_events.h"
 #include "ac/region.h"
 #include "ac/richgamemedia.h"
 #include "ac/room.h"
-#include "ac/roomobject.h"
 #include "ac/roomstatus.h"
-#include "ac/runtime_defines.h"
-#include "ac/screenoverlay.h"
 #include "ac/spritecache.h"
-#include "ac/string.h"
 #include "ac/system.h"
 #include "ac/timer.h"
-#include "ac/translation.h"
-#include "ac/dynobj/all_dynamicclasses.h"
-#include "ac/dynobj/all_scriptclasses.h"
-#include "ac/dynobj/cc_audiochannel.h"
-#include "ac/dynobj/cc_audioclip.h"
-#include "ac/dynobj/scriptcamera.h"
-#include "debug/debug_log.h"
+#include "debug/debugger.h"
 #include "debug/out.h"
 #include "device/mousew32.h"
-#include "font/fonts.h"
+#include "gfx/bitmap.h"
+#include "gfx/ddb.h"
+#include "gfx/graphicsdriver.h"
 #include "game/savegame.h"
 #include "game/savegame_components.h"
 #include "game/savegame_internal.h"
-#include "gui/animatingguibutton.h"
-#include "gfx/bitmap.h"
-#include "gfx/graphicsdriver.h"
-#include "gfx/gfxfilter.h"
-#include "gui/guidialog.h"
 #include "main/engine.h"
-#include "main/graphics_mode.h"
 #include "main/main.h"
-#include "media/audio/audio_system.h"
+#include "platform/base/agsplatformdriver.h"
 #include "plugin/agsplugin.h"
 #include "plugin/plugin_engine.h"
-#include "script/cc_error.h"
-#include "script/runtimescriptvalue.h"
 #include "script/script.h"
-#include "script/script_runtime.h"
+#include "script/cc_error.h"
 #include "util/alignedstream.h"
-#include "util/filestream.h" // TODO: needed only because plugins expect file handle
-#include "util/path.h"
+#include "util/file.h"
+#include "util/stream.h"
 #include "util/string_utils.h"
+#include "media/audio/soundclip.h"
+#include "media/audio/audio.h"
 
 using namespace Common;
 using namespace Engine;
@@ -102,6 +69,7 @@ extern Bitmap *dynamicallyCreatedSurfaces[MAX_DYNAMIC_SURFACES];
 extern Bitmap *raw_saved_screen;
 extern RoomStatus troom;
 extern RoomStatus *croom;
+extern ViewStruct *views;
 
 
 namespace AGS
@@ -517,11 +485,18 @@ HSaveError DoAfterRestore(const PreservedParams &pp, const RestoredData &r_data)
     else if ((pp.SpeechVOX >= 0) && (play.want_speech < 0))
         play.want_speech = (-play.want_speech) - 1;
 
+    // Restore debug flags
+    if (debug_flags & DBG_DEBUGMODE)
+        play.debug_mode = 1;
+
     // recache queued clips
     for (int i = 0; i < play.new_music_queue_size; ++i)
     {
         play.new_music_queue[i].cachedClip = nullptr;
     }
+
+    // Remap old sound nums in case we restored a save having a different list of audio clips
+    RemapLegacySoundNums(game, views, loaded_game_file_version);
 
     // restore these to the ones retrieved from the save game
     const size_t dynsurf_num = Math::Min((size_t)MAX_DYNAMIC_SURFACES, r_data.DynamicSurfaces.size());

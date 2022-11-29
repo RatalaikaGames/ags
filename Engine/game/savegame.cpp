@@ -696,7 +696,7 @@ HSaveError DoAfterRestore(const PreservedParams &pp, const RestoredData &r_data)
 
     recreate_overlay_ddbs();
 
-    guis_need_update = 1;
+    GUI::MarkAllGUIForUpdate();
 
     RestoreViewportsAndCameras(r_data);
 

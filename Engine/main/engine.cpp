@@ -1636,7 +1636,9 @@ void initialize_engine_console(const char* agsPath, const char* cfgPath)
     usetup.main_data_dir = "";
     usetup.main_data_file = agsPath;
 
-    AssetMgr->AddLibrary(agsPath);
+    // function define_gamedata_location() relies on this
+    cmdGameDataPath = "/";
+    cmdGameDataPath.Append(agsPath);
 
     Debug::Printf(kDbgMsg_Info, "Setting up game configuration");
     apply_config(cfg); //TODO - remove console hacks from here

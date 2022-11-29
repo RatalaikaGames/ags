@@ -3,7 +3,6 @@
 #if AGS_PLATFORM_OS_WINDOWS
 #define NOMINMAX
 #include <windows.h>
-#include <shellapi.h> // DAVIDE - for CommandLineToArgvW()
 #endif
 #include "allegro/file.h"
 #include "util/path.h"
@@ -44,6 +43,15 @@ bool IsFileOrDir(const String &filename)
 }
 
 #endif // AGS_HAS_POSIX
+
+#ifdef AGS_RATA // DPASCA - we assume nothing to be done, since we're always in a VFS
+static char *canonicalize_filename(char *dest, const char *filename, int size)
+{
+    strncpy( dest, filename, size );
+    dest[size-1] = 0;
+    return dest;
+}
+#endif
 
 String GetFilename(const String &path)
 {

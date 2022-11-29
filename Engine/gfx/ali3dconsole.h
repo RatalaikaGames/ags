@@ -182,7 +182,7 @@ namespace AGS
 				virtual void UnInit();
 				virtual void ClearRectangle(int x1, int y1, int x2, int y2, RGB *colorToUse);
 				virtual int  GetCompatibleBitmapFormat(int color_depth);
-				virtual IDriverDependantBitmap* CreateDDBFromBitmap(Bitmap *bitmap, bool hasAlpha, bool opaque);
+                IDriverDependantBitmap* CreateDDB(int width, int height, int color_depth, bool opaque) override;
 				virtual void UpdateDDBFromBitmap(IDriverDependantBitmap* bitmapToUpdate, Bitmap *bitmap, bool hasAlpha);
 				virtual void DestroyDDB(IDriverDependantBitmap* bitmap);
 				virtual void DrawSprite(int x, int y, IDriverDependantBitmap* bitmap);
@@ -223,7 +223,7 @@ namespace AGS
 				friend class ConsoleGraphicsFactory;
 
 				void Init();
-				DDBitmap* GetPooledDDB(Bitmap *bitmap, bool hasAlpha, bool opaque);
+				DDBitmap* GetPooledDDB(int width, int height, int color_depth, bool opaque);
 
 				bool _initialized;
 				PConsoleFilter _filter;

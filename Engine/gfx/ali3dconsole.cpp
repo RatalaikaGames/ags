@@ -353,7 +353,8 @@ namespace AGS
 				//however, clearing may be trouble because we aren't drawing now.
 
 				// create initial stage screen for plugin raw drawing
-				_stageVirtualScreen = CreateStageScreen(0, _srcRect.GetSize());
+				CreateStageScreen(0, _srcRect.GetSize());
+				_stageScreen = GetStageScreen(0);
 				// we must set Allegro's screen pointer to **something**
 				screen = (BITMAP*)_stageVirtualScreen->GetAllegroBitmap();
 			}
@@ -1088,15 +1089,15 @@ namespace AGS
 				*height = allocatedHeight;
 			}
 
-			DDBitmap* ConsoleGraphicsDriver::GetPooledDDB(Bitmap *bitmap, bool hasAlpha, bool opaque)
+			DDBitmap* ConsoleGraphicsDriver::GetPooledDDB(int width, int height, int color_depth, bool opaque)
 			{
 				for(int i=0;i<(int)ddbitmaps_pool.size();i++)
 				{
 					DDBitmap* ddb = ddbitmaps_pool[i];
 					bool match = true;
-					match &= ddb->GetWidth() == bitmap->GetWidth();
-					match &= ddb->GetHeight() == bitmap->GetHeight();
-					match &= ddb->GetColorDepth() == bitmap->GetColorDepth();
+					match &= ddb->GetWidth() == width;
+					match &= ddb->GetHeight() == height;
+					match &= ddb->GetColorDepth() == color_depth;
 					match &= ddb->GetOpaque() == opaque;
 					if(match)
 					{
@@ -1108,20 +1109,20 @@ namespace AGS
 				return nullptr;
 			}
 
-			IDriverDependantBitmap* ConsoleGraphicsDriver::CreateDDBFromBitmap(Bitmap *bitmap, bool hasAlpha, bool opaque)
+            IDriverDependantBitmap* CreateDDB(int width, int height, int color_depth, bool opaque)
 			{
-				int allocatedWidth = bitmap->GetWidth();
-				int allocatedHeight = bitmap->GetHeight();
-				if (bitmap->GetColorDepth() != GetCompatibleBitmapFormat(bitmap->GetColorDepth()))
+				if (color_depth != GetCompatibleBitmapFormat(color_depth))
 					throw Ali3DException("CreateDDBFromBitmap: bitmap colour depth not supported");
-				int colorDepth = bitmap->GetColorDepth();
+				const int colorDepth = color_depth;
 
 				//check pool for anything we can reuse
-				DDBitmap* ddb = GetPooledDDB(bitmap, hasAlpha,opaque);
+				DDBitmap* ddb = GetPooledDDB(width, height, color_depth, opaque);
 				if(!ddb)
 				{
-					ddb = new DDBitmap(bitmap->GetWidth(), bitmap->GetHeight(), colorDepth, opaque);
+					ddb = new DDBitmap(width, height, colorDepth, opaque);
 
+                    int allocatedWidth = width;
+                    int allocatedHeight = height;
 					AdjustSizeToNearestSupportedByCard(&allocatedWidth, &allocatedHeight);
 					int tilesAcross = 1, tilesDown = 1;
 
@@ -1142,10 +1143,10 @@ namespace AGS
 					// store this image
 					tilesAcross = (allocatedWidth + maxWidth - 1) / maxWidth;
 					tilesDown = (allocatedHeight + maxHeight - 1) / maxHeight;
-					int tileWidth = bitmap->GetWidth() / tilesAcross;
-					int lastTileExtraWidth = bitmap->GetWidth() % tilesAcross;
-					int tileHeight = bitmap->GetHeight() / tilesDown;
-					int lastTileExtraHeight = bitmap->GetHeight() % tilesDown;
+					int tileWidth = width / tilesAcross;
+					int lastTileExtraWidth = width % tilesAcross;
+					int tileHeight = height / tilesDown;
+					int lastTileExtraHeight = height % tilesDown;
 					int tileAllocatedWidth = tileWidth;
 					int tileAllocatedHeight = tileHeight;
 

@@ -320,7 +320,7 @@ namespace AGS
 				_legacyPixelShader = (method == TintReColourise);
 			}
 
-			bool ConsoleGraphicsDriver::SetDisplayMode(const DisplayMode &mode, volatile int *loopTimer)
+			bool ConsoleGraphicsDriver::SetDisplayMode(const DisplayMode &mode)
 			{
 				//we'll hack games if this is inadequate
 				if (mode.ColorDepth != 32)
@@ -329,7 +329,7 @@ namespace AGS
 					return false;
 				}
 
-				OnInit(loopTimer);
+				OnInit();
 				GraphicsDriverBase::OnModeSet(mode);
 				InitializeDDState();
 				CreateVirtualScreen();

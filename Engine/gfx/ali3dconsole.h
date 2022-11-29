@@ -264,6 +264,7 @@ private:
     void InitializeDDState();
     void SetupViewport();
     // Unset parameters and release resources related to the display mode
+    void set_up_default_vertices();
     void AdjustSizeToNearestSupportedByCard(int *width, int *height);
     void UpdateTextureRegion(DDTextureTile *tile, Bitmap *bitmap, DDBitmap *target, bool hasAlpha);
     void CreateVirtualScreen();

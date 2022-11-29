@@ -356,7 +356,7 @@ namespace AGS
 				CreateStageScreen(0, _srcRect.GetSize());
 				_stageScreen = GetStageScreen(0);
 				// we must set Allegro's screen pointer to **something**
-				screen = (BITMAP*)_stageVirtualScreen->GetAllegroBitmap();
+				screen = (BITMAP*)_stageScreen.Bitmap->GetAllegroBitmap();
 			}
 
 			bool ConsoleGraphicsDriver::SetNativeSize(const Size &src_size)
@@ -871,11 +871,11 @@ namespace AGS
 					{
 						AGSCON::Graphics::ClearScissor();
 					}
-					_stageVirtualScreen = GetStageScreen(i);
+					_stageScreen = GetStageScreen(i);
 					RenderSpriteBatch(batch);
 				}
 
-				_stageVirtualScreen = GetStageScreen(0);
+				_stageScreen = GetStageScreen(0);
 				AGSCON::Graphics::ClearScissor();
 			}
 
@@ -895,7 +895,7 @@ namespace AGS
 						//MBG - WTF IS THIS CAST HERE?
 						//if (DoNullSpriteCallback(listToDraw[i].x, (int)direct3ddevice))
 						if (DoNullSpriteCallback(listToDraw[i].x, listToDraw[i].y)) //GUESSS?
-							stageEntry = DDDrawListEntry((DDBitmap*)_stageVirtualScreenDDB);
+							stageEntry = DDDrawListEntry((DDBitmap*)_stageScreen.DDB);
 						else
 							continue;
 						sprite = &stageEntry;
@@ -1109,7 +1109,7 @@ namespace AGS
 				return nullptr;
 			}
 
-            IDriverDependantBitmap* CreateDDB(int width, int height, int color_depth, bool opaque)
+            IDriverDependantBitmap* ConsoleGraphicsDriver::CreateDDB(int width, int height, int color_depth, bool opaque)
 			{
 				if (color_depth != GetCompatibleBitmapFormat(color_depth))
 					throw Ali3DException("CreateDDBFromBitmap: bitmap colour depth not supported");
@@ -1206,7 +1206,7 @@ namespace AGS
 					ddb->_tiles = tiles;
 				}
 
-				UpdateDDBFromBitmap(ddb, bitmap, hasAlpha);
+				//UpdateDDBFromBitmap(ddb, bitmap, hasAlpha);
 
 				return ddb;
 			}

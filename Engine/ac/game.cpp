@@ -126,6 +126,7 @@ volatile bool switched_away = false;
 volatile int game_update_suspend = 0;
 volatile char want_exit = 0, abort_engine = 0;
 GameDataVersion loaded_game_file_version = kGameVersion_Undefined;
+Version game_compiled_version;
 int frames_per_second=40;
 int displayed_room=-10,starting_room = -1;
 int in_new_room=0, new_room_was = 0;  // 1 in new room, 2 first time in new room, 3 loading saved game
@@ -172,8 +173,6 @@ MoveList *mls = nullptr;
 //=============================================================================
 
 String saveGameDirectory = "./";
-// Custom save game parent directory
-String saveGameParent;
 
 String saveGameSuffix;
 
@@ -355,94 +354,50 @@ String get_save_game_path(int slotNum)
 }
 
 // Convert a path possibly containing path tags into acceptable save path
-bool MakeSaveGameDir(const String &newFolder, ResolvedPath &rp)
+// NOTE that the game script may issue an order to change the save directory to
+// a dir of a new name. While we let this work, we also try to keep these
+// inside same parent location, would that be a common system directory,
+// or a custom one set by a player in config.
+static bool MakeSaveGameDir(const String &new_dir, FSLocation &fsdir)
 {
-    rp = ResolvedPath();
+    fsdir = FSLocation();
     // don't allow absolute paths
-    if (!is_relative_filename(newFolder))
+    if (!is_relative_filename(new_dir))
         return false;
 
-    String base_dir;
-    String newSaveGameDir = FixSlashAfterToken(newFolder);
+    String fixed_newdir = FixSlashAfterToken(new_dir);
+    if (fixed_newdir.CompareLeft(UserSavedgamesRootToken, UserSavedgamesRootToken.GetLength()) == 0)
+    {
+        fixed_newdir.ClipLeft(UserSavedgamesRootToken.GetLength());
+    }
+    else if (game.options[OPT_SAFEFILEPATHS] > 0)
+    { // For games made in the safe-path-aware versions of AGS, report a warning
+        debug_script_warn("Attempt to explicitly set savegame location relative to the game installation directory ('%s') denied;\nPath will be remapped to the user documents directory: '%s'",
+            fixed_newdir.GetCStr(), fsdir.FullDir.GetCStr());
+    }
 
-    if (newSaveGameDir.CompareLeft(UserSavedgamesRootToken, UserSavedgamesRootToken.GetLength()) == 0)
-    {
-        if (saveGameParent.IsEmpty())
-        {
-            base_dir = PathFromInstallDir(platform->GetUserSavedgamesDirectory());
-            newSaveGameDir.ReplaceMid(0, UserSavedgamesRootToken.GetLength(), base_dir);
-        }
-        else
-        {
-            // If there is a custom save parent directory, then replace
-            // not only root token, but also first subdirectory
-            newSaveGameDir.ClipSection('/', 0, 1); // TODO: Path helper function for this?
-            newSaveGameDir = Path::ConcatPaths(saveGameParent, newSaveGameDir);
-            base_dir = saveGameParent;
-        }
-    }
-    else
-    {
-        // Convert the path relative to installation folder into path relative to the
-        // safe save path with default name
-        if (saveGameParent.IsEmpty())
-        {
-            base_dir = PathFromInstallDir(platform->GetUserSavedgamesDirectory());
-            newSaveGameDir = Path::ConcatPaths(Path::ConcatPaths(base_dir, game.saveGameFolderName), newFolder);
-        }
-        else
-        {
-            base_dir = saveGameParent;
-            newSaveGameDir = Path::ConcatPaths(saveGameParent, newFolder);
-        }
-        // For games made in the safe-path-aware versions of AGS, report a warning
-        if (game.options[OPT_SAFEFILEPATHS])
-        {
-            debug_script_warn("Attempt to explicitly set savegame location relative to the game installation directory ('%s') denied;\nPath will be remapped to the user documents directory: '%s'",
-                newFolder.GetCStr(), newSaveGameDir.GetCStr());
-        }
-    }
-    rp.BaseDir = base_dir;
-    rp.FullPath = newSaveGameDir;
+    // Resolve the new dir relative to the user data parent dir
+    fsdir = GetGameUserDataDir().Concat(fixed_newdir);
     return true;
 }
 
-bool SetCustomSaveParent(const String &path)
+#ifdef AGS_RATA
+bool SetSaveGameDirectory(const FSLocation &fsdir)
 {
-    if (SetSaveGameDirectoryPath(path, true))
-    {
-        saveGameParent = path;
-        return true;
-    }
-    return false;
-}
-
-bool SetSaveGameDirectoryPath(const char *newFolder, bool explicit_path)
+    if (!platform->DirectoryCreateAll(fsdir.BaseDir, fsdir.FullDir))
+#else
+// Tries to assign a new save directory, and copies the restart point if available
+static bool SetSaveGameDirectory(const FSLocation &fsdir)
 {
-    if (!newFolder || newFolder[0] == 0)
-        newFolder = ".";
-    String newSaveGameDir;
-    if (explicit_path)
+    if (!Directory::CreateAllDirectories(fsdir.BaseDir, fsdir.FullDir))
+#endif
     {
-        newSaveGameDir = PathFromInstallDir(newFolder);
-        if (!Directory::CreateDirectory(newSaveGameDir))
-            return false;
+        debug_script_warn("SetSaveGameDirectory: failed to create all subdirectories: %s", fsdir.FullDir.GetCStr());
+        return false;
     }
-    else
-    {
-        ResolvedPath rp;
-        if (!MakeSaveGameDir(newFolder, rp))
-            return false;
-        if (!platform->DirectoryCreateAll(rp.BaseDir, rp.FullPath))
-        {
-            debug_script_warn("SetSaveGameDirectory: failed to create all subdirectories: %s", rp.FullPath.GetCStr());
-            return false;
-        }
-        newSaveGameDir = rp.FullPath;
-    }
+    String newSaveGameDir = fsdir.FullDir;
 
-    String newFolderTempFile = Path::ConcatPaths(newSaveGameDir, "agstmp.tmp");
-    if (!File::TestCreateFile(newFolderTempFile))
+    if (!File::TestCreateFile(Path::ConcatPaths(newSaveGameDir, "agstmp.tmp")))
         return false;
 
     // copy the Restart Game file, if applicable
@@ -466,9 +421,21 @@ bool SetSaveGameDirectoryPath(const char *newFolder, bool explicit_path)
     return true;
 }
 
+void SetDefaultSaveDirectory()
+{
+    // Request a default save location, and assign it as a save dir
+    FSLocation fsdir = GetGameUserDataDir();
+    SetSaveGameDirectory(fsdir);
+}
+
 int Game_SetSaveGameDirectory(const char *newFolder)
 {
-    return SetSaveGameDirectoryPath(newFolder, false) ? 1 : 0;
+    // First resolve the script path (it may contain tokens)
+    FSLocation fsdir;
+    if (!MakeSaveGameDir(newFolder, fsdir))
+        return 0;
+    // If resolved successfully, try to assign the new dir
+    return SetSaveGameDirectory(fsdir) ? 1 : 0;
 }
 
 const char* Game_GetSaveSlotDescription(int slnum) {

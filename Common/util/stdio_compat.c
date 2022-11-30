@@ -25,7 +25,6 @@
 #define NOMINMAX
 #include <windows.h>
 #include <shlwapi.h>
-#pragma comment(lib,"shlwapi.lib") // DPASCA - for PathFileExistsA()
 #endif
 
 int	 ags_fseek(FILE * stream, file_off_t offset, int whence)
@@ -101,13 +100,19 @@ int ags_path_exists(const char *path)
 
 file_off_t ags_file_size(const char *path)
 {
-    #if AGS_HAS_POSIX
+#if AGS_PLATFORM_OS_WINDOWS
+    struct _stat64 path_stat;
+    if (_stati64(path, &path_stat) != 0) {
+        return -1;
+    }
+    return path_stat.st_size;
+#elif AGS_HAS_POSIX
     struct stat path_stat;
     if (stat(path, &path_stat) != 0) {
         return -1;
     }
     return path_stat.st_size;
-    #else
+#else
     return 0;
-    #endif
+#endif
 }

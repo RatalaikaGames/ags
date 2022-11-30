@@ -553,8 +553,11 @@ void on_mainviewport_changed()
 {
     if (!gfxDriver->RequiresFullRedrawEachFrame())
     {
-        init_invalid_regions(-1, play.GetMainViewport().GetSize(), RectWH(play.GetMainViewport().GetSize()));
-        if (game.GetGameRes().ExceedsByAny(play.GetMainViewport().GetSize()))
+        const auto &view = play.GetMainViewport();
+        set_invalidrects_globaloffs(view.Left, view.Top);
+        // the black background region covers whole game screen
+        init_invalid_regions(-1, game.GetGameRes(), RectWH(game.GetGameRes()));
+        if (game.GetGameRes().ExceedsByAny(view.GetSize()))
             clear_letterbox_borders();
     }
 }
@@ -601,7 +604,10 @@ void sync_roomview(Viewport *view)
 {
     if (view->GetCamera() == nullptr)
         return;
-    init_invalid_regions(view->GetID(), view->GetCamera()->GetRect().GetSize(), play.GetRoomViewportAbs(view->GetID()));
+    // Note the dirty regions' viewport is found using absolute offset on game screen
+    init_invalid_regions(view->GetID(),
+        view->GetCamera()->GetRect().GetSize(),
+        play.GetRoomViewportAbs(view->GetID()));
     prepare_roomview_frame(view);
 }
 
@@ -721,14 +727,17 @@ void invalidate_camera_frame(int index)
 
 void invalidate_rect(int x1, int y1, int x2, int y2, bool in_room)
 {
-    //if (!in_room)
     invalidate_rect_ds(x1, y1, x2, y2, in_room);
 }
 
 void invalidate_sprite(int x1, int y1, IDriverDependantBitmap *pic, bool in_room)
 {
-    //if (!in_room)
     invalidate_rect_ds(x1, y1, x1 + pic->GetWidth(), y1 + pic->GetHeight(), in_room);
+}
+
+void invalidate_sprite_glob(int x1, int y1, IDriverDependantBitmap *pic)
+{
+    invalidate_rect_global(x1, y1, x1 + pic->GetWidth(), y1 + pic->GetHeight());
 }
 
 void mark_current_background_dirty()
@@ -2147,7 +2156,7 @@ void draw_fps(const Rect &viewport)
         ddb = gfxDriver->CreateDDBFromBitmap(fpsDisplay, false);
     int yp = viewport.GetHeight() - fpsDisplay->GetHeight();
     gfxDriver->DrawSprite(1, yp, ddb);
-    invalidate_sprite(1, yp, ddb, false);
+    invalidate_sprite_glob(1, yp, ddb);
 }
 
 // Draw GUI and overlays of all kinds, anything outside the room space
@@ -2524,7 +2533,7 @@ void construct_engine_overlay()
             gfxDriver->UpdateDDBFromBitmap(debugConsole, debugConsoleBuffer, false);
 
         gfxDriver->DrawSprite(0, 0, debugConsole);
-        invalidate_sprite(0, 0, debugConsole, false);
+        invalidate_sprite_glob(0, 0, debugConsole);
     }
 
     if (display_fps != kFPS_Hide)

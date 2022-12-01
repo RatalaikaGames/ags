@@ -844,6 +844,7 @@ int Game_ChangeTranslation(const char *newFilename)
     {
         close_translation();
         usetup.translation = "";
+        GUI::MarkForTranslationUpdate();
         return 1;
     }
 
@@ -851,7 +852,8 @@ int Game_ChangeTranslation(const char *newFilename)
     if (init_translation(newFilename, oldTransFileName, false))
     {
         usetup.translation = newFilename;
-        //platform->SetTranslation(newFilename); // DAVIDE TODO: see if we want this
+        //platform->SetTranslation(newFilename); // DPASCA TODO: see if we want this
+        GUI::MarkForTranslationUpdate();
         return 1;
     }
 

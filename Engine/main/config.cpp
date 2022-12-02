@@ -16,7 +16,6 @@
 // Game configuration
 //
 #include <ctype.h> // toupper
-#include "core/platform.h"
 #include "ac/gamesetup.h"
 #include "ac/gamesetupstruct.h"
 #include "ac/gamestate.h"
@@ -24,16 +23,17 @@
 #include "ac/path_helper.h"
 #include "ac/spritecache.h"
 #include "ac/system.h"
+#include "core/platform.h"
 #include "debug/debugger.h"
 #include "debug/debug_log.h"
-#include "main/mainheader.h"
+#include "device/mousew32.h"
 #include "main/config.h"
+#include "media/audio/audio_system.h"
 #include "platform/base/agsplatformdriver.h"
 #include "util/ini_util.h"
 #include "util/textstreamreader.h"
 #include "util/path.h"
 #include "util/string_utils.h"
-#include "media/audio/audio_system.h"
 
 // DAVIDE - looks like these are not reachable for us here
 #if AGS_PLATFORM_OS_WINDOWS && !defined(DIGI_DIRECTAMX)

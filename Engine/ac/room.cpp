@@ -17,6 +17,7 @@
 #include "core/platform.h"
 #include "util/string_utils.h" //strlwr()
 #include "ac/common.h"
+#include "ac/character.h"
 #include "ac/charactercache.h"
 #include "ac/characterextras.h"
 #include "ac/draw.h"
@@ -138,6 +139,15 @@ ScriptDrawingSurface* Room_GetDrawingSurfaceForBackground(int backgroundNumber)
     return surface;
 }
 
+ScriptDrawingSurface* Room_GetDrawingSurfaceForMask(RoomAreaMask mask)
+{
+    if (displayed_room < 0)
+        quit("!Room_GetDrawingSurfaceForMask: no room is currently loaded");
+    ScriptDrawingSurface *surface = new ScriptDrawingSurface();
+    surface->roomMaskType = mask;
+    ccRegisterManagedObject(surface, surface);
+    return surface;
+}
 
 int Room_GetObjectCount() {
     return croom->numobj;
@@ -237,6 +247,12 @@ void convert_room_background_to_game_res()
     thisroom.HotspotMask = FixBitmap(thisroom.HotspotMask, mask_width, mask_height);
     thisroom.RegionMask = FixBitmap(thisroom.RegionMask, mask_width, mask_height);
     thisroom.WalkAreaMask = FixBitmap(thisroom.WalkAreaMask, mask_width, mask_height);
+
+    for (size_t i = 0; i < thisroom.WalkAreaCount; ++i)
+    {
+        thisroom.WalkAreas[i].Top = room_to_mask_coord(thisroom.WalkAreas[i].Top);
+        thisroom.WalkAreas[i].Bottom = room_to_mask_coord(thisroom.WalkAreas[i].Bottom);
+    }
 }
 
 
@@ -758,7 +774,6 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
         // only stop moving if it's a new room, not a restore game
         for (cc=0;cc<game.numcharacters;cc++)
             StopMoving(cc);
-
     }
 
     update_polled_stuff_if_runtime();
@@ -780,12 +795,16 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
     {
         forchar->x = new_room_x;
         forchar->y = new_room_y;
+        if (new_room_placeonwalkable)
+            Character_PlaceOnWalkableArea(forchar);
 
 		if (new_room_loop != SCR_NO_VALUE)
 			forchar->loop = new_room_loop;
     }
-    new_room_x = SCR_NO_VALUE;
-	new_room_loop = SCR_NO_VALUE;
+    // reset new_room instructions
+    new_room_x = new_room_y = SCR_NO_VALUE;
+    new_room_loop = SCR_NO_VALUE;
+    new_room_placeonwalkable = false;
 
     if ((new_room_pos>0) & (forchar!=nullptr)) {
         if (new_room_pos>=4000) {

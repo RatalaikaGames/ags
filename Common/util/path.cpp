@@ -40,6 +40,8 @@ bool IsFileOrDir(const String &filename)
     return ags_path_exists(fixed_path.GetCStr()) != 0;
 }
 
+#endif // AGS_HAS_POSIX
+
 String GetParent(const String &path)
 {
     const char *cstr = path.GetCStr();
@@ -51,8 +53,6 @@ String GetParent(const String &path)
     }
     return ".";
 }
-
-#endif // AGS_HAS_POSIX
 
 String GetFilename(const String &path)
 {

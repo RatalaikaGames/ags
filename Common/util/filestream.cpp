@@ -33,17 +33,18 @@ FileStream::FileStream(const String &file_name, FileOpenMode open_mode, FileWork
     Open(file_name, open_mode, work_mode);
 }
 
-FileStream::FileStream(FileOpenMode open_mode, FileWorkMode work_mode, DataEndianess stream_endianess)
-    : DataStream(stream_endianess)
-    , _file(NULL)
-    , _openMode(open_mode)
+FileStream::FileStream(FILE *file, bool own, FileWorkMode work_mode, DataEndianess stream_end)
+    : DataStream(stream_end)
+    , _file(file)
+    , _ownHandle(own)
+    , _openMode(kFile_Open)
     , _workMode(work_mode)
 {
 }
 
 FileStream::~FileStream()
 {
-    FileStream::Close();
+    Close();
 }
 
 bool FileStream::HasErrors() const
@@ -53,11 +54,12 @@ bool FileStream::HasErrors() const
 
 void FileStream::Close()
 {
-    if (_file)
+    if (_ownHandle && _file)
     {
         fclose(_file);
     }
     _file = nullptr;
+    _ownHandle = false;
 }
 
 bool FileStream::Flush()
@@ -182,6 +184,7 @@ void FileStream::Open(const String &file_name, FileOpenMode open_mode, FileWorkM
     _file = fopen(file_name.GetCStr(), mode.GetCStr());
     if (_file == nullptr)
         throw std::runtime_error("Error opening file.");
+    _ownHandle = true;
 }
 
 } // namespace Common

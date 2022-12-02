@@ -20,13 +20,22 @@
 #define CursorMode int
 #define FontType int
 #define AudioType int
+// MAX_INV is a topmost index, AGS_MAX_INV_ITEMS is max count
 #define MAX_INV 301
+#define AGS_MAX_INV_ITEMS 300
+#define AGS_MAX_OBJECTS   40
+#define AGS_MAX_HOTSPOTS  50
+#define AGS_MAX_REGIONS   16
 #ifdef SCRIPT_API_v330
-  #define MAX_ROOM_OBJECTS    40
-  #define MAX_LEGACY_GLOBAL_VARS  50
-  #define MAX_LISTBOX_SAVED_GAMES 50
-  #define PALETTE_SIZE       256
+  // MAX_ROOM_OBJECTS is a duplicate and was added by an oversight
+  #define MAX_ROOM_OBJECTS 40
 #endif
+#ifdef SCRIPT_COMPAT_v335
+  #define AGS_MAX_CONTROLS_PER_GUI 30
+#endif
+#define MAX_LEGACY_GLOBAL_VARS  50
+#define MAX_LISTBOX_SAVED_GAMES 50
+#define PALETTE_SIZE   256
 #define FOLLOW_EXACTLY 32766
 #define NARRATOR -1
 #define OPT_WALKONLOOK       2
@@ -741,6 +750,12 @@ import int  GetWalkableAreaAtScreen(int screenX, int screenY);
 /// Returns which walkable area is at the specified position within the room.
 import int  GetWalkableAreaAtRoom(int roomX, int roomY);
 #endif
+#ifdef SCRIPT_API_v360
+/// Gets the drawing surface for the 8-bit walkable mask
+import DrawingSurface* GetDrawingSurfaceForWalkableArea();
+/// Gets the drawing surface for the 8-bit walk-behind mask
+import DrawingSurface* GetDrawingSurfaceForWalkbehind();
+#endif
 /// Returns the scaling level at the specified position within the room.
 import int  GetScalingAt (int x, int y);
 #ifdef SCRIPT_COMPAT_v335
@@ -1253,6 +1268,12 @@ builtin managed struct Overlay {
   import attribute int X;
   /// Gets/sets the Y position on the screen where this overlay is displayed.
   import attribute int Y;
+#ifdef SCRIPT_API_v360
+  /// Gets the width of this overlay.
+  import readonly attribute int Width;
+  /// Gets the height of this overlay.
+  import readonly attribute int Height;
+#endif
 };
 
 builtin managed struct DynamicSprite {
@@ -1872,6 +1893,10 @@ builtin managed struct Hotspot {
   /// Returns the hotspot at the specified position within this room.
   import static Hotspot* GetAtRoomXY(int x, int y);      // $AUTOCOMPLETESTATICONLY$
 #endif
+#ifdef SCRIPT_API_v360
+  /// Gets the drawing surface for the 8-bit hotspots mask
+  import static DrawingSurface* GetDrawingSurface();     // $AUTOCOMPLETESTATICONLY$
+#endif
   int reserved[2];   // $AUTOCOMPLETEIGNORE$
 };
 
@@ -1903,6 +1928,10 @@ builtin managed struct Region {
 #ifdef SCRIPT_API_v3507
   /// Returns the region at the specified position on the screen.
   import static Region* GetAtScreenXY(int x, int y);    // $AUTOCOMPLETESTATICONLY$
+#endif
+#ifdef SCRIPT_API_v360
+  /// Gets the drawing surface for the 8-bit regions mask
+  import static DrawingSurface* GetDrawingSurface();  // $AUTOCOMPLETESTATICONLY$
 #endif
   int reserved[2];   // $AUTOCOMPLETEIGNORE$
 };
@@ -2064,6 +2093,10 @@ builtin managed struct AudioClip {
   import AudioChannel* PlayFrom(int position, AudioPriority=SCR_NO_VALUE, RepeatStyle=SCR_NO_VALUE);
   /// Plays this audio clip, or queues it if all channels are busy.
   import AudioChannel* PlayQueued(AudioPriority=SCR_NO_VALUE, RepeatStyle=SCR_NO_VALUE);
+#ifdef SCRIPT_API_v360
+  /// Plays this audio clip, explicitly putting it on the particular channel.
+  import AudioChannel* PlayOnChannel(int chan, AudioPriority=SCR_NO_VALUE, RepeatStyle=SCR_NO_VALUE);
+#endif
   /// Stops all currently playing instances of this audio clip.
   import void Stop();
   /// Gets the file type of the sound.
@@ -2701,12 +2734,7 @@ builtin struct GameState {
   int  disabled_user_interface;
   int  gscript_timer;
   int  debug_mode;
-#ifdef SCRIPT_API_v330
   int  globalvars[MAX_LEGACY_GLOBAL_VARS];
-#endif
-#ifndef SCRIPT_API_v330
-  int  globalvars[50];
-#endif
   int  messagetime;   // for auto-remove messages
   int  usedinv;
 #ifdef STRICT
@@ -2947,17 +2975,19 @@ import Mouse mouse;
 import System system;
 #endif
 import GameState  game;
-#ifdef SCRIPT_API_v330
-import Object object[MAX_ROOM_OBJECTS];
+
+import Object object[AGS_MAX_OBJECTS];
+import Hotspot hotspot[AGS_MAX_HOTSPOTS];
+import Region region[AGS_MAX_REGIONS];
+
 import int   gs_globals[MAX_LEGACY_GLOBAL_VARS];
 import short savegameindex[MAX_LISTBOX_SAVED_GAMES];
 import ColorType palette[PALETTE_SIZE];
-#endif
+
 #ifndef SCRIPT_API_v330
-import Object object[40];
-import int   gs_globals[50];
-import short savegameindex[50];
-import ColorType palette[256];
+#undef MAX_LEGACY_GLOBAL_VARS
+#undef MAX_LISTBOX_SAVED_GAMES
+#undef PALETTE_SIZE
 #endif
 
 #undef CursorMode

@@ -356,9 +356,9 @@ void ConsoleGraphicsDriver::CreateVirtualScreen()
   _stageScreen = GetStageScreen(0);
 }
 
-bool ConsoleGraphicsDriver::SetNativeSize(const Size &src_size)
+bool ConsoleGraphicsDriver::SetNativeResolution(const GraphicResolution &native_res)
 {
-  OnSetNativeSize(src_size);
+  OnSetNativeRes(native_res);
   // Also make sure viewport is updated using new native & destination rectangles
   SetupViewport();
   CreateVirtualScreen();

@@ -119,7 +119,7 @@
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <TreatSpecificWarningsAsErrors>4013; 4150; 4477</TreatSpecificWarningsAsErrors>
+      <TreatSpecificWarningsAsErrors>4013; 4150; 4477; 4715</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <Link>
       <AdditionalDependencies>Common_d.lib;SDL2.lib;SDL2main.lib;SDL_sound.lib;d3d9.lib;amstrmid.lib;quartz.lib;shlwapi.lib;winmm.lib;opengl32.lib;libogg_static.lib;libvorbis_static.lib;libtheora_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -148,7 +148,7 @@
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <TreatSpecificWarningsAsErrors>4013; 4150; 4477</TreatSpecificWarningsAsErrors>
+      <TreatSpecificWarningsAsErrors>4013; 4150; 4477; 4715</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <Link>
       <AdditionalDependencies>Common_d.lib;SDL2.lib;SDL2main.lib;SDL_sound.lib;d3d9.lib;amstrmid.lib;quartz.lib;shlwapi.lib;winmm.lib;opengl32.lib;libogg_static.lib;libvorbis_static.lib;libtheora_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -176,7 +176,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <TreatSpecificWarningsAsErrors>4013; 4150; 4477</TreatSpecificWarningsAsErrors>
+      <TreatSpecificWarningsAsErrors>4013; 4150; 4477; 4715</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <Link>
       <AdditionalDependencies>Common.lib;SDL2.lib;SDL2main.lib;SDL_sound.lib;d3d9.lib;amstrmid.lib;quartz.lib;shlwapi.lib;winmm.lib;opengl32.lib;libogg_static.lib;libvorbis_static.lib;libtheora_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -210,7 +210,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <TreatSpecificWarningsAsErrors>4013; 4150; 4477</TreatSpecificWarningsAsErrors>
+      <TreatSpecificWarningsAsErrors>4013; 4150; 4477; 4715</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <Link>
       <AdditionalDependencies>Common.lib;SDL2.lib;SDL2main.lib;SDL_sound.lib;d3d9.lib;amstrmid.lib;quartz.lib;shlwapi.lib;winmm.lib;opengl32.lib;libogg_static.lib;libvorbis_static.lib;libtheora_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -358,7 +358,6 @@
     <ClCompile Include="..\..\Engine\ac\textbox.cpp" />
     <ClCompile Include="..\..\Engine\ac\timer.cpp" />
     <ClCompile Include="..\..\Engine\ac\translation.cpp" />
-    <ClCompile Include="..\..\Engine\ac\tree_map.cpp" />
     <ClCompile Include="..\..\Engine\ac\viewframe.cpp" />
     <ClCompile Include="..\..\Engine\ac\viewport_script.cpp" />
     <ClCompile Include="..\..\Engine\ac\walkablearea.cpp" />
@@ -410,7 +409,6 @@
     <ClCompile Include="..\..\Engine\libsrc\apeg-1.2.1\ogg.c" />
     <ClCompile Include="..\..\Engine\libsrc\apeg-1.2.1\recon.c" />
     <ClCompile Include="..\..\Engine\libsrc\glad\src\glad.c" />
-    <ClCompile Include="..\..\Engine\libsrc\glad\src\glad_wgl.c" />
     <ClCompile Include="..\..\Engine\libsrc\libcda-0.5\windows.c" />
     <ClCompile Include="..\..\Engine\main\config.cpp" />
     <ClCompile Include="..\..\Engine\main\engine.cpp" />
@@ -452,15 +450,6 @@
     <ClCompile Include="..\..\Engine\script\script_engine.cpp" />
     <ClCompile Include="..\..\Engine\script\script_runtime.cpp" />
     <ClCompile Include="..\..\Engine\script\systemimports.cpp" />
-    <ClCompile Include="..\..\Engine\test\test_all.cpp" />
-    <ClCompile Include="..\..\Engine\test\test_file.cpp" />
-    <ClCompile Include="..\..\Engine\test\test_gfx.cpp" />
-    <ClCompile Include="..\..\Engine\test\test_inifile.cpp" />
-    <ClCompile Include="..\..\Engine\test\test_math.cpp" />
-    <ClCompile Include="..\..\Engine\test\test_memory.cpp" />
-    <ClCompile Include="..\..\Engine\test\test_sprintf.cpp" />
-    <ClCompile Include="..\..\Engine\test\test_string.cpp" />
-    <ClCompile Include="..\..\Engine\test\test_version.cpp" />
     <ClCompile Include="..\..\libsrc\mojoAL\mojoal.c" />
   </ItemGroup>
   <ItemGroup>
@@ -638,7 +627,6 @@
     <ClInclude Include="..\..\Engine\ac\timer.h" />
     <ClInclude Include="..\..\Engine\ac\topbarsettings.h" />
     <ClInclude Include="..\..\Engine\ac\translation.h" />
-    <ClInclude Include="..\..\Engine\ac\tree_map.h" />
     <ClInclude Include="..\..\Engine\ac\viewframe.h" />
     <ClInclude Include="..\..\Engine\ac\walkablearea.h" />
     <ClInclude Include="..\..\Engine\ac\walkbehind.h" />
@@ -752,7 +740,6 @@
     <ClInclude Include="..\..\Engine\util\mutex_pthread.h" />
     <ClInclude Include="..\..\Engine\util\mutex_wii.h" />
     <ClInclude Include="..\..\Engine\util\mutex_windows.h" />
-    <ClInclude Include="..\..\Engine\util\scaling.h" />
     <ClInclude Include="..\..\Engine\util\thread.h" />
     <ClInclude Include="..\..\Engine\util\thread_psp.h" />
     <ClInclude Include="..\..\Engine\util\thread_pthread.h" />

@@ -18,10 +18,6 @@
 
 #include "core/platform.h"
 
-#define AGS_OPENGL_DRIVER (AGS_PLATFORM_OS_WINDOWS || AGS_PLATFORM_OS_ANDROID || AGS_PLATFORM_OS_IOS || AGS_PLATFORM_OS_LINUX || AGS_PLATFORM_OS_MACOS)
-
-#define AGS_OPENGL_ES2 (AGS_PLATFORM_OS_ANDROID)
-
 #if AGS_OPENGL_ES2
 #include <SDL.h>
 #include <EGL/egl.h>
@@ -33,12 +29,10 @@
 #include <windows.h>
 #undef BITMAP
 #include "glad/glad.h"
-#include "glad/glad_wgl.h"
 
-#elif AGS_PLATFORM_OS_LINUX
+#elif AGS_PLATFORM_OS_LINUX || AGS_PLATFORM_OS_FREEBSD
 #include <SDL.h>
 #include "glad/glad.h"
-#include "glad/glad_glx.h"
 
 #elif AGS_PLATFORM_OS_MACOS
 #include "SDL.h"

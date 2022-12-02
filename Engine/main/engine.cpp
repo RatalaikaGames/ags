@@ -123,7 +123,6 @@ bool engine_init_backend()
     }
     
     // Initialize stripped allegro library
-    set_uformat(U_ASCII);
     if (install_allegro(SYSTEM_NONE, &errno, atexit))
     {
         platform->DisplayAlert("Internal error: unable to initialize stripped Allegro 4 library.");
@@ -678,14 +677,14 @@ int engine_init_sprites()
 {
     Debug::Printf(kDbgMsg_Info, "Initialize sprites");
 
-    HError err = spriteset.InitFile(SpriteCache::DefaultSpriteFileName, SpriteCache::DefaultSpriteIndexName);
+    HError err = spriteset.InitFile(SpriteFile::DefaultSpriteFileName, SpriteFile::DefaultSpriteIndexName);
     if (!err) 
     {
         sys_main_shutdown();
         allegro_exit();
         proper_exit=1;
         platform->DisplayAlert("Could not load sprite set file %s\n%s",
-            SpriteCache::DefaultSpriteFileName.GetCStr(),
+            SpriteFile::DefaultSpriteFileName.GetCStr(),
             err->FullMessage().GetCStr());
         return EXIT_ERROR;
     }
@@ -697,6 +696,9 @@ void engine_init_game_settings()
 {
     our_eip=-7;
     Debug::Printf("Initialize game settings");
+
+    // Setup a text encoding mode depending on the game data hint
+    set_uformat(U_ASCII);
 
     int ee;
 
@@ -989,13 +991,6 @@ void allegro_bitmap_test_init()
 	//test_allegro_bitmap = AllegroBitmap::CreateBitmap(320,200,32);
 }
 
-// Only allow searching around for game data on desktop systems;
-// otherwise use explicit argument either from program wrapper, command-line
-// or read from default config.
-#if AGS_PLATFORM_OS_WINDOWS || AGS_PLATFORM_OS_LINUX || AGS_PLATFORM_OS_MACOS
-    #define AGS_SEARCH_FOR_GAME_ON_LAUNCH
-#endif
-
 // Define location of the game data either using direct settings or searching
 // for the available resource packs in common locations.
 // Returns two paths:
@@ -1023,7 +1018,7 @@ HError define_gamedata_location_checkall(String &data_path, String &startup_dir)
         }
     }
 
-#if defined (AGS_SEARCH_FOR_GAME_ON_LAUNCH)
+#if AGS_SEARCH_FOR_GAME_ON_LAUNCH
     // No direct filepath provided, search in common locations.
     data_path = search_for_game_data_file(startup_dir);
     if (data_path.IsEmpty())

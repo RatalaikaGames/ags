@@ -11,6 +11,8 @@
     #define AGS_PLATFORM_OS_ANDROID (1)
     #define AGS_PLATFORM_OS_IOS     (0)
     #define AGS_PLATFORM_OS_PSP     (0)
+    #define AGS_PLATFORM_OS_EMSCRIPTEN (0)
+    #define AGS_PLATFORM_OS_FREEBSD    (0)
 #elif defined(CONSOLE_VERSION)
     //MBG - special logic for consoles (all portability externally managed)
     #define AGS_PLATFORM_OS_WINDOWS (0)
@@ -19,6 +21,8 @@
     #define AGS_PLATFORM_OS_ANDROID (0)
     #define AGS_PLATFORM_OS_IOS     (0)
     #define AGS_PLATFORM_OS_PSP     (0)
+    #define AGS_PLATFORM_OS_EMSCRIPTEN (0)
+    #define AGS_PLATFORM_OS_FREEBSD    (0)
 #elif defined(_WIN32)
     //define something for Windows (32-bit and 64-bit)
     #define AGS_PLATFORM_OS_WINDOWS (1)
@@ -27,6 +31,8 @@
     #define AGS_PLATFORM_OS_ANDROID (0)
     #define AGS_PLATFORM_OS_IOS     (0)
     #define AGS_PLATFORM_OS_PSP     (0)
+    #define AGS_PLATFORM_OS_EMSCRIPTEN (0)
+    #define AGS_PLATFORM_OS_FREEBSD    (0)
 #elif defined(__APPLE__)
     #include "TargetConditionals.h"
     #ifndef TARGET_OS_SIMULATOR
@@ -46,6 +52,8 @@
         #define AGS_PLATFORM_OS_ANDROID (0)
         #define AGS_PLATFORM_OS_IOS     (1)
         #define AGS_PLATFORM_OS_PSP     (0)
+        #define AGS_PLATFORM_OS_EMSCRIPTEN (0)
+        #define AGS_PLATFORM_OS_FREEBSD    (0)
     #elif TARGET_OS_IOS || TARGET_OS_IPHONE
         #define AGS_PLATFORM_OS_WINDOWS (0)
         #define AGS_PLATFORM_OS_LINUX   (0)
@@ -53,6 +61,8 @@
         #define AGS_PLATFORM_OS_ANDROID (0)
         #define AGS_PLATFORM_OS_IOS     (1)
         #define AGS_PLATFORM_OS_PSP     (0)
+        #define AGS_PLATFORM_OS_EMSCRIPTEN (0)
+        #define AGS_PLATFORM_OS_FREEBSD    (0)
     #elif TARGET_OS_OSX || TARGET_OS_MAC
         #define AGS_PLATFORM_OS_WINDOWS (0)
         #define AGS_PLATFORM_OS_LINUX   (0)
@@ -60,6 +70,8 @@
         #define AGS_PLATFORM_OS_ANDROID (0)
         #define AGS_PLATFORM_OS_IOS     (0)
         #define AGS_PLATFORM_OS_PSP     (0)
+        #define AGS_PLATFORM_OS_EMSCRIPTEN (0)
+        #define AGS_PLATFORM_OS_FREEBSD    (0)
     #else
         #error "Unknown Apple platform"
     #endif
@@ -70,10 +82,29 @@
     #define AGS_PLATFORM_OS_ANDROID (0)
     #define AGS_PLATFORM_OS_IOS     (0)
     #define AGS_PLATFORM_OS_PSP     (0)
+    #define AGS_PLATFORM_OS_EMSCRIPTEN (0)
+    #define AGS_PLATFORM_OS_FREEBSD    (0)
+#elif defined(__EMSCRIPTEN__)
+    #define AGS_PLATFORM_OS_WINDOWS    (0)
+    #define AGS_PLATFORM_OS_LINUX      (0)
+    #define AGS_PLATFORM_OS_MACOS      (0)
+    #define AGS_PLATFORM_OS_ANDROID    (0)
+    #define AGS_PLATFORM_OS_IOS        (0)
+    #define AGS_PLATFORM_OS_PSP        (0)
+    #define AGS_PLATFORM_OS_EMSCRIPTEN (1)
+    #define AGS_PLATFORM_OS_FREEBSD    (0)
+#elif defined(__FreeBSD__)
+    #define AGS_PLATFORM_OS_WINDOWS    (0)
+    #define AGS_PLATFORM_OS_LINUX      (0)
+    #define AGS_PLATFORM_OS_MACOS      (0)
+    #define AGS_PLATFORM_OS_ANDROID    (0)
+    #define AGS_PLATFORM_OS_IOS        (0)
+    #define AGS_PLATFORM_OS_PSP        (0)
+    #define AGS_PLATFORM_OS_EMSCRIPTEN (0)
+    #define AGS_PLATFORM_OS_FREEBSD    (1)
 #else
     #error "Unknown platform"
 #endif
-
 
 #if defined(__LP64__)
     // LP64 machine, OS X or Linux

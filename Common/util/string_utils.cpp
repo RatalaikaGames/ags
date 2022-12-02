@@ -63,6 +63,45 @@ StrUtil::ConversionError StrUtil::StringToInt(const String &s, int &val, int def
     return StrUtil::kNoError;
 }
 
+String StrUtil::Unescape(const String &s)
+{
+    size_t at = s.FindChar('\\');
+    if (at == -1)
+        return s; // no unescaping necessary, return original string
+    char *buf = new char[s.GetLength()];
+    strncpy(buf, s.GetCStr(), at);
+    char *pb = buf + at;
+    for (const char *ptr = s.GetCStr() + at; *ptr; ++ptr)
+    {
+        if (*ptr != '\\')
+        {
+            *(pb++) = *ptr;
+            continue;
+        }
+
+        char next = *(++ptr);
+        switch (next)
+        {
+        case 'a':  *(pb++) = '\a'; break;
+        case 'b':  *(pb++) = '\b'; break;
+        case 'f':  *(pb++) = '\f'; break;
+        case 'n':  *(pb++) = '\n'; break;
+        case 'r':  *(pb++) = '\r'; break;
+        case 't':  *(pb++) = '\t'; break;
+        case 'v':  *(pb++) = '\v'; break;
+        case '\\': *(pb++) = '\\'; break;
+        case '\'': *(pb++) = '\''; break;
+        case '\"': *(pb++) = '\"'; break;
+        case '\?': *(pb++) = '\?'; break;
+        default: *(pb++) = next; break;
+        }
+    }
+    *pb = 0;
+    String dst(buf);
+    delete buf;
+    return dst;
+}
+
 String StrUtil::ReadString(Stream *in)
 {
     size_t len = in->ReadInt32();
@@ -123,6 +162,13 @@ void StrUtil::WriteString(const char *cstr, Stream *out)
         out->Write(cstr, len);
 }
 
+void StrUtil::WriteString(const char *cstr, size_t len, Stream *out)
+{
+    out->WriteInt32(len);
+    if (len > 0)
+        out->Write(cstr, len);
+}
+
 void StrUtil::ReadCStr(char *buf, Stream *in, size_t buf_limit)
 {
     if (buf_limit == 0)
@@ -165,6 +211,27 @@ void StrUtil::WriteCStr(const char *cstr, Stream *out)
 void StrUtil::WriteCStr(const String &s, Stream *out)
 {
     out->Write(s.GetCStr(), s.GetLength() + 1);
+}
+
+void StrUtil::ReadStringMap(StringMap &map, Stream *in)
+{
+    size_t count = in->ReadInt32();
+    for (size_t i = 0; i < count; ++i)
+    {
+        String key = StrUtil::ReadString(in);
+        String value = StrUtil::ReadString(in);
+        map.insert(std::make_pair(key, value));
+    }
+}
+
+void StrUtil::WriteStringMap(const StringMap &map, Stream *out)
+{
+    out->WriteInt32(map.size());
+    for (const auto &kv : map)
+    {
+        StrUtil::WriteString(kv.first, out);
+        StrUtil::WriteString(kv.second, out);
+    }
 }
 
 } // namespace Common

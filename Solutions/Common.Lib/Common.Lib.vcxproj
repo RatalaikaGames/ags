@@ -152,7 +152,7 @@
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <TreatSpecificWarningsAsErrors>4013; 4150; 4477</TreatSpecificWarningsAsErrors>
+      <TreatSpecificWarningsAsErrors>4013; 4150; 4477; 4715</TreatSpecificWarningsAsErrors>
       <ObjectFileName>$(IntDir)%(Filename)%(Extension).obj</ObjectFileName>
     </ClCompile>
     <Lib>
@@ -173,7 +173,7 @@
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <TreatSpecificWarningsAsErrors>4013; 4150; 4477</TreatSpecificWarningsAsErrors>
+      <TreatSpecificWarningsAsErrors>4013; 4150; 4477; 4715</TreatSpecificWarningsAsErrors>
       <ObjectFileName>$(IntDir)%(Filename)%(Extension).obj</ObjectFileName>
     </ClCompile>
     <Lib>
@@ -193,7 +193,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <TreatSpecificWarningsAsErrors>4013; 4150; 4477</TreatSpecificWarningsAsErrors>
+      <TreatSpecificWarningsAsErrors>4013; 4150; 4477; 4715</TreatSpecificWarningsAsErrors>
       <ObjectFileName>$(IntDir)%(Filename)%(Extension).obj</ObjectFileName>
     </ClCompile>
     <Lib>
@@ -214,7 +214,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <TreatSpecificWarningsAsErrors>4013; 4150; 4477</TreatSpecificWarningsAsErrors>
+      <TreatSpecificWarningsAsErrors>4013; 4150; 4477; 4715</TreatSpecificWarningsAsErrors>
       <ObjectFileName>$(IntDir)%(Filename)%(Extension).obj</ObjectFileName>
     </ClCompile>
     <Lib>
@@ -234,7 +234,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <TreatSpecificWarningsAsErrors>4013; 4150; 4477</TreatSpecificWarningsAsErrors>
+      <TreatSpecificWarningsAsErrors>4013; 4150; 4477; 4715</TreatSpecificWarningsAsErrors>
       <ObjectFileName>$(IntDir)%(Filename)%(Extension).obj</ObjectFileName>
     </ClCompile>
     <Lib>
@@ -254,7 +254,7 @@
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <TreatSpecificWarningsAsErrors>4013; 4150; 4477</TreatSpecificWarningsAsErrors>
+      <TreatSpecificWarningsAsErrors>4013; 4150; 4477; 4715</TreatSpecificWarningsAsErrors>
       <ObjectFileName>$(IntDir)%(Filename)%(Extension).obj</ObjectFileName>
     </ClCompile>
     <Lib>
@@ -289,6 +289,7 @@
     <ClCompile Include="..\..\Common\game\room_file.cpp" />
     <ClCompile Include="..\..\Common\game\room_file_base.cpp" />
     <ClCompile Include="..\..\Common\game\room_file_deprecated.cpp" />
+    <ClCompile Include="..\..\Common\game\tra_file.cpp" />
     <ClCompile Include="..\..\Common\gfx\allegrobitmap.cpp" />
     <ClCompile Include="..\..\Common\gfx\bitmap.cpp" />
     <ClCompile Include="..\..\Common\gui\guibutton.cpp" />
@@ -334,6 +335,7 @@
     <ClCompile Include="..\..\Common\util\bufferedstream.cpp" />
     <ClCompile Include="..\..\Common\util\compress.cpp" />
     <ClCompile Include="..\..\Common\util\datastream.cpp" />
+    <ClCompile Include="..\..\Common\util\data_ext.cpp" />
     <ClCompile Include="..\..\Common\util\directory.cpp" />
     <ClCompile Include="..\..\Common\util\file.cpp" />
     <ClCompile Include="..\..\Common\util\filestream.cpp" />
@@ -457,6 +459,7 @@
     <ClInclude Include="..\..\Common\game\roomstruct.h" />
     <ClInclude Include="..\..\Common\game\room_version.h" />
     <ClInclude Include="..\..\Common\game\room_file.h" />
+    <ClInclude Include="..\..\Common\game\tra_file.h" />
     <ClInclude Include="..\..\Common\gfx\allegrobitmap.h" />
     <ClInclude Include="..\..\Common\gfx\bitmap.h" />
     <ClInclude Include="..\..\common\gfx\gfx_def.h" />
@@ -477,6 +480,7 @@
     <ClInclude Include="..\..\Common\util\bbop.h" />
     <ClInclude Include="..\..\Common\util\compress.h" />
     <ClInclude Include="..\..\Common\util\datastream.h" />
+    <ClInclude Include="..\..\Common\util\data_ext.h" />
     <ClInclude Include="..\..\Common\util\directory.h" />
     <ClInclude Include="..\..\Common\util\error.h" />
     <ClInclude Include="..\..\Common\util\file.h" />
@@ -493,6 +497,7 @@
     <ClInclude Include="..\..\Common\util\multifilelib.h" />
     <ClInclude Include="..\..\Common\util\path.h" />
     <ClInclude Include="..\..\Common\util\proxystream.h" />
+    <ClInclude Include="..\..\Common\util\scaling.h" />
     <ClInclude Include="..\..\Common\util\stdio_compat.h" />
     <ClInclude Include="..\..\Common\util\stream.h" />
     <ClInclude Include="..\..\Common\util\string.h" />

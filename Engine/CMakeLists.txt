@@ -286,8 +286,6 @@ target_sources(engine
     ac/topbarsettings.h
     ac/translation.cpp
     ac/translation.h
-    ac/tree_map.cpp
-    ac/tree_map.h
     ac/viewframe.cpp
     ac/viewframe.h
     ac/viewport_script.cpp
@@ -421,6 +419,8 @@ target_sources(engine
     media/video/video.h
     platform/base/agsplatformdriver.cpp
     platform/base/agsplatformdriver.h
+    platform/base/agsplatform_xdg_unix.cpp
+    platform/base/agsplatform_xdg_unix.h
     platform/base/sys_main.cpp
     platform/base/sys_main.h
     platform/util/libc.c
@@ -453,16 +453,6 @@ target_sources(engine
     script/script_runtime.h
     script/systemimports.cpp
     script/systemimports.h
-    test/test_all.cpp
-    test/test_all.h
-    test/test_file.cpp
-    test/test_gfx.cpp
-    test/test_inifile.cpp
-    test/test_math.cpp
-    test/test_memory.cpp
-    test/test_sprintf.cpp
-    test/test_string.cpp
-    test/test_version.cpp
     util/library.h
     util/library_dummy.h
     util/library_posix.h
@@ -471,7 +461,6 @@ target_sources(engine
     util/mutex_lock.h
     util/mutex_pthread.h
     util/mutex_std.h
-    util/scaling.h
     util/thread.h
     util/thread_pthread.h
     util/thread_std.h
@@ -491,6 +480,7 @@ target_sources(engine
 
     platform/ios/acplios.cpp
 
+    platform/bsd/acplbsd.cpp
 
     platform/windows/win_ex_handling.cpp
     platform/windows/win_ex_handling.h
@@ -592,9 +582,7 @@ else()
 endif()
 
 if (WIN32)
-    target_link_libraries(engine PUBLIC DirectX::Direct3D9 shlwapi)
-elseif (LINUX)
-    target_link_libraries(engine PUBLIC X11::X11)
+    target_link_libraries(engine PUBLIC shlwapi)
 endif()
 
 get_target_property(ENGINE_SOURCES engine SOURCES)
@@ -626,7 +614,7 @@ else ()
     add_library(ags SHARED)
 endif (NOT ANDROID)
 
-if (LINUX)
+if (LINUX OR FREEBSD)
     install(TARGETS ags RUNTIME DESTINATION bin)
 endif ()
 
@@ -661,6 +649,22 @@ if (WIN32)
     )
 endif()
 
+# Test
+# -----------------------------------------------------------------------------
+if(AGS_TESTS)
+    add_executable(
+        engine_test
+        test/scsprintf_test.cpp
+    )
+    target_link_libraries(
+        engine_test
+        engine
+        gtest_main
+    )
+
+    include(GoogleTest)
+    gtest_discover_tests(engine_test)
+endif()
 
 # macOS App Bundle
 # -----------------------------------------------------------------------------

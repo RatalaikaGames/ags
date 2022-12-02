@@ -124,6 +124,7 @@ RoomStruct thisroom;
 
 volatile int switching_away_from_game = 0;
 volatile bool switched_away = false;
+volatile bool game_update_suspend = false;
 volatile char want_exit = 0, abort_engine = 0;
 GameDataVersion loaded_game_file_version = kGameVersion_Undefined;
 int frames_per_second=40;
@@ -363,19 +364,22 @@ bool MakeSaveGameDir(const String &newFolder, ResolvedPath &rp)
         return false;
 
     String base_dir;
-    String newSaveGameDir = FixSlashAfterToken(newFolder);
+    String newSaveGameDir = newFolder;
 
-    if (newSaveGameDir.CompareLeft(UserSavedgamesRootToken, UserSavedgamesRootToken.GetLength()) == 0)
+    if (newSaveGameDir.CompareLeft(UserSavedgamesRootToken) == 0)
     {
+        // IMPORTANT: for compatibility reasons we support both cases:
+        // when token is followed by the path separator and when it is not, in which case it's assumed.
         if (saveGameParent.IsEmpty())
         {
             base_dir = PathFromInstallDir(platform->GetUserSavedgamesDirectory());
-            newSaveGameDir.ReplaceMid(0, UserSavedgamesRootToken.GetLength(), base_dir);
+            newSaveGameDir = Path::ConcatPaths(base_dir, newFolder.Mid(newSaveGameDir.GetLength()));
         }
         else
         {
             // If there is a custom save parent directory, then replace
-            // not only root token, but also first subdirectory
+            // not only root token, but also first subdirectory after the token
+            newSaveGameDir = Path::ConcatPaths(".", newFolder.Mid(newSaveGameDir.GetLength()));
             newSaveGameDir.ClipSection('/', 0, 1); // TODO: Path helper function for this?
             newSaveGameDir = Path::ConcatPaths(saveGameParent, newSaveGameDir);
             base_dir = saveGameParent;
@@ -1423,9 +1427,9 @@ void display_switch_out()
 // Called when game looses input focus and must pause until focus is returned
 void display_switch_out_suspend()
 {
-    display_switch_out();
-
     switching_away_from_game++;
+    game_update_suspend = true;
+    display_switch_out();
 
     platform->PauseApplication();
 
@@ -1451,11 +1455,11 @@ void display_switch_out_suspend()
 // Called whenever game gets input focus
 void display_switch_in()
 {
-    switched_away = false;
     ags_clear_input_buffer();
     // If auto lock option is set, lock mouse to the game window
     if (usetup.mouse_auto_lock && scsystem.windowed)
         Mouse::TryLockToWindow();
+    switched_away = false;
 }
 
 // Called when game gets input focus and must resume after pause
@@ -1480,6 +1484,7 @@ void display_switch_in_resume()
     // TODO: find out if anything has to be done here for SDL backend
 
     platform->ResumeApplication();
+    game_update_suspend = false;
 }
 
 void replace_tokens(const char*srcmes,char*destm, int maxlen) {

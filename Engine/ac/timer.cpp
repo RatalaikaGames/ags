@@ -11,11 +11,10 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
-
 #include "ac/timer.h"
-
 #include "core/platform.h"
 #include <thread>
+#include "ac/sys_events.h"
 #include "platform/base/agsplatformdriver.h"
 
 #ifdef AGS_RATA
@@ -26,8 +25,6 @@
 #include "util/wgt2allg.h" // END_OF_FUNCTION macro
 
 volatile int timerloop=0;
-int time_between_timers=25;  // in milliseconds
-
 // our timer, used to keep game running at same speed on all systems
 extern "C" void dj_timer_handler() {
     timerloop++;
@@ -39,6 +36,8 @@ void WaitForNextFrame()
     platform->WaitForNextFrame();
 }
 #endif
+
+extern volatile bool game_update_suspend;
 
 namespace {
 
@@ -83,6 +82,11 @@ void WaitForNextFrame()
     // early exit if we're trying to maximise framerate
     if (frameDuration <= std::chrono::milliseconds::zero()) {
         next_frame_timestamp = now;
+        // suspend while the game is being switched out
+        while (game_update_suspend > 0) {
+            sys_evt_process_pending();
+            platform->YieldCPU();
+        }
         return;
     }
 
@@ -97,6 +101,12 @@ void WaitForNextFrame()
     }
     
     next_frame_timestamp += frameDuration;
+
+    // suspend while the game is being switched out
+    while (game_update_suspend > 0) {
+        sys_evt_process_pending();
+        platform->YieldCPU();
+    }
 }
 #endif
 

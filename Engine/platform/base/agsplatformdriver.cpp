@@ -127,7 +127,7 @@ void AGSPlatformDriver::WaitForNextFrame()
     }
 }
 
-#if 0 // let the original code manage this
+#if 0 // DPASCA - let the original code manage this, since it's the same
 void AGSPlatformDriver::Save_DeleteSlot(int slnum)
 {
     String nametouse;
@@ -147,7 +147,7 @@ void AGSPlatformDriver::Save_DeleteSlot(int slnum)
 }
 #endif
 
-Common::Stream *AGSPlatformDriver::OpenFile(eFilePurpose purpose, const Common::String &filename, Common::FileOpenMode open_mode, Common::FileWorkMode work_mode)
+Common::Stream *AGSPlatformDriver::OpenFile(const Common::String &filename, Common::FileOpenMode open_mode, Common::FileWorkMode work_mode)
 {
     return File::OpenFile(filename, open_mode, work_mode);
 }

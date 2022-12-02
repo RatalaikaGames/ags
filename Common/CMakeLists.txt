@@ -82,6 +82,8 @@ target_sources(common
     game/room_version.h
     game/roomstruct.cpp
     game/roomstruct.h
+    game/tra_file.cpp
+    game/tra_file.h
     gfx/allegrobitmap.cpp
     gfx/allegrobitmap.h
     gfx/bitmap.cpp
@@ -116,6 +118,8 @@ target_sources(common
     util/bbop.h
     util/compress.cpp
     util/compress.h
+    util/data_ext.cpp
+    util/data_ext.h
     util/datastream.cpp
     util/datastream.h
     util/directory.cpp
@@ -135,6 +139,9 @@ target_sources(common
     util/lzw.h
     util/math.h
     util/memory.h
+    util/memory_compat.h
+    util/memorystream.cpp
+    util/memorystream.h
     util/misc.cpp
     util/misc.h
     util/multifilelib.h
@@ -143,6 +150,7 @@ target_sources(common
     util/path.h
     util/proxystream.cpp
     util/proxystream.h
+    util/scaling.h
     util/stdio_compat.c
     util/stdio_compat.h
     util/stream.cpp
@@ -193,3 +201,25 @@ get_target_property(COMMON_SOURCES common SOURCES)
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX "Source Files" FILES ${COMMON_SOURCES})
 
 add_library(AGS::Common ALIAS common)
+
+if(AGS_TESTS)
+    add_executable(
+        common_test
+        test/gfxdef_test.cpp
+        test/inifile_test.cpp
+        test/math_test.cpp
+        test/memory_test.cpp
+        test/path_test.cpp
+        test/stream_test.cpp
+        test/string_test.cpp
+        test/version_test.cpp
+    )
+    target_link_libraries(
+        common_test
+        common
+        gtest_main
+    )
+
+    include(GoogleTest)
+    gtest_discover_tests(common_test)
+endif()

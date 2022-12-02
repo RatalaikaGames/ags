@@ -11,7 +11,6 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
-
 #include <cstdio>
 #include "ac/audiocliptype.h"
 #include "ac/dialogtopic.h"
@@ -27,6 +26,7 @@
 #include "gui/guimain.h"
 #include "script/cc_error.h"
 #include "util/alignedstream.h"
+#include "util/data_ext.h"
 #include "util/path.h"
 #include "util/string_compat.h"
 #include "util/string_utils.h"
@@ -71,8 +71,6 @@ String GetMainGameFileErrorText(MainGameFileErrorType err)
         return "Failed to deserialize custom properties schema.";
     case kMGFErr_InvalidPropertyValues:
         return "Errors encountered when reading custom properties.";
-    case kMGFErr_NoGlobalScript:
-        return "No global script in game.";
     case kMGFErr_CreateGlobalScriptFailed:
         return "Failed to load global script.";
     case kMGFErr_CreateDialogScriptFailed:
@@ -85,12 +83,10 @@ String GetMainGameFileErrorText(MainGameFileErrorType err)
         return "Format version of plugin data is not supported.";
     case kMGFErr_PluginDataSizeTooLarge:
         return "Plugin data size is too large.";
-    case kMGFErr_ExtUnexpectedEOF:
-        return "Unexpected end of file.";
+    case kMGFErr_ExtListFailed:
+        return "There was error reading game data extensions.";
     case kMGFErr_ExtUnknown:
         return "Unknown extension.";
-    case kMGFErr_ExtBlockDataOverlapping:
-        return "Block data overlapping.";
     }
     return "Unknown error.";
 }
@@ -328,9 +324,9 @@ void ReadDialogs(DialogTopic *&dialog,
             // which probably refered to this data used by old editor directly to edit dialogs
             char *buffer = new char[script_text_len + 1];
             in->Read(buffer, script_text_len);
-            buffer[script_text_len] = 0;
             if (data_ver > kGameVersion_260)
-                decrypt_text(buffer);
+                decrypt_text(buffer, script_text_len);
+            buffer[script_text_len] = 0;
             old_dialog_src[i] = buffer;
             delete [] buffer;
         }
@@ -400,8 +396,8 @@ void ReadDialogs(DialogTopic *&dialog,
 
             newlen = Math::Min(newlen, sizeof(buffer) - 1);
             in->Read(buffer, newlen);
+            decrypt_text(buffer, newlen);
             buffer[newlen] = 0;
-            decrypt_text(buffer);
             old_speech_lines.push_back(buffer);
             i++;
         }
@@ -542,7 +538,7 @@ void UpgradeFonts(GameSetupStruct &game, GameDataVersion data_ver)
 }
 
 // Convert audio data to the current version
-void UpgradeAudio(GameSetupStruct &game, GameDataVersion data_ver)
+void UpgradeAudio(GameSetupStruct &game, LoadedGameEntities &ents, GameDataVersion data_ver)
 {
     if (data_ver >= kGameVersion_320)
         return;
@@ -615,8 +611,7 @@ void UpgradeAudio(GameSetupStruct &game, GameDataVersion data_ver)
     game.audioClipTypes = audiocliptypes;
     game.audioClips = audioclips;
     
-    // Setup sound clip played on score event
-    game.scoreClipID = -1;
+    RemapLegacySoundNums(game, ents.Views, data_ver);
 }
 
 // Convert character data to the current version
@@ -674,18 +669,31 @@ void UpgradeMouseCursors(GameSetupStruct &game, GameDataVersion data_ver)
 }
 
 // Adjusts score clip id, depending on game data version
-void AdjustScoreSound(GameSetupStruct &game, GameDataVersion data_ver)
+void RemapLegacySoundNums(GameSetupStruct &game, ViewStruct *&views, GameDataVersion data_ver)
 {
-    if (data_ver < kGameVersion_320)
+    if (data_ver >= kGameVersion_320)
+        return;
+
+    // Setup sound clip played on score event
+    game.scoreClipID = -1;
+    if (game.options[OPT_SCORESOUND] > 0)
     {
-        game.scoreClipID = -1;
-        if (game.options[OPT_SCORESOUND] > 0)
+        ScriptAudioClip* clip = GetAudioClipForOldStyleNumber(game, false, game.options[OPT_SCORESOUND]);
+        if (clip)
+            game.scoreClipID = clip->id;
+    }
+
+    // Reset view frame clip refs
+    // NOTE: we do not map these to real clips right away,
+    // instead we do this at runtime whenever we find a non-mapped frame sound.
+    for (size_t v = 0; v < (size_t)game.numviews; ++v)
+    {
+        for (size_t l = 0; l < (size_t)views[v].numLoops; ++l)
         {
-            ScriptAudioClip* clip = GetAudioClipForOldStyleNumber(game, false, game.options[OPT_SCORESOUND]);
-            if (clip)
-                game.scoreClipID = clip->id;
-            else
-                game.scoreClipID = -1;
+            for (size_t f = 0; f < (size_t)views[v].loops[l].numFrames; ++f)
+            {
+                views[v].loops[l].frames[f].audioclip = -1;
+            }
         }
     }
 }
@@ -792,17 +800,18 @@ HGameFileError ReadGameData(LoadedGameEntities &ents, Stream *in, GameDataVersio
     game.read_interaction_scripts(in, data_ver);
     game.read_words_dictionary(in);
 
-    if (!game.load_compiled_script)
-        return new MainGameFileError(kMGFErr_NoGlobalScript);
-    ents.GlobalScript.reset(ccScript::CreateFromStream(in));
-    if (!ents.GlobalScript)
-        return new MainGameFileError(kMGFErr_CreateGlobalScriptFailed, ccErrorString);
-    err = ReadDialogScript(ents.DialogScript, in, data_ver);
-    if (!err)
-        return err;
-    err = ReadScriptModules(ents.ScriptModules, in, data_ver);
-    if (!err)
-        return err;
+    if (game.load_compiled_script)
+    {
+        ents.GlobalScript.reset(ccScript::CreateFromStream(in));
+        if (!ents.GlobalScript)
+            return new MainGameFileError(kMGFErr_CreateGlobalScriptFailed, ccErrorString);
+        err = ReadDialogScript(ents.DialogScript, in, data_ver);
+        if (!err)
+            return err;
+        err = ReadScriptModules(ents.ScriptModules, in, data_ver);
+        if (!err)
+            return err;
+    }
 
     ReadViews(game, ents.Views, in, data_ver);
 
@@ -845,45 +854,14 @@ HGameFileError ReadGameData(LoadedGameEntities &ents, Stream *in, GameDataVersio
     //-------------------------------------------------------------------------
     // All the extended data, for AGS > 3.5.0.
     //-------------------------------------------------------------------------
-    // Read list of extension blocks. The block meta format is shared with the room files.
-    //    - 1 byte - an old-style unsigned numeric ID, for compatibility with room file format:
-    //               where 0 would indicate following string ID,
-    //               and 0xFF indicates end of extension list.
-    //    - 16 bytes - string ID of an extension.
-    //    - 8 bytes - length of extension data, in bytes.
-    while (true)
-    {
-        int b = in->ReadByte();
-        if (b < 0)
-            return new MainGameFileError(kMGFErr_ExtUnexpectedEOF);
-        if (b == 0xFF)
-            break; // end of list
-        if (b != 0) // we don't support numeric ids here
-            return new MainGameFileError(kMGFErr_ExtUnknown);
-        // Extension meta data
-        String ext_id = String::FromStreamCount(in, 16);
-        soff_t block_len = in->ReadInt64();
-        soff_t block_end = in->GetPosition() + block_len;
-        // Read game data itself
-        err = ReadExtBlock(ents, in, ext_id, block_len, data_ver);
-        if (!err)
-            return err;
-        // After each block test if the stream position is where expected
-        soff_t cur_pos = in->GetPosition();
-        if (cur_pos > block_end)
-        {
-            return new MainGameFileError(kMGFErr_ExtBlockDataOverlapping,
-                String::FromFormat("Extension: %s, expected to end at offset: %lld, finished reading at %lld.", ext_id.GetCStr(), block_end, cur_pos));
-        }
-        else if (cur_pos < block_end)
-        {
-            Debug::Printf(kDbgMsg_Warn, "WARNING: game data blocks nonsequential, ext %s expected to end at %lld, finished reading at %lld",
-                ext_id.GetCStr(), block_end, cur_pos);
-            in->Seek(block_end, Common::kSeekBegin);
-        }
-    };
+    // This reader will process all blocks inside ReadExtBlock() function,
+    // and read compatible data into the given LoadedGameEntities object.
+    auto reader = [&ents, data_ver](Stream *in, int /*block_id*/, const String &ext_id,
+        soff_t block_len, bool &read_next)
+    { return (HError)ReadExtBlock(ents, in, ext_id, block_len, data_ver); };
 
-    return HGameFileError::None();
+    HError ext_err = ReadExtData(reader, kDataExt_NumID8 | kDataExt_File64, in);
+    return ext_err ? HGameFileError::None() : new MainGameFileError(kMGFErr_ExtListFailed, ext_err);
 }
 
 HGameFileError UpdateGameData(LoadedGameEntities &ents, GameDataVersion data_ver)
@@ -891,8 +869,7 @@ HGameFileError UpdateGameData(LoadedGameEntities &ents, GameDataVersion data_ver
     GameSetupStruct &game = ents.Game;
     ApplySpriteData(game, ents, data_ver);
     UpgradeFonts(game, data_ver);
-    UpgradeAudio(game, data_ver);
-    AdjustScoreSound(game, data_ver);
+    UpgradeAudio(game, ents, data_ver);
     UpgradeCharacters(game, data_ver);
     UpgradeMouseCursors(game, data_ver);
     SetDefaultGlobalMessages(game);

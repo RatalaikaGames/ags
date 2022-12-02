@@ -87,7 +87,7 @@ public:
     bool IsNullOrSpace() const;
 
     // Those getters are for tests only, hence if AGS_PLATFORM_DEBUG
-#if AGS_PLATFORM_DEBUG
+#if AGS_PLATFORM_TEST
     inline const char *GetBuffer() const
     {
         return _buf;
@@ -312,6 +312,10 @@ public:
             { String str = String::Wrapper(cstr); ReplaceMid(from, count, str); }
     // Reverses the string
     void    Reverse();
+    // Reverse the multibyte unicode string
+    // FIXME: name? invent some consistent naming for necessary multibyte funcs,
+    // proper utf8 support where necessary
+    void    ReverseUTF8();
     // Overwrite the Nth character of the string; does not change string's length
     void    SetAt(size_t index, char c);
     // Makes a new string by copying up to N chars from C-string

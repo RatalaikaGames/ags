@@ -43,6 +43,9 @@ enum eScriptSystemOSID
     eOS_Android,
     eOS_iOS,
     eOS_PSP,
+    eOS_Web,
+    eOS_FreeBSD
+    ,
     eOS_PSVita,
     eOS_PSX,
     eOS_PS2,
@@ -60,16 +63,10 @@ enum eScriptSystemOSID
     eOS_NDS,
     eOS_N3DS,
     eOS_NSwitch,
-    
+
     //Oftentimes, people will have a windows prototype while developing for consoles.
     //This is here to distinguish it from the eOS_Win case, which would be the legit windows release
-    eOS_WinProto 
-};
-
-enum eFilePurpose
-{
-    eFilePurpose_LoadAsset,
-    eFilePurpose_MountPackfile
+    eOS_WinProto
 };
 
 enum SetupReturnValue
@@ -148,7 +145,7 @@ struct AGSPlatformDriver
     virtual Common::Stream* Save_CreateSlotStream(int slnum);
     //virtual void Save_DeleteSlot(int slnum);
 
-    virtual Common::Stream *OpenFile(eFilePurpose purpose, const Common::String &filename, Common::FileOpenMode open_mode, Common::FileWorkMode work_mode);
+    virtual Common::Stream *OpenFile(const Common::String &filename, Common::FileOpenMode open_mode, Common::FileWorkMode work_mode);
 
     //-----------------------
     //New functions which only had posix implementations but need to be done differently on non-posix systems

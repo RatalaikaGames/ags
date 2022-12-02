@@ -73,7 +73,9 @@ enum eOperatingSystem {
   eOSMacOS,
   eOSAndroid,
   eOSiOS,
-  eOSPSP
+  eOSPSP,
+  eOSWeb,
+  eOSFreeBSD
 };
 
 enum TransitionStyle {

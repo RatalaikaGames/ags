@@ -48,9 +48,6 @@
 #if AGS_PLATFORM_OS_WINDOWS
 #include "platform/windows/win_ex_handling.h"
 #endif
-#if AGS_PLATFORM_DEBUG
-#include "test/test_all.h"
-#endif
 
 #if AGS_PLATFORM_OS_WINDOWS && !AGS_PLATFORM_DEBUG
 #define USE_CUSTOM_EXCEPTION_HANDLER
@@ -142,6 +139,10 @@ AGS::Common::Version SavedgameLowestForwardCompatVersion;
 
 void main_init(int argc, char*argv[])
 {
+    // Init libraries: set text encoding
+    set_uformat(U_UTF8);
+    set_filename_encoding(U_UNICODE);
+
     EngineVersion = Version(ACI_VERSION_STR " " SPECIAL_VERSION);
 #if defined (BUILD_STR)
     EngineVersion.BuildInfo = BUILD_STR;
@@ -189,7 +190,7 @@ void main_print_help() {
 #endif
            "  --gfxfilter FILTER [SCALING]\n"
            "                               Request graphics filter. Available options:\n"           
-           "                                 hqx, linear, none, stdscale\n"
+           "                                 linear, none, stdscale\n"
            "                                 (support differs between graphic drivers);\n"
            "                                 scaling is specified by integer number\n"
            "  --help                       Print this help message and stop\n"
@@ -433,12 +434,8 @@ String GetPathFromCmdArg(int arg_index)
 }
 
 int ags_entry_point(int argc, char *argv[]) { 
-
-#ifdef AGS_RUN_TESTS
-    Test_DoAllTests();
-#endif
     main_init(argc, argv);
-    
+
 #if AGS_PLATFORM_OS_WINDOWS
     setup_malloc_handling();
 #endif

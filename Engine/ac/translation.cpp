@@ -11,8 +11,9 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
-
 #include <cstdio>
+#include <locale.h>
+#include <wchar.h>
 #include "ac/asset_helper.h"
 #include "ac/common.h"
 #include "ac/gamesetup.h"
@@ -21,9 +22,9 @@
 #include "ac/global_game.h"
 #include "ac/runtime_defines.h"
 #include "ac/translation.h"
-#include "ac/tree_map.h"
 #include "ac/wordsdictionary.h"
 #include "debug/out.h"
+#include "game/tra_file.h"
 #include "util/misc.h"
 #include "util/stream.h"
 #include "core/assetmanager.h"
@@ -36,56 +37,76 @@ extern GameState play;
 
 String trans_name;
 String trans_filename;
-std::unique_ptr<TreeMap> transtree;
+Translation trans;
+
+// TODO: this is a test, later consider using C++ conversion methods
+// that do not change global locale state (but they are more confusing)
+std::vector<wchar_t> wcsbuf; // widechar buffer
+std::vector<char> mbbuf;  // utf8 buffer
+const char *convert_utf8_to_ascii(const char *mbstr, const char *loc_name)
+{
+    // First convert utf-8 string into widestring;
+    size_t len = strlen(mbstr);
+    wcsbuf.resize(len + 1); // the actual length in glyths will be <= len
+    // use uconvert, because libc funcs are locale dependent and complicate things
+    uconvert(mbstr, U_UTF8, (char*)&wcsbuf[0], U_UNICODE, wcsbuf.size() * sizeof(wchar_t));
+    // Then convert widestring to single-byte string using specified locale
+    mbbuf.resize(wcsbuf.size() * 4);
+    setlocale(LC_CTYPE, loc_name);
+    wcstombs(&mbbuf[0], &wcsbuf[0], mbbuf.size());
+    setlocale(LC_CTYPE, "");
+    return &mbbuf[0];
+}
 
 
 void close_translation () {
-    transtree.reset();
+    trans = Translation();
     trans_name = "";
     trans_filename = "";
-}
 
-bool parse_translation(Stream *language_file, String &parse_error);
+    // Return back to default game's encoding
+    set_uformat(U_ASCII);
+}
 
 bool init_translation (const String &lang, const String &fallback_lang, bool quit_on_error) {
 
     if (lang.IsEmpty())
         return false;
+    trans_name = lang;
     trans_filename = String::FromFormat("%s.tra", lang.GetCStr());
 
-    Stream *language_file = AssetMgr->OpenAsset(trans_filename);
-    if (language_file == nullptr)
+    std::unique_ptr<Stream> in(AssetMgr->OpenAsset(trans_filename));
+    if (in == nullptr)
     {
         Debug::Printf(kDbgMsg_Error, "Cannot open translation: %s", trans_filename.GetCStr());
         return false;
     }
 
-    char transsig[16] = {0};
-    language_file->Read(transsig, 15);
-    if (strcmp(transsig, "AGSTranslation") != 0) {
-        Debug::Printf(kDbgMsg_Error, "Translation signature mismatch: %s", trans_filename.GetCStr());
-        delete language_file;
-        return false;
+    trans = Translation();
+
+    // First test if the translation is meant for this game
+    HError err = TestTraGameID(game.uniqueid, game.gamename, in.get());
+    if (err)
+    {
+        // If successful, then read translation data fully
+        in.reset(AssetMgr->OpenAsset(trans_filename));
+        err = ReadTraData(trans, in.get());
     }
 
-    transtree.reset(new TreeMap());
-
-    String parse_error;
-    bool result = parse_translation(language_file, parse_error);
-    delete language_file;
-
-    if (!result)
+    // Process errors
+    if (!err)
     {
-        parse_error.Prepend(String::FromFormat("Failed to read translation file: %s:\n", trans_filename.GetCStr()));
+        String err_msg = String::FromFormat("Failed to read translation file: %s:\n%s",
+            trans_filename.GetCStr(),
+            err->FullMessage().GetCStr());
         close_translation();
         if (quit_on_error)
         {
-            parse_error.PrependChar('!');
-            quit(parse_error);
+            quitprintf("!%s", err_msg.GetCStr());
         }
         else
         {
-            Debug::Printf(kDbgMsg_Error, parse_error);
+            Debug::Printf(kDbgMsg_Error, err_msg);
             if (!fallback_lang.IsEmpty())
             {
                 Debug::Printf("Fallback to translation: %s", fallback_lang.GetCStr());
@@ -94,6 +115,48 @@ bool init_translation (const String &lang, const String &fallback_lang, bool qui
             return false;
         }
     }
+
+    // Translation read successfully
+    // Configure new game settings
+    if (trans.NormalFont >= 0)
+        SetNormalFont(trans.NormalFont);
+    if (trans.SpeechFont >= 0)
+        SetSpeechFont(trans.SpeechFont);
+    if (trans.RightToLeft == 1)
+    {
+        play.text_align = kHAlignLeft;
+        game.options[OPT_RIGHTLEFTWRITE] = 0;
+    }
+    else if (trans.RightToLeft == 2)
+    {
+        play.text_align = kHAlignRight;
+        game.options[OPT_RIGHTLEFTWRITE] = 1;
+    }
+    // Setup a text encoding mode depending on the translation data hint
+    String encoding = trans.StrOptions["encoding"];
+    if (encoding.CompareNoCase("utf-8") == 0)
+        set_uformat(U_UTF8);
+    else
+        set_uformat(U_ASCII);
+
+    // Mixed encoding support: 
+    // original text unfortunately may contain extended ASCII chars (> 127);
+    // if translation is UTF-8 but game is extended ASCII, then the translation
+    // dictionary keys won't match.
+    // With that assumption we must convert dictionary keys into ASCII using
+    // provided locale hint.
+    String key_enc = trans.StrOptions["gameencoding"];
+    if (!key_enc.IsEmpty())
+    {
+        StringMap conv_map;
+        for (const auto &item : trans.Dict)
+        {
+            String key = convert_utf8_to_ascii(item.first.GetCStr(), key_enc.GetCStr());
+            conv_map.insert(std::make_pair(key, item.second));
+        }
+        trans.Dict = conv_map;
+    }
+
     Debug::Printf("Translation initialized: %s", trans_filename.GetCStr());
     return true;
 }
@@ -108,80 +171,7 @@ String get_translation_path()
     return trans_filename;
 }
 
-const TreeMap* get_translation_tree()
+const StringMap& get_translation_tree()
 {
-    return transtree.get();
-}
-
-bool parse_translation(Stream *language_file, String &parse_error)
-{
-    while (!language_file->EOS()) {
-        int blockType = language_file->ReadInt32();
-        if (blockType == -1)
-            break;
-        // MACPORT FIX 9/6/5: remove warning
-        /* int blockSize = */ language_file->ReadInt32();
-
-        if (blockType == 1) {
-            char original[STD_BUFFER_SIZE], translation[STD_BUFFER_SIZE];
-            while (1) {
-                read_string_decrypt (language_file, original, STD_BUFFER_SIZE);
-                read_string_decrypt (language_file, translation, STD_BUFFER_SIZE);
-                if ((strlen (original) < 1) && (strlen(translation) < 1))
-                    break;
-                if (language_file->EOS())
-                {
-                    parse_error = "Translation file is corrupt";
-                    return false;
-                }
-                transtree->addText (original, translation);
-            }
-
-        }
-        else if (blockType == 2) {
-            int uidfrom;
-            char wasgamename[100];
-            uidfrom = language_file->ReadInt32();
-            read_string_decrypt (language_file, wasgamename, sizeof(wasgamename));
-            if ((uidfrom != game.uniqueid) || (strcmp (wasgamename, game.gamename) != 0)) {
-                parse_error.Format("The translation file is not compatible with this game. The translation is designed for '%s'.",
-                    wasgamename);
-                return false;
-            }
-        }
-        else if (blockType == 3) {
-            // game settings
-            int temp = language_file->ReadInt32();
-            // normal font
-            if (temp >= 0)
-                SetNormalFont (temp);
-            temp = language_file->ReadInt32();
-            // speech font
-            if (temp >= 0)
-                SetSpeechFont (temp);
-            temp = language_file->ReadInt32();
-            // text direction
-            if (temp == 1) {
-                play.text_align = kHAlignLeft;
-                game.options[OPT_RIGHTLEFTWRITE] = 0;
-            }
-            else if (temp == 2) {
-                play.text_align = kHAlignRight;
-                game.options[OPT_RIGHTLEFTWRITE] = 1;
-            }
-        }
-        else
-        {
-            parse_error.Format("Unknown block type in translation file (%d).", blockType);
-            return false;
-        }
-    }
-
-    if (transtree->text == nullptr)
-    {
-        parse_error = "The translation file was empty.";
-        return false;
-    }
-
-    return true;
+    return trans.Dict;
 }

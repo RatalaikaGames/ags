@@ -183,7 +183,7 @@ void RoomStruct::InitDefaults()
         if (i == 0)
             Hotspots[i].Name = "No hotspot";
         else
-            Hotspots[i].Name.Format("Hotspot %u", i);
+            Hotspots[i].Name.Format("Hotspot %zu", i);
     }
     for (size_t i = 0; i < (size_t)MAX_ROOM_OBJECTS; ++i)
         Objects[i] = RoomObjectInfo();
@@ -233,7 +233,7 @@ int RoomStruct::GetRegionTintLuminance(int id) const
     return 0;
 }
 
-void load_room(const char *filename, RoomStruct *room, bool game_is_hires, const std::vector<SpriteInfo> &sprinfos)
+void load_room(const String &filename, RoomStruct *room, bool game_is_hires, const std::vector<SpriteInfo> &sprinfos)
 {
     room->Free();
     room->InitDefaults();
@@ -250,7 +250,7 @@ void load_room(const char *filename, RoomStruct *room, bool game_is_hires, const
             err = UpdateRoomData(room, src.DataVersion, game_is_hires, sprinfos);
     }
     if (!err)
-        quitprintf("Unable to load the room file '%s'.\n%s.", filename, err->FullMessage().GetCStr());
+        quitprintf("Unable to load the room file '%s'.\n%s.", filename.GetCStr(), err->FullMessage().GetCStr());
 }
 
 PBitmap FixBitmap(PBitmap bmp, int width, int height)

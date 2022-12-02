@@ -35,7 +35,7 @@ soff_t File::GetFileSize(const String &filename)
 
 bool File::TestReadFile(const String &filename)
 {
-    FILE *test_file = fopen(filename, "rb");
+    FILE *test_file = fopen(filename.GetCStr(), "rb");
     if (test_file)
     {
         fclose(test_file);
@@ -46,7 +46,7 @@ bool File::TestReadFile(const String &filename)
 
 bool File::TestWriteFile(const String &filename)
 {
-    FILE *test_file = fopen(filename, "r+");
+    FILE *test_file = fopen(filename.GetCStr(), "r+");
     if (test_file)
     {
         fclose(test_file);
@@ -57,11 +57,11 @@ bool File::TestWriteFile(const String &filename)
 
 bool File::TestCreateFile(const String &filename)
 {
-    FILE *test_file = fopen(filename, "wb");
+    FILE *test_file = fopen(filename.GetCStr(), "wb");
     if (test_file)
     {
         fclose(test_file);
-        ::remove(filename);
+        ::remove(filename.GetCStr());
         return true;
     }
     return false;
@@ -69,7 +69,7 @@ bool File::TestCreateFile(const String &filename)
 
 bool File::DeleteFile(const String &filename)
 {
-    if (::remove(filename) != 0)
+    if (::remove(filename.GetCStr()) != 0)
     {
         int err;
 #if AGS_PLATFORM_OS_WINDOWS
@@ -83,6 +83,11 @@ bool File::DeleteFile(const String &filename)
         }
     }
     return true;
+}
+
+bool File::RenameFile(const String &old_name, const String &new_name)
+{
+    return ::rename(old_name.GetCStr(), new_name.GetCStr()) == 0;
 }
 
 #endif // AGS_HAS_POSIX

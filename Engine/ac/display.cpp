@@ -167,7 +167,9 @@ int _display_main(int xx, int yy, int wii, const char *text, int disp_type, int 
     if (disp_type < DISPLAYTEXT_NORMALOVERLAY)
         remove_screen_overlay(OVER_TEXTMSG); // remove any previous blocking texts
 
-    Bitmap *text_window_ds = BitmapHelper::CreateTransparentBitmap((wii > 0) ? wii : 2, disp.fulltxtheight + extraHeight, game.GetColorDepth());
+    const int bmp_width = std::max(2, wii);
+    const int bmp_height = std::max(2, disp.fulltxtheight + extraHeight);
+    Bitmap *text_window_ds = BitmapHelper::CreateTransparentBitmap(bmp_width, bmp_height, game.GetColorDepth());
 
     // inform draw_text_window to free the old bitmap
     const bool wantFreeScreenop = true;
@@ -218,12 +220,12 @@ int _display_main(int xx, int yy, int wii, const char *text, int disp_type, int 
                 else
                     text_color = text_window_ds->GetCompatibleColor(-asspch);
 
-                wouttext_aligned(text_window_ds, ttxleft, ttyp, oriwid, usingfont, text_color, Lines[ee], play.text_align);
+                wouttext_aligned(text_window_ds, ttxleft, ttyp, oriwid, usingfont, text_color, Lines[ee].GetCStr(), play.text_align);
             }
             else {
                 text_color = text_window_ds->GetCompatibleColor(asspch);
                 //wouttext_outline(ttxp,ttyp,usingfont,lines[ee]);
-                wouttext_aligned(text_window_ds, ttxleft, ttyp, wii, usingfont, text_color, Lines[ee], play.speech_text_align);
+                wouttext_aligned(text_window_ds, ttxleft, ttyp, wii, usingfont, text_color, Lines[ee].GetCStr(), play.speech_text_align);
             }
         }
     }
@@ -239,7 +241,7 @@ int _display_main(int xx, int yy, int wii, const char *text, int disp_type, int 
         adjust_y_coordinate_for_text(&yoffs, usingfont);
 
         for (size_t ee=0;ee<Lines.Count();ee++)
-            wouttext_aligned (text_window_ds, xoffs, yoffs + ee * disp.linespacing, oriwid, usingfont, text_color, Lines[ee], play.text_align);
+            wouttext_aligned (text_window_ds, xoffs, yoffs + ee * disp.linespacing, oriwid, usingfont, text_color, Lines[ee].GetCStr(), play.text_align);
     }
 
     int ovrtype = OVER_TEXTMSG;

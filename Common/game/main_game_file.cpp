@@ -139,7 +139,7 @@ String FindGameData(const String &path, std::function<bool(const String&)> fn_te
     pattern.Append("/*");
 
     Debug::Printf("Searching for game data in: %s", path.GetCStr());
-    if (al_findfirst(pattern, &ff, FA_ALL & ~(FA_DIREC)) != 0)
+    if (al_findfirst(pattern.GetCStr(), &ff, FA_ALL & ~(FA_DIREC)) != 0)
         return "";
     do
     {
@@ -421,7 +421,7 @@ HGameFileError ReadPlugins(std::vector<PluginInfo> &infos, Stream *in)
         size_t datasize = in->ReadInt32();
         // just check for silly datasizes
         if (datasize > PLUGIN_SAVEBUFFERSIZE)
-            return new MainGameFileError(kMGFErr_PluginDataSizeTooLarge, String::FromFormat("Required: %u, max: %u", datasize, PLUGIN_SAVEBUFFERSIZE));
+            return new MainGameFileError(kMGFErr_PluginDataSizeTooLarge, String::FromFormat("Required: %zu, max: %zu", datasize, (size_t)PLUGIN_SAVEBUFFERSIZE));
 
         PluginInfo info;
         info.Name = name;
@@ -598,7 +598,7 @@ void UpgradeAudio(GameSetupStruct &game, GameDataVersion data_ver)
             continue; // might be a library
 
         al_ffblk ff;
-        if (al_findfirst(Path::ConcatPaths(game_lib->BasePath, "*.*"), &ff, FA_ALL & ~(FA_DIREC)) == 0)
+        if (al_findfirst(Path::ConcatPaths(game_lib->BasePath, "*.*").GetCStr(), &ff, FA_ALL & ~(FA_DIREC)) == 0)
         {
             do
             {
@@ -745,7 +745,7 @@ HGameFileError ReadSpriteFlags(LoadedGameEntities &ents, Stream *in, GameDataVer
     else
         sprcount = in->ReadInt32();
     if (sprcount > (size_t)SpriteCache::MAX_SPRITE_INDEX + 1)
-        return new MainGameFileError(kMGFErr_TooManySprites, String::FromFormat("Count: %u, max: %u", sprcount, (uint32_t)SpriteCache::MAX_SPRITE_INDEX + 1));
+        return new MainGameFileError(kMGFErr_TooManySprites, String::FromFormat("Count: %zu, max: %zu", sprcount, (size_t)SpriteCache::MAX_SPRITE_INDEX + 1));
 
     ents.SpriteCount = sprcount;
     ents.SpriteFlags.reset(new char[sprcount]);
@@ -873,11 +873,11 @@ HGameFileError ReadGameData(LoadedGameEntities &ents, Stream *in, GameDataVersio
         if (cur_pos > block_end)
         {
             return new MainGameFileError(kMGFErr_ExtBlockDataOverlapping,
-                String::FromFormat("Extension: %s, expected to end at offset: %u, finished reading at %u.", ext_id.GetCStr(), block_end, cur_pos));
+                String::FromFormat("Extension: %s, expected to end at offset: %lld, finished reading at %lld.", ext_id.GetCStr(), block_end, cur_pos));
         }
         else if (cur_pos < block_end)
         {
-            Debug::Printf(kDbgMsg_Warn, "WARNING: game data blocks nonsequential, ext %s expected to end at %u, finished reading at %u",
+            Debug::Printf(kDbgMsg_Warn, "WARNING: game data blocks nonsequential, ext %s expected to end at %lld, finished reading at %lld",
                 ext_id.GetCStr(), block_end, cur_pos);
             in->Seek(block_end, Common::kSeekBegin);
         }

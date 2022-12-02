@@ -23,13 +23,20 @@ namespace Directory
 
 bool CreateDirectory(const String &path)
 {
-    //MBG - USE PLATFORM, WHY NOT????
+#ifdef AGS_RATA //MBG - USE PLATFORM, WHY NOT????
     return platform->DirectoryCreate(path);
+#else
+    return mkdir(path.GetCStr()
+#if ! AGS_PLATFORM_OS_WINDOWS
+        , 0755
+#endif
+        ) == 0 || errno == EEXIST;
+#endif
 }
 
 bool CreateAllDirectories(const String &parent, const String &path)
 {
-    if (!ags_directory_exists(parent.GetCStr()))
+    if (parent.IsEmpty() || !ags_directory_exists(parent.GetCStr()))
         return false;
     if (path.IsEmpty())
         return true;
@@ -52,8 +59,11 @@ bool CreateAllDirectories(const String &parent, const String &path)
 
 String SetCurrentDirectory(const String &path)
 {
-    //MBG - USE PLATFORM, WHY NOT????
+#ifdef AGS_RATA //MBG - USE PLATFORM, WHY NOT????
     platform->DirectorySetCurrent(path);
+#else
+    chdir(path.GetCStr());
+#endif
     return GetCurrentDirectory();
 }
 

@@ -877,7 +877,7 @@ static void free_packfile(PACKFILE *f)
  */
 PACKFILE *_pack_fdopen(int fd, AL_CONST char *mode)
 {
-   PACKFILE *f, *f2;
+   PACKFILE *f;
    int c;
 
    if ((f = create_packfile(TRUE)) == NULL)
@@ -1053,8 +1053,6 @@ int pack_fclose(PACKFILE *f)
 PACKFILE *pack_fopen_chunk(PACKFILE *f, int pack)
 {
    PACKFILE *chunk;
-   char tmp[1024];
-   char *name;
    ASSERT(f);
 
    /* unsupported */

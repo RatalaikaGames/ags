@@ -21,6 +21,7 @@
 #define BITMAP WINDOWS_BITMAP
 #include <windows.h>
 #undef BITMAP
+#undef DeleteFile
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <gameux.h>
@@ -228,7 +229,7 @@ void AGSWin32::add_tasks_for_game(const char *guidAsText, const char *gameEXE, c
   // Remove any existing "Play.lnk" from a previous version
   char shortcutLocation[MAX_PATH];
   sprintf(shortcutLocation, "%s\\Play.lnk", pathBuffer);
-  ::remove(shortcutLocation);
+  File::DeleteFile(shortcutLocation);
 
   // Generate the shortcut file name (because it can appear on
   // the start menu's Recent area)
@@ -574,7 +575,7 @@ void DetermineAppOutputDirectory()
   if (win32SavedGamesDirectory[0])
   {
     win32OutputDirectory = Path::ConcatPaths(win32SavedGamesDirectory, "Adventure Game Studio");
-    log_to_saves_dir = mkdir(win32OutputDirectory) == 0 || errno == EEXIST;
+    log_to_saves_dir = mkdir(win32OutputDirectory.GetCStr()) == 0 || errno == EEXIST;
   }
 
   if (!log_to_saves_dir)
@@ -607,13 +608,13 @@ const char *AGSWin32::GetUserConfigDirectory()
 const char *AGSWin32::GetUserGlobalConfigDirectory()
 {
   DetermineAppOutputDirectory();
-  return win32OutputDirectory;
+  return win32OutputDirectory.GetCStr();
 }
 
 const char *AGSWin32::GetAppOutputDirectory()
 {
   DetermineAppOutputDirectory();
-  return win32OutputDirectory;
+  return win32OutputDirectory.GetCStr();
 }
 
 const char *AGSWin32::GetIllegalFileChars()

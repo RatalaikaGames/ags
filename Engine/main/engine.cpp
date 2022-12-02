@@ -206,7 +206,7 @@ bool engine_run_setup(const ConfigTree &cfg, int &app_res)
             allegro_exit();
             char quotedpath[MAX_PATH];
             snprintf(quotedpath, MAX_PATH, "\"%s\"", appPath.GetCStr());
-            _spawnl(_P_OVERLAY, appPath, quotedpath, NULL);
+            _spawnl(_P_OVERLAY, appPath.GetCStr(), quotedpath, NULL);
     }
 #endif
     return true;
@@ -228,19 +228,23 @@ void engine_force_window()
     }
 }
 
-// Scans given directory first for the AGS game config. If such config exists
-// and it contains directions to the game data, then use these settings to find it.
-// Otherwise, scan original directory for the game data.
-// Returns found path to game data, or empty string if failed.
-String find_game_data_in_config_and_dir(const String &path)
+// Scans given directory for the AGS game config. If such config exists
+// and it contains data file name, then returns one.
+// Otherwise returns empty string.
+static String find_game_data_in_config(const String &path)
 {
     // First look for config
-    String data_dir, data_file;
-    read_config_with_game_location(path, data_dir, data_file);
-    if (!data_file.IsEmpty()) // if explicit data path found, return that
-        return data_file;
-    else if (!data_dir.IsEmpty()) // if data dir setting found, search for game data there
-        return FindGameData(data_dir);
+    ConfigTree cfg;
+    String def_cfg_file = Path::ConcatPaths(path, DefaultConfigFileName);
+    if (IniUtil::Read(def_cfg_file, cfg))
+    {
+        String data_file = INIreadstring(cfg, "misc", "datafile");
+        Debug::Printf("Found game config: %s", def_cfg_file.GetCStr());
+        Debug::Printf(" Cfg: data file: %s", data_file.GetCStr());
+        // Only accept if it's a relative path
+        if (!data_file.IsEmpty() && Path::IsRelativePath(data_file))
+            return Path::ConcatPaths(path, data_file);
+    }
     return ""; // not found in config
 }
 
@@ -263,7 +267,7 @@ String search_for_game_data_file(String &was_searching_in)
         was_searching_in = cmdGameDataPath;
         Debug::Printf("Searching in (cmd arg): %s", was_searching_in.GetCStr());
         // first scan for config
-        String data_path = find_game_data_in_config_and_dir(cmdGameDataPath);
+        String data_path = find_game_data_in_config(cmdGameDataPath);
         if (!data_path.IsEmpty())
             return data_path;
         // if not found in config, lookup for data in same dir
@@ -284,7 +288,7 @@ String search_for_game_data_file(String &was_searching_in)
     was_searching_in = cur_dir;
     Debug::Printf("Searching in (cwd): %s", was_searching_in.GetCStr());
     // first scan for config
-    String data_path = find_game_data_in_config_and_dir(cur_dir);
+    String data_path = find_game_data_in_config(cur_dir);
     if (!data_path.IsEmpty())
         return data_path;
     // if not found in config, lookup for data in same dir
@@ -298,7 +302,7 @@ String search_for_game_data_file(String &was_searching_in)
     was_searching_in = appDirectory;
     Debug::Printf("Searching in (exe dir): %s", was_searching_in.GetCStr());
     // first scan for config
-    data_path = find_game_data_in_config_and_dir(appDirectory);
+    data_path = find_game_data_in_config(appDirectory);
     if (!data_path.IsEmpty())
         return data_path;
     // if not found in config, lookup for data in same dir
@@ -605,7 +609,7 @@ int check_write_access() {
 
   our_eip = -1897;
 
-  if (::remove(tempPath))
+  if (!File::DeleteFile(tempPath))
     return 0;
 
   return 1;
@@ -952,7 +956,7 @@ void engine_init_game_settings()
 void engine_setup_scsystem_auxiliary()
 {
     // ScriptSystem::aci_version is only 10 chars long
-    strncpy(scsystem.aci_version, EngineVersion.LongString, 10);
+    strncpy(scsystem.aci_version, EngineVersion.LongString.GetCStr(), 10);
     if (usetup.override_script_os >= 0)
     {
         scsystem.os = usetup.override_script_os;
@@ -1189,7 +1193,7 @@ static void engine_print_info(const std::set<String> &keys, ConfigTree *user_cfg
         AGS::Engine::GetGfxDriverFactoryNames(drv);
         for (size_t i = 0; i < drv.size(); ++i)
         {
-            data["graphicdriver"][String::FromFormat("%u", i)] = drv[i];
+            data["graphicdriver"][String::FromFormat("%zu", i)] = drv[i];
         }
     }
     if (all || keys.count("configpath") > 0)
@@ -1238,19 +1242,6 @@ static void engine_print_info(const std::set<String> &keys, ConfigTree *user_cfg
     String full;
     IniUtil::WriteToString(full, data);
     platform->WriteStdOut("%s", full.GetCStr());
-}
-
-// Custom resource search callback for Allegro's system driver.
-// It helps us direct Allegro to our game data location, because it won't know.
-static int al_find_resource(char *dest, const char* resource, int dest_size)
-{
-    String path = AssetMgr->FindAssetFileOnly(resource);
-    if (!path.IsEmpty())
-    {
-        snprintf(dest, dest_size, "%s", path.GetCStr());
-        return 0;
-    }
-    return -1;
 }
 
 // TODO: this function is still a big mess, engine/system-related initialization

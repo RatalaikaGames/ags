@@ -399,7 +399,7 @@ void DoBeforeRestore(PreservedParams &pp)
 
     // cleanup dynamic sprites
     // NOTE: sprite 0 is a special constant sprite that cannot be dynamic
-    for (int i = 1; i < spriteset.GetSpriteSlotCount(); ++i)
+    for (size_t i = 1; i < spriteset.GetSpriteSlotCount(); ++i)
     {
         if (game.SpriteInfos[i].Flags & SPF_DYNAMICALLOC)
         {
@@ -645,7 +645,7 @@ HSaveError DoAfterRestore(const PreservedParams &pp, const RestoredData &r_data)
         if ((size_t)chan_info.ClipID >= game.audioClips.size())
         {
             return new SavegameError(kSvgErr_GameObjectInitFailed,
-                String::FromFormat("Invalid audio clip index: %d (clip count: %u).", chan_info.ClipID, game.audioClips.size()));
+                String::FromFormat("Invalid audio clip index: %d (clip count: %zu).", chan_info.ClipID, game.audioClips.size()));
         }
         play_audio_clip_on_channel(i, &game.audioClips[chan_info.ClipID],
             chan_info.Priority, chan_info.Repeat, chan_info.Pos);
@@ -804,7 +804,7 @@ Stream *StartSavegame(const String &filename, const String &user_text, const Bit
     vistaHeader.dwThumbnailSize = 0;
     convert_guid_from_text_to_binary(game.guid, &vistaHeader.guidGameId[0]);
     uconvert(game.gamename, U_ASCII, (char*)&vistaHeader.szGameName[0], U_UNICODE, RM_MAXLENGTH);
-    uconvert(user_text, U_ASCII, (char*)&vistaHeader.szSaveName[0], U_UNICODE, RM_MAXLENGTH);
+    uconvert(user_text.GetCStr(), U_ASCII, (char*)&vistaHeader.szSaveName[0], U_UNICODE, RM_MAXLENGTH);
     vistaHeader.szLevelName[0] = 0;
     vistaHeader.szComments[0] = 0;
     // MS Windows Vista rich media header

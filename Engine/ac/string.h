@@ -21,6 +21,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include "ac/dynobj/cc_dynamicobject.h"
+#include "util/string.h"
 
 // Check that a supplied buffer from a text script function was not null
 #define VALIDATE_STRING(strin) if ((intptr_t)strin <= 4096) quit("!String argument was null: make sure you pass a string, not an int, as a buffer")
@@ -44,7 +45,9 @@ int StrContains (const char *s1, const char *s2);
 
 //=============================================================================
 
+const char* CreateNewScriptString(const AGS::Common::String &fromText);
 const char* CreateNewScriptString(const char *fromText, bool reAllocate = true);
+DynObjectRef CreateNewScriptStringObj(const AGS::Common::String &fromText);
 DynObjectRef CreateNewScriptStringObj(const char *fromText, bool reAllocate = true);
 class SplitLines;
 // Break up the text into lines restricted by the given width;

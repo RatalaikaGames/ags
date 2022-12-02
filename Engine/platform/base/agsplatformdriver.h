@@ -146,7 +146,7 @@ struct AGSPlatformDriver
     virtual void WaitForNextFrame();
 
     virtual Common::Stream* Save_CreateSlotStream(int slnum);
-    virtual void Save_DeleteSlot(int slnum);
+    //virtual void Save_DeleteSlot(int slnum);
 
     virtual Common::Stream *OpenFile(eFilePurpose purpose, const Common::String &filename, Common::FileOpenMode open_mode, Common::FileWorkMode work_mode);
 

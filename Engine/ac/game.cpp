@@ -1235,8 +1235,8 @@ HSaveError load_game(const String &path, int slotNumber, bool &data_overwritten)
     src.InputStream.reset();
     our_eip = oldeip;
 
-    // ensure keyboard buffer is clean
-    ags_clear_input_buffer();
+    // ensure input state is reset
+    ags_clear_input_state();
     // call "After Restore" event callback
     run_on_event(GE_RESTORE_GAME, RuntimeScriptValue().SetInt32(slotNumber));
     return HSaveError::None();
@@ -1429,7 +1429,7 @@ int __GetLocationType(int xxx,int yyy, int allowHotspot0) {
 void display_switch_out()
 {
     switched_away = true;
-    ags_clear_input_buffer();
+    ags_clear_input_state();
     // Always unlock mouse when switching out from the game
     Mouse::UnlockFromWindow();
 }
@@ -1465,7 +1465,7 @@ void display_switch_out_suspend()
 // Called whenever game gets input focus
 void display_switch_in()
 {
-    ags_clear_input_buffer();
+    ags_clear_input_state();
     // If auto lock option is set, lock mouse to the game window
     if (usetup.mouse_auto_lock && scsystem.windowed)
         Mouse::TryLockToWindow();

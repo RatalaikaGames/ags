@@ -172,7 +172,7 @@ namespace AGS
 				virtual const char*GetDriverName() { return "Console"; }
 				virtual const char*GetDriverID() { return "CONS"; }
 				virtual void SetTintMethod(TintMethod method);
-				virtual bool SetDisplayMode(const DisplayMode &mode, volatile int *loopTimer);
+				virtual bool SetDisplayMode(const DisplayMode &mode);
                 virtual void UpdateDeviceScreen(const Size &screen_size) {}
 				virtual bool SetNativeSize(const Size &src_size);
 				virtual bool SetRenderFrame(const Rect &dst_rect);

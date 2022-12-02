@@ -15,10 +15,7 @@
 #include "core/platform.h"
 #include <allegro.h>
 #if AGS_PLATFORM_OS_WINDOWS
-#define NOMINMAX
-#define BITMAP WINDOWS_BITMAP
-#include <windows.h>
-#undef BITMAP
+#include "platform/windows/windows.h"
 #endif
 #include "plugin/agsplugin.h"
 #include "ac/common.h"
@@ -817,7 +814,9 @@ void IAGSEngine::BreakIntoDebugger()
 
 IAGSFontRenderer* IAGSEngine::ReplaceFontRenderer(int fontNumber, IAGSFontRenderer *newRenderer)
 {
-    return font_replace_renderer(fontNumber, newRenderer);
+    auto *old_render = font_replace_renderer(fontNumber, newRenderer);
+    GUI::MarkForFontUpdate(fontNumber);
+    return old_render;
 }
 
 void IAGSEngine::GetRenderStageDesc(AGSRenderStageDesc* desc)

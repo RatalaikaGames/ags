@@ -11,12 +11,11 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
-
 #ifndef __AC_FONT_H
 #define __AC_FONT_H
 
 #include <vector>
-#include "core/types.h"
+#include "ac/gamestructdefines.h"
 #include "util/string.h"
 
 // TODO: we need to make some kind of TextManager class of this module
@@ -37,6 +36,8 @@ bool font_first_renderer_loaded();
 bool is_font_loaded(size_t fontNumber);
 bool is_bitmap_font(size_t fontNumber);
 bool font_supports_extended_characters(size_t fontNumber);
+// Get font's name, if it's available, otherwise returns empty string
+const char *get_font_name(size_t fontNumber);
 // TODO: with changes to WFN font renderer that implemented safe rendering of
 // strings containing invalid chars (since 3.3.1) this function is not
 // important, except for (maybe) few particular cases.
@@ -44,6 +45,7 @@ bool font_supports_extended_characters(size_t fontNumber);
 // at random times (usually - drawing routines).
 // Need to check whether it is safe to completely remove it.
 void ensure_text_valid_for_font(char *text, size_t fontnum);
+// Get font's scaling multiplier
 int get_font_scaling_mul(size_t fontNumber);
 // Calculate actual width of a line of text
 int wgettextwidth(const char *texx, size_t fontNumber);
@@ -53,19 +55,31 @@ int wgettextheight(const char *text, size_t fontNumber);
 int getfontheight(size_t fontNumber);
 // Get font's line spacing
 int getfontlinespacing(size_t fontNumber);
+// Set font's line spacing
+void set_font_linespacing(size_t fontNumber, int spacing);
 // Get is font is meant to use default line spacing
 bool use_default_linespacing(size_t fontNumber);
+// Get font's outline type
 int  get_font_outline(size_t font_number);
-void set_font_outline(size_t font_number, int outline_type);
+// Get font's automatic outline thickness (if set)
+int  get_font_outline_thickness(size_t font_number);
+// Set font's outline type
+void set_font_outline(size_t font_number, int outline_type,
+    enum FontInfo::AutoOutlineStyle style = FontInfo::kSquared, int thickness = 1);
 // Outputs a single line of text on the defined position on bitmap, using defined font, color and parameters
-int getfontlinespacing(size_t fontNumber);
-// Print text on a surface using a given font
 void wouttextxy(Common::Bitmap *ds, int xxx, int yyy, size_t fontNumber, color_t text_color, const char *texx);
 // Assigns FontInfo to the font
 void set_fontinfo(size_t fontNumber, const FontInfo &finfo);
+// Gets full information about the font
+FontInfo get_fontinfo(size_t font_number);
 // Loads a font from disk
 bool wloadfont_size(size_t fontNumber, const FontInfo &font_info);
 void wgtprintf(Common::Bitmap *ds, int xxx, int yyy, size_t fontNumber, color_t text_color, char *fmt, ...);
+// Allocates two outline stencil buffers, or returns previously creates ones;
+// these buffers are owned by the font, they should not be deleted by the caller.
+void alloc_font_outline_buffers(size_t font_number,
+    Common::Bitmap **text_stencil, Common::Bitmap **outline_stencil,
+    int text_width, int text_height, int color_depth);
 // Free particular font's data
 void wfreefont(size_t fontNumber);
 // Free all fonts data

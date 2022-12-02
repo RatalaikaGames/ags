@@ -33,7 +33,7 @@ END_OF_FUNCTION(dj_timer_handler);
 
 void WaitForNextFrame()
 {
-    platform->WaitForNextFrame();
+    //platform->WaitForNextFrame();
 }
 #endif
 

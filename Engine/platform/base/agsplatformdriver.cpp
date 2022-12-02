@@ -39,7 +39,7 @@ using namespace AGS::Engine;
 // 16 milliseconds is rough period for 60fps
 const auto MaximumDelayBetweenPolling = std::chrono::milliseconds(16);
 
-AGSPlatformDriver* AGSPlatformDriver::instance = nullptr;
+std::unique_ptr<AGSPlatformDriver> AGSPlatformDriver::_instance;
 AGSPlatformDriver *platform = nullptr;
 
 // ******** DEFAULT IMPLEMENTATIONS *******
@@ -116,6 +116,7 @@ SetupReturnValue AGSPlatformDriver::RunSetup(const ConfigTree &cfg_in, ConfigTre
     return kSetup_Cancel;
 }
 
+#if 0 // OLDDDDDD
 void AGSPlatformDriver::SetTranslation(const char* name) {}
 
 extern volatile int timerloop;
@@ -151,7 +152,7 @@ Common::Stream *AGSPlatformDriver::OpenFile(const Common::String &filename, Comm
 {
     return File::OpenFile(filename, open_mode, work_mode);
 }
-
+#endif // OLDDDDDD
 
 bool AGSPlatformDriver::DirectoryCreate(const String &path)
 {
@@ -178,6 +179,7 @@ String AGSPlatformDriver::DirectorySetCurrent(const String &path)
     #endif
 }
 
+#if 1 // OLDDDDDD
 bool AGSPlatformDriver::DirectoryCreateAll(const String &parent, const String &path)
 {
     //by using other functions, it should be possible for this to be the same in every platform
@@ -262,6 +264,20 @@ Stream* AGSPlatformDriver::Save_CreateSlotStream(int slnum)
 
     return Common::File::CreateFile(nametouse);
 }
+#else // OLDDDDDD
+void AGSPlatformDriver::InitCommandArgs(const char *const argv[], size_t argc)
+{
+    _cmdArgs = argv;
+    _cmdArgCount = argc;
+}
+
+String AGSPlatformDriver::GetCommandArg(size_t arg_index)
+{
+    return arg_index < _cmdArgCount ? _cmdArgs[arg_index] : nullptr;
+}
+
+#endif // OLDDDDDD
+
 //-----------------------------------------------
 // IOutputHandler implementation
 //-----------------------------------------------
@@ -281,6 +297,18 @@ void AGSPlatformDriver::PrintMessage(const Common::DebugMessage &msg)
         else
             WriteStdOut("%s : %s", msg.GroupName.GetCStr(), msg.Text.GetCStr());
     }
+}
+
+AGSPlatformDriver* AGSPlatformDriver::GetDriver()
+{
+    if (!_instance)
+        _instance.reset(CreateDriver());
+    return _instance.get();
+}
+
+void AGSPlatformDriver::Shutdown()
+{
+    _instance.reset();
 }
 
 // ********** CD Player Functions common to Win and Linux ********

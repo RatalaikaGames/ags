@@ -42,8 +42,7 @@ extern IGraphicsDriver *gfxDriver;
 
 
 
-ScreenOverlay screenover[MAX_SCREEN_OVERLAYS];
-int numscreenover=0;
+std::vector<ScreenOverlay> screenover;
 
 void Overlay_Remove(ScriptOverlay *sco) {
     sco->Remove();
@@ -155,6 +154,40 @@ ScriptOverlay* Overlay_CreateTextual(int x, int y, int width, int font, int colo
     return sco;
 }
 
+int Overlay_GetTransparency(ScriptOverlay *scover) {
+    int ovri = find_overlay_of_type(scover->overlayId);
+    if (ovri < 0)
+        quit("!invalid overlay ID specified");
+
+    return GfxDef::LegacyTrans255ToTrans100(screenover[ovri].transparency);
+}
+
+void Overlay_SetTransparency(ScriptOverlay *scover, int trans) {
+    int ovri = find_overlay_of_type(scover->overlayId);
+    if (ovri < 0)
+        quit("!invalid overlay ID specified");
+    if ((trans < 0) | (trans > 100))
+        quit("!SetTransparency: transparency value must be between 0 and 100");
+
+    screenover[ovri].transparency = GfxDef::Trans100ToLegacyTrans255(trans);
+}
+
+int Overlay_GetZOrder(ScriptOverlay *scover) {
+    int ovri = find_overlay_of_type(scover->overlayId);
+    if (ovri < 0)
+        quit("!invalid overlay ID specified");
+
+    return screenover[ovri].zorder;
+}
+
+void Overlay_SetZOrder(ScriptOverlay *scover, int zorder) {
+    int ovri = find_overlay_of_type(scover->overlayId);
+    if (ovri < 0)
+        quit("!invalid overlay ID specified");
+
+    screenover[ovri].zorder = zorder;
+}
+
 //=============================================================================
 
 // Creates and registers a managed script object for existing overlay object
@@ -197,7 +230,7 @@ static void dispose_overlay(ScreenOverlay &over)
         ccAttemptDisposeObject(over.associatedOverlayHandle);
 }
 
-void remove_screen_overlay_index(int over_idx)
+void remove_screen_overlay_index(size_t over_idx)
 {
     ScreenOverlay &over = screenover[over_idx];
     // TODO: move these custom settings outside of this function
@@ -218,18 +251,16 @@ void remove_screen_overlay_index(int over_idx)
         face_talking = -1;
     }
     dispose_overlay(over);
-    numscreenover--;
-    for (int i = over_idx; i < numscreenover; ++i)
-        screenover[i] = screenover[i + 1];
+    screenover.erase(screenover.begin() + over_idx);
     // if an overlay before the sierra-style speech one is removed, update the index
     // TODO: this is bad, need more generic system to store overlay references
-    if (face_talking > over_idx)
+    if ((size_t)face_talking > over_idx)
         face_talking--;
 }
 
 void remove_screen_overlay(int type)
 {
-    for (int i = 0; i < numscreenover;)
+    for (size_t i = 0; i < screenover.size();)
     {
         if (type < 0 || screenover[i].type == type)
             remove_screen_overlay_index(i);
@@ -240,33 +271,36 @@ void remove_screen_overlay(int type)
 
 int find_overlay_of_type(int type)
 {
-    for (int i = 0; i < numscreenover; ++i)
+    for (size_t i = 0; i < screenover.size(); ++i)
     {
         if (screenover[i].type == type) return i;
     }
     return -1;
 }
 
-int add_screen_overlay(int x, int y, int type, Bitmap *piccy, bool alphaChannel)
+size_t add_screen_overlay(int x, int y, int type, Bitmap *piccy, bool alphaChannel)
 {
     return add_screen_overlay(x, y, type, piccy, 0, 0, alphaChannel);
 }
 
-int add_screen_overlay(int x, int y, int type, Common::Bitmap *piccy, int pic_offx, int pic_offy, bool alphaChannel)
+size_t add_screen_overlay(int x, int y, int type, Bitmap *piccy, int pic_offx, int pic_offy, bool alphaChannel)
 {
     if (type == OVER_CUSTOM) {
         // find an unused custom ID; TODO: find a better approach!
-        for (int id = OVER_CUSTOM + 1; id < OVER_CUSTOM + 100; ++id) {
+        for (int id = OVER_CUSTOM + 1; (size_t)id <= screenover.size() + OVER_CUSTOM + 1; ++id) {
             if (find_overlay_of_type(id) == -1) { type=id; break; }
         }
     }
-    ScreenOverlay &over = screenover[numscreenover++];
+    ScreenOverlay over;
     over.pic=piccy;
     over.bmp = gfxDriver->CreateDDBFromBitmap(piccy, alphaChannel);
     over.x=x;
     over.y=y;
     over._offsetX = pic_offx;
     over._offsetY = pic_offy;
+    // by default draw speech and portraits over GUI, and the rest under GUI
+    over.zorder = (type == OVER_TEXTMSG || type == OVER_PICTURE || type == OVER_TEXTSPEECH) ?
+        INT_MAX : INT_MIN;
     over.type=type;
     over.timeout=0;
     over.bgSpeechForChar = -1;
@@ -287,7 +321,8 @@ int add_screen_overlay(int x, int y, int type, Common::Bitmap *piccy, int pic_of
     {
         play.speech_face_scover = create_scriptobj_addref(over);
     }
-    return numscreenover - 1;
+    screenover.push_back(std::move(over));
+    return screenover.size() - 1;
 }
 
 
@@ -338,14 +373,14 @@ void get_overlay_position(const ScreenOverlay &over, int *x, int *y) {
 
 void recreate_overlay_ddbs()
 {
-    for (int i = 0; i < numscreenover; ++i)
+    for (auto &over : screenover)
     {
-        if (screenover[i].bmp)
-            gfxDriver->DestroyDDB(screenover[i].bmp);
-        if (screenover[i].pic)
-            screenover[i].bmp = gfxDriver->CreateDDBFromBitmap(screenover[i].pic, false);
+        if (over.bmp)
+            gfxDriver->DestroyDDB(over.bmp);
+        if (over.pic)
+            over.bmp = gfxDriver->CreateDDBFromBitmap(over.pic, false);
         else
-            screenover[i].bmp = nullptr;
+            over.bmp = nullptr;
     }
 }
 
@@ -428,6 +463,27 @@ RuntimeScriptValue Sc_Overlay_GetHeight(void *self, const RuntimeScriptValue *pa
     API_OBJCALL_INT(ScriptOverlay, Overlay_GetHeight);
 }
 
+RuntimeScriptValue Sc_Overlay_GetTransparency(void *self, const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_OBJCALL_INT(ScriptOverlay, Overlay_GetTransparency);
+}
+
+RuntimeScriptValue Sc_Overlay_SetTransparency(void *self, const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_OBJCALL_VOID_PINT(ScriptOverlay, Overlay_SetTransparency);
+}
+
+RuntimeScriptValue Sc_Overlay_GetZOrder(void *self, const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_OBJCALL_INT(ScriptOverlay, Overlay_GetZOrder);
+}
+
+RuntimeScriptValue Sc_Overlay_SetZOrder(void *self, const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_OBJCALL_VOID_PINT(ScriptOverlay, Overlay_SetZOrder);
+}
+
+
 //=============================================================================
 //
 // Exclusive API for Plugins
@@ -448,7 +504,6 @@ void ScPl_Overlay_SetText(ScriptOverlay *scover, int wii, int fontid, int clr, c
     Overlay_SetText(scover, wii, fontid, clr, scsf_buffer);
 }
 
-
 void RegisterOverlayAPI()
 {
     ccAddExternalStaticFunction("Overlay::CreateGraphical^4",   Sc_Overlay_CreateGraphical);
@@ -462,6 +517,10 @@ void RegisterOverlayAPI()
     ccAddExternalObjectFunction("Overlay::set_Y",               Sc_Overlay_SetY);
     ccAddExternalObjectFunction("Overlay::get_Width",           Sc_Overlay_GetWidth);
     ccAddExternalObjectFunction("Overlay::get_Height",          Sc_Overlay_GetHeight);
+    ccAddExternalObjectFunction("Overlay::get_Transparency",    Sc_Overlay_GetTransparency);
+    ccAddExternalObjectFunction("Overlay::set_Transparency",    Sc_Overlay_SetTransparency);
+    ccAddExternalObjectFunction("Overlay::get_ZOrder",          Sc_Overlay_GetZOrder);
+    ccAddExternalObjectFunction("Overlay::set_ZOrder",          Sc_Overlay_SetZOrder);
 
     /* ----------------------- Registering unsafe exports for plugins -----------------------*/
 

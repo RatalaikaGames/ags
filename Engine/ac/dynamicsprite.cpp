@@ -329,7 +329,7 @@ ScriptDynamicSprite* DynamicSprite_CreateFromScreenShot(int width, int height) {
     update_polled_stuff_if_runtime();
 
     // replace the bitmap in the sprite set
-    add_dynamic_sprite(gotSlot, ReplaceBitmapWithSupportedFormat(newPic));
+    add_dynamic_sprite(gotSlot, newPic);
     ScriptDynamicSprite *new_spr = new ScriptDynamicSprite(gotSlot);
     return new_spr;
 }
@@ -394,17 +394,22 @@ ScriptDynamicSprite* DynamicSprite_Create(int width, int height, int alphaChanne
     if (gotSlot <= 0)
         return nullptr;
 
+#if 0 // DPASCA - MBG: "when creating a dynamic sprite on color depth 32 platform, force it to have an alpha channel. i dont really understand all this alpha channel stuff and I can't figure out how the other 3d renderers are using it, but I traced my problem to here."
     if(game.GetColorDepth() == 32)
       alphaChannel = 1;
 
     Bitmap *newPic = BitmapHelper::CreateTransparentBitmap(width, height, game.GetColorDepth());
+#else
+    Bitmap *newPic = CreateCompatBitmap(width, height);
+#endif
     if (newPic == nullptr)
         return nullptr;
 
+    newPic->ClearTransparent();
     if ((alphaChannel) && (game.GetColorDepth() < 32))
         alphaChannel = false;
 
-    add_dynamic_sprite(gotSlot, ReplaceBitmapWithSupportedFormat(newPic), alphaChannel != 0);
+    add_dynamic_sprite(gotSlot, newPic, alphaChannel != 0);
     ScriptDynamicSprite *new_spr = new ScriptDynamicSprite(gotSlot);
     return new_spr;
 }

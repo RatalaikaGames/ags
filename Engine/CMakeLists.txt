@@ -267,7 +267,6 @@ target_sources(engine
     ac/sprite.cpp
     ac/sprite.h
     ac/spritecache_engine.cpp
-    ac/spritelistentry.h
     ac/statobj/agsstaticobject.cpp
     ac/statobj/agsstaticobject.h
     ac/statobj/staticarray.cpp
@@ -581,6 +580,11 @@ endif()
 
 if (WIN32)
     target_link_libraries(engine PUBLIC shlwapi)
+endif()
+
+if(ANDROID)
+    find_library(ANDROID_LOG_LIB log)
+    target_link_libraries(engine PUBLIC ${ANDROID_LOG_LIB})
 endif()
 
 get_target_property(ENGINE_SOURCES engine SOURCES)

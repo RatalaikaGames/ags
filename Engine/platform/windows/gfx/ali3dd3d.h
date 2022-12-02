@@ -53,11 +53,12 @@ struct D3DTextureTile : public TextureTile
     IDirect3DTexture9* texture;
 };
 
-class D3DBitmap : public VideoMemDDB
+class D3DBitmap : public BaseDDB
 {
 public:
     // Transparency is a bit counter-intuitive
     // 0=not transparent, 255=invisible, 1..254 barely visible .. mostly visible
+    int  GetTransparency() const override { return _transparency; }
     void SetTransparency(int transparency) override { _transparency = transparency; }
     void SetFlippedLeftRight(bool isFlipped) override { _flipped = isFlipped; }
     void SetStretch(int width, int height, bool useResampler = true) override
@@ -75,6 +76,12 @@ public:
         _tintSaturation = tintSaturation;
     }
 
+    // Direct3D texture data
+    IDirect3DVertexBuffer9* _vertex;
+    D3DTextureTile *_tiles;
+    int _numTiles;
+
+    // Drawing parameters
     bool _flipped;
     int _stretchToWidth, _stretchToHeight;
     bool _useResampler;
@@ -83,12 +90,13 @@ public:
     int _lightLevel;
     bool _hasAlpha;
     int _transparency;
-    IDirect3DVertexBuffer9* _vertex;
-    D3DTextureTile *_tiles;
-    int _numTiles;
 
     D3DBitmap(int width, int height, int colDepth, bool opaque)
     {
+        _vertex = NULL;
+        _tiles = NULL;
+        _numTiles = 0;
+
         _width = width;
         _height = height;
         _colDepth = colDepth;
@@ -102,9 +110,6 @@ public:
         _lightLevel = 0;
         _transparency = 0;
         _opaque = opaque;
-        _vertex = NULL;
-        _tiles = NULL;
-        _numTiles = 0;
     }
 
     int GetWidthToRender() { return (_stretchToWidth > 0) ? _stretchToWidth : _width; }

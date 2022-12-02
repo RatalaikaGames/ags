@@ -15,11 +15,11 @@
 // AGS Cross-Platform Header
 //
 //=============================================================================
-
 #ifndef __AGS_EE_PLATFORM__AGSPLATFORMDRIVER_H
 #define __AGS_EE_PLATFORM__AGSPLATFORMDRIVER_H
 
 #include <errno.h>
+#include <memory>
 #include <vector>
 #include "ac/datetime.h"
 #include "debug/outputhandler.h"
@@ -76,15 +76,20 @@ enum SetupReturnValue
     kSetup_RunGame
 };
 
-struct AGSPlatformDriver
+class AGSPlatformDriver
     // be used as a output target for logging system
     : public AGS::Common::IOutputHandler
 {
+public:
+    virtual ~AGSPlatformDriver() = default;
+
     virtual void AboutToQuitGame();
     virtual void Delay(int millis);
     virtual void DisplayAlert(const char*, ...) = 0;
     virtual void AttachToParentConsole();
     virtual int  GetLastSystemError() { return errno; }
+    // platform specific data file
+    virtual const char * GetGameDataFile() {return nullptr; }
     // Get root directory for storing per-game shared data
     virtual const char *GetAllUsersDataDirectory() { return "."; }
     // Get root directory for storing per-game saved games
@@ -133,9 +138,15 @@ struct AGSPlatformDriver
     virtual int  CDPlayerCommand(int cmdd, int datt);
     virtual void ShutdownCDPlayer();
 
+    // Store command line arguments for the future use; preprocess them if necessary
+    virtual void InitCommandArgs(const char *const argv[], size_t argc);
+    // Returns command line argument in a UTF-8 format
+    virtual Common::String GetCommandArg(size_t arg_index);
+
      // Allows adjusting parameters and other fixes before engine is initialized
     virtual void MainInitAdjustments() { };
 
+#if 1 // OLDDDDDD
     //called whenever the game script SetTranslation is called (so fonts can be changed, etc.)
     virtual void SetTranslation(const char* name);
 
@@ -146,6 +157,7 @@ struct AGSPlatformDriver
     //virtual void Save_DeleteSlot(int slnum);
 
     virtual Common::Stream *OpenFile(const Common::String &filename, Common::FileOpenMode open_mode, Common::FileWorkMode work_mode);
+#endif // OLDDDDDD
 
     //-----------------------
     //New functions which only had posix implementations but need to be done differently on non-posix systems
@@ -157,7 +169,7 @@ struct AGSPlatformDriver
     
     // Sets current working directory, returns the resulting path
     virtual Common::String DirectorySetCurrent(const Common::String &path);
-    
+#if 1 // OLDDDDD    
     // Makes sure all directories in the path are created. Parent path is
     // not touched, and function must fail if parent path is not accessible.
     virtual bool DirectoryCreateAll(const Common::String &parent, const Common::String &path);
@@ -173,8 +185,12 @@ struct AGSPlatformDriver
 
     //renames a path
     virtual bool PathRename(const Common::String &oldpath, const Common::String &newpath);
+#endif // OLDDDDDD
 
+    // Gets the only platform driver instance, creates one if necessary
     static AGSPlatformDriver *GetDriver();
+    // Shuts down and deletes the platform driver
+    static void Shutdown();
 
     // Set whether PrintMessage should output to stdout or stderr
     void SetOutputToErr(bool on) { _logToStdErr = on; }
@@ -199,8 +215,13 @@ protected:
     // and errors by showing a message box kind of GUI.
     bool _guiMode = false;
 
+    const char * const *_cmdArgs = nullptr;
+    size_t _cmdArgCount = 0u;
+
 private:
-    static AGSPlatformDriver *instance;
+    static AGSPlatformDriver *CreateDriver();
+
+    static std::unique_ptr<AGSPlatformDriver> _instance;
 };
 
 #if defined (AGS_HAS_CD_AUDIO)

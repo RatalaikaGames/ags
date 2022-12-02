@@ -835,29 +835,27 @@ HSaveError ReadDynamicSprites(Stream *in, int32_t cmp_ver, const PreservedParams
 
 HSaveError WriteOverlays(Stream *out)
 {
-    out->WriteInt32(numscreenover);
-    for (int i = 0; i < numscreenover; ++i)
+    out->WriteInt32(screenover.size());
+    for (const auto &over : screenover)
     {
-        screenover[i].WriteToFile(out);
-        serialize_bitmap(screenover[i].pic, out);
+        over.WriteToFile(out);
+        serialize_bitmap(over.pic, out);
     }
     return HSaveError::None();
 }
 
 HSaveError ReadOverlays(Stream *in, int32_t cmp_ver, const PreservedParams &pp, RestoredData &r_data)
 {
-    HSaveError err;
-    int over_count = in->ReadInt32();
-    if (!AssertCompatLimit(err, over_count, MAX_SCREEN_OVERLAYS, "overlays"))
-        return err;
-    numscreenover = over_count;
-    for (int i = 0; i < numscreenover; ++i)
+    size_t over_count = in->ReadInt32();
+    for (size_t i = 0; i < over_count; ++i)
     {
-        screenover[i].ReadFromFile(in, cmp_ver);
-        if (screenover[i].hasSerializedBitmap)
-            screenover[i].pic = read_serialized_bitmap(in);
+        ScreenOverlay over;
+        over.ReadFromFile(in, cmp_ver);
+        if (over.hasSerializedBitmap)
+            over.pic = read_serialized_bitmap(in);
+        screenover.push_back(over);
     }
-    return err;
+    return HSaveError::None();
 }
 
 HSaveError WriteDynamicSurfaces(Stream *out)
@@ -1201,7 +1199,7 @@ ComponentHandler ComponentHandlers[] =
     },
     {
         "Overlays",
-        1,
+        2,
         0,
         WriteOverlays,
         ReadOverlays

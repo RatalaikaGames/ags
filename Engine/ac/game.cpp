@@ -1601,8 +1601,7 @@ void game_sprite_updated(int sprnum)
     {
         if (guis[i].BgImage == sprnum)
         {
-            guis_need_update = 1;
-            break; // setting gui update flag once is enough
+            guis[i].MarkChanged();
         }
     }
     // gui buttons
@@ -1610,8 +1609,7 @@ void game_sprite_updated(int sprnum)
     {
         if (guibuts[i].CurrentImage == sprnum)
         {
-            guis_need_update = 1;
-            break; // setting gui update flag once is enough
+            guibuts[i].NotifyParentChanged();
         }
     }
 }
@@ -1643,7 +1641,7 @@ void game_sprite_deleted(int sprnum)
         if (guis[i].BgImage == sprnum)
         {
             guis[i].BgImage = 0;
-            guis_need_update = 1;
+            guis[i].MarkChanged();
         }
     }
     // gui buttons
@@ -1659,7 +1657,7 @@ void game_sprite_deleted(int sprnum)
         if (guibuts[i].CurrentImage == sprnum)
         {
             guibuts[i].CurrentImage = 0;
-            guis_need_update = 1;
+            guibuts[i].NotifyParentChanged();
         }
     }
     // views

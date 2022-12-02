@@ -205,6 +205,12 @@ const char* Room_GetMessages(int index) {
     return CreateNewScriptString(buffer);
 }
 
+bool Room_Exists(int room)
+{
+    String room_filename;
+    room_filename.Format("room%d.crm", room);
+    return AssetMgr->DoesAssetExist(room_filename);
+}
 
 //=============================================================================
 
@@ -416,6 +422,7 @@ void update_letterbox_mode()
 
     play.SetMainViewport(CenterInRect(game_frame, new_main_view));
     play.SetUIViewport(new_main_view);
+    on_mainviewport_changed();
 }
 
 // Automatically reset primary room viewport and camera to match the new room size
@@ -622,7 +629,7 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
             croom->obj[cc].moving=-1;
             croom->obj[cc].flags = thisroom.Objects[cc].Flags;
             croom->obj[cc].baseline=-1;
-            croom->obj[cc].last_zoom = 100;
+            croom->obj[cc].zoom = 100;
             croom->obj[cc].last_width = 0;
             croom->obj[cc].last_height = 0;
             croom->obj[cc].blocking_width = 0;
@@ -1233,6 +1240,10 @@ RuntimeScriptValue Sc_RoomProcessClick(const RuntimeScriptValue *params, int32_t
     API_SCALL_VOID_PINT3(RoomProcessClick);
 }
 
+RuntimeScriptValue Sc_Room_Exists(const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_SCALL_BOOL_PINT(Room_Exists);
+}
 
 void RegisterRoomAPI()
 {
@@ -1253,6 +1264,7 @@ void RegisterRoomAPI()
     ccAddExternalStaticFunction("Room::get_RightEdge",                      Sc_Room_GetRightEdge);
     ccAddExternalStaticFunction("Room::get_TopEdge",                        Sc_Room_GetTopEdge);
     ccAddExternalStaticFunction("Room::get_Width",                          Sc_Room_GetWidth);
+    ccAddExternalStaticFunction("Room::Exists",                             Sc_Room_Exists);
 
     /* ----------------------- Registering unsafe exports for plugins -----------------------*/
 
@@ -1269,4 +1281,5 @@ void RegisterRoomAPI()
     ccAddExternalFunctionForPlugin("Room::get_RightEdge",                      (void*)Room_GetRightEdge);
     ccAddExternalFunctionForPlugin("Room::get_TopEdge",                        (void*)Room_GetTopEdge);
     ccAddExternalFunctionForPlugin("Room::get_Width",                          (void*)Room_GetWidth);
+    ccAddExternalFunctionForPlugin("Room::Exists",                             (void*)Room_Exists);
 }

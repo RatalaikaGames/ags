@@ -44,7 +44,6 @@ extern IGraphicsDriver *gfxDriver;
 
 ScreenOverlay screenover[MAX_SCREEN_OVERLAYS];
 int numscreenover=0;
-int is_complete_overlay=0,is_text_overlay=0;
 
 void Overlay_Remove(ScriptOverlay *sco) {
     sco->Remove();
@@ -144,30 +143,72 @@ ScriptOverlay* Overlay_CreateTextual(int x, int y, int width, int font, int colo
 
 //=============================================================================
 
-void dispose_overlay(ScreenOverlay &over)
+// Creates and registers a managed script object for existing overlay object
+ScriptOverlay* create_scriptobj_for_overlay(ScreenOverlay &over)
+{
+    ScriptOverlay *scover = new ScriptOverlay();
+    scover->overlayId = over.type;
+    int handl = ccRegisterManagedObject(scover, scover);
+    over.associatedOverlayHandle = handl;
+    return scover;
+}
+
+// Creates managed script object for overlay and adds internal engine's reference to it,
+// so that it does not get disposed even if there are no user references in script.
+static ScriptOverlay* create_scriptobj_addref(ScreenOverlay &over)
+{
+    ScriptOverlay* scover = create_scriptobj_for_overlay(over);
+    ccAddObjectReference(over.associatedOverlayHandle);
+    return scover;
+}
+
+// Invalidates existing script object to let user know that previous overlay is gone,
+// and releases engine's internal reference (script object may exist while there are user refs)
+static void invalidate_and_subref(ScreenOverlay &over, ScriptOverlay *&scover)
+{
+    scover->overlayId = -1;
+    scover = nullptr;
+    ccReleaseObjectReference(over.associatedOverlayHandle);
+}
+
+// Frees overlay resources and disposes script object if there are no more refs
+static void dispose_overlay(ScreenOverlay &over)
 {
     delete over.pic;
     over.pic = nullptr;
     if (over.bmp != nullptr)
         gfxDriver->DestroyDDB(over.bmp);
     over.bmp = nullptr;
-    // if the script didn't actually use the Overlay* return
-    // value, dispose of the pointer
-    if (over.associatedOverlayHandle)
+    if (over.associatedOverlayHandle) // dispose script object if there are no more refs
         ccAttemptDisposeObject(over.associatedOverlayHandle);
 }
 
 void remove_screen_overlay_index(int over_idx)
 {
     ScreenOverlay &over = screenover[over_idx];
+    // TODO: move these custom settings outside of this function
+    if (over.type == play.complete_overlay_on)
+    {
+        play.complete_overlay_on = 0;
+    }
+    else if (over.type == play.text_overlay_on)
+    {
+        if (play.speech_text_scover)
+            invalidate_and_subref(over, play.speech_text_scover);
+        play.text_overlay_on = 0;
+    }
+    else if (over.type == OVER_PICTURE)
+    {
+        if (play.speech_face_scover)
+            invalidate_and_subref(over, play.speech_face_scover);
+        face_talking = -1;
+    }
     dispose_overlay(over);
-    if (over.type==OVER_COMPLETE) is_complete_overlay--;
-    if (over.type==OVER_TEXTMSG) is_text_overlay--;
     numscreenover--;
     for (int i = over_idx; i < numscreenover; ++i)
         screenover[i] = screenover[i + 1];
-    // if an overlay before the sierra-style speech one is removed,
-    // update the index
+    // if an overlay before the sierra-style speech one is removed, update the index
+    // TODO: this is bad, need more generic system to store overlay references
     if (face_talking > over_idx)
         face_talking--;
 }
@@ -199,9 +240,7 @@ int add_screen_overlay(int x, int y, int type, Bitmap *piccy, bool alphaChannel)
 
 int add_screen_overlay(int x, int y, int type, Common::Bitmap *piccy, int pic_offx, int pic_offy, bool alphaChannel)
 {
-    if (type==OVER_COMPLETE) is_complete_overlay++;
-    if (type==OVER_TEXTMSG) is_text_overlay++;
-    if (type==OVER_CUSTOM) {
+    if (type == OVER_CUSTOM) {
         // find an unused custom ID; TODO: find a better approach!
         for (int id = OVER_CUSTOM + 1; id < OVER_CUSTOM + 100; ++id) {
             if (find_overlay_of_type(id) == -1) { type=id; break; }
@@ -220,6 +259,20 @@ int add_screen_overlay(int x, int y, int type, Common::Bitmap *piccy, int pic_of
     over.associatedOverlayHandle = 0;
     over.hasAlphaChannel = alphaChannel;
     over.positionRelativeToScreen = true;
+    // TODO: move these custom settings outside of this function
+    if (type == OVER_COMPLETE) play.complete_overlay_on = type;
+    else if (type == OVER_TEXTMSG || type == OVER_TEXTSPEECH)
+    {
+        play.text_overlay_on = type;
+        // only make script object for blocking speech now, because messagebox blocks all script
+        // and therefore cannot be accessed, so no practical reason for that atm
+        if (type == OVER_TEXTSPEECH)
+            play.speech_text_scover = create_scriptobj_addref(over);
+    }
+    else if (type == OVER_PICTURE)
+    {
+        play.speech_face_scover = create_scriptobj_addref(over);
+    }
     return numscreenover - 1;
 }
 

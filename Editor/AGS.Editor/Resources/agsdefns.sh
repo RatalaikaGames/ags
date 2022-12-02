@@ -341,6 +341,12 @@ enum eKeyCode
   eKeyPageDown = 381,
   eKeyInsert = 382,
   eKeyDelete = 383,
+#ifdef SCRIPT_API_v360
+  eKeyShiftLeft = 403, 
+  eKeyShiftRight = 404, 
+  eKeyCtrlLeft = 405, 
+  eKeyCtrlRight = 406,
+#endif
   eKeyF11 = 433,
   eKeyF12 = 434
 };
@@ -407,6 +413,19 @@ enum SortStyle
   eSorted = 1
 };
 #endif
+
+#ifdef SCRIPT_API_v360
+enum LogLevel
+{
+	eLogAlert = 1,
+	eLogFatal = 2,
+	eLogError = 3,
+	eLogWarn = 4,
+	eLogInfo = 5,
+	eLogDebug = 6
+};
+#endif
+
 
 internalstring autoptr builtin managed struct String {
   /// Creates a formatted string using the supplied parameters.
@@ -544,8 +563,20 @@ builtin managed struct DrawingSurface {
   import DrawingSurface* CreateCopy();
   /// Draws a circle onto the surface with its centre at (x,y).
   import void DrawCircle(int x, int y, int radius);
+#ifdef SCRIPT_API_v360
+  /// Draws a sprite onto the surface with its top-left corner at (x,y).
+  import void DrawImage(int x, int y, int spriteSlot, int transparency=0, int width=SCR_NO_VALUE, int height=SCR_NO_VALUE,
+						int cut_x=0, int cut_y=0, int cut_width=SCR_NO_VALUE, int cut_height=SCR_NO_VALUE);
+  /// Draws the specified surface onto this surface.
+  import void DrawSurface(DrawingSurface *surfaceToDraw, int transparency=0, int x=0, int y=0, int width=SCR_NO_VALUE, int height=SCR_NO_VALUE,
+						int cut_x=0, int cut_y=0, int cut_width=SCR_NO_VALUE, int cut_height=SCR_NO_VALUE);
+#endif
+#ifndef SCRIPT_API_v360
   /// Draws a sprite onto the surface with its top-left corner at (x,y).
   import void DrawImage(int x, int y, int spriteSlot, int transparency=0, int width=SCR_NO_VALUE, int height=SCR_NO_VALUE);
+  /// Draws the specified surface onto this surface.
+  import void DrawSurface(DrawingSurface *surfaceToDraw, int transparency=0);
+#endif
   /// Draws a straight line between the two points on the surface.
   import void DrawLine(int x1, int y1, int x2, int y2, int thickness=1);
   /// Draws a message from the Room Message Editor, wrapping at the specified width.
@@ -564,8 +595,6 @@ builtin managed struct DrawingSurface {
   /// Draws the text to the surface, wrapping it at the specified width.
   import void DrawStringWrapped(int x, int y, int width, FontType, Alignment, const string text);
 #endif
-  /// Draws the specified surface onto this surface.
-  import void DrawSurface(DrawingSurface *surfaceToDraw, int transparency=0);
   /// Draws a filled triangle onto the surface.
   import void DrawTriangle(int x1, int y1, int x2, int y2, int x3, int y3);
   /// Gets the colour of a single pixel on the surface.
@@ -623,6 +652,10 @@ builtin struct Room {
   import static bool SetTextProperty(const string property, const string value);
   /// Performs default processing of a mouse click at the specified co-ordinates.
   import static void ProcessClick(int x, int y, CursorMode);
+#endif
+#ifdef SCRIPT_API_v360
+  /// Checks if the specified room exists
+  import static bool Exists(int room);   // $AUTOCOMPLETESTATICONLY$
 #endif
 };
 
@@ -1392,9 +1425,15 @@ import void UnPauseGame();
 /// Blocks the script for the specified number of game loops.
 import void Wait(int waitLoops);
 /// Blocks the script for the specified number of game loops, unless a key is pressed.
-import int  WaitKey(int waitLoops);
+import int  WaitKey(int waitLoops = -1);
 /// Blocks the script for the specified number of game loops, unless a key is pressed or the mouse is clicked.
-import int  WaitMouseKey(int waitLoops);
+import int  WaitMouseKey(int waitLoops = -1);
+#ifdef SCRIPT_API_v360
+/// Blocks the script for the specified number of game loops, unless the mouse is clicked.
+import int  WaitMouse(int waitLoops = -1);
+/// Cancels current Wait function, regardless of its type, if one was active at the moment.
+import void SkipWait();
+#endif
 /// Checks whether the specified key is currently held down.
 import bool IsKeyPressed(eKeyCode);
 import void SetGlobalInt(int globalInt, int value);
@@ -2107,6 +2146,10 @@ builtin struct System {
   /// Saves current runtime settings into configuration file
   import static void SaveConfigToFile();
 #endif
+#ifdef SCRIPT_API_v360
+  /// Prints message
+  import static void Log(LogLevel level, const string format, ...);    // $AUTOCOMPLETESTATICONLY$
+#endif
 };
 
 enum BlockingStyle {
@@ -2153,8 +2196,14 @@ builtin managed struct Object {
   import function RunInteraction(CursorMode);
   /// Instantly moves the object to have its bottom-left at the new co-ordinates.
   import function SetPosition(int x, int y);
+#ifdef SCRIPT_API_v360
+  /// Sets the object to use the specified view, ahead of doing an animation.
+  import function SetView(int view, int loop=0, int frame=0);
+#endif
+#ifndef SCRIPT_API_v360
   /// Sets the object to use the specified view, ahead of doing an animation.
   import function SetView(int view, int loop=-1, int frame=-1);
+#endif
   /// Stops any currently running animation on the object.
   import function StopAnimating();
   /// Stops any currently running move on the object.
@@ -2177,8 +2226,10 @@ builtin managed struct Object {
   import attribute int  Graphic;
   /// Gets the object's ID number.
   readonly import attribute int ID;
+#ifdef SCRIPT_COMPAT_v351
   /// Gets/sets whether the object ignores walkable area scaling.
   import attribute bool IgnoreScaling;
+#endif
 #ifdef SCRIPT_COMPAT_v340
   /// Gets/sets whether the object ignores walk-behind areas.
   import attribute bool IgnoreWalkbehinds;
@@ -2232,6 +2283,12 @@ builtin managed struct Object {
 #ifdef SCRIPT_API_v3507
   /// Returns the object at the specified position within this room.
   import static Object* GetAtRoomXY(int x, int y);      // $AUTOCOMPLETESTATICONLY$
+#endif
+#ifdef SCRIPT_API_v360
+  /// Gets/sets whether the object uses manually specified scaling instead of using walkable area scaling.
+  import attribute bool ManualScaling;
+  /// Gets/sets the object's current scaling level.
+  import attribute int  Scaling;
 #endif
 
   int reserved[2];  // $AUTOCOMPLETEIGNORE$
@@ -2632,6 +2689,10 @@ builtin struct Game {
   /// Gets the number of cameras.
   import static readonly attribute int CameraCount;
 #endif
+#ifdef SCRIPT_API_v360
+  /// Gets the code which describes how was the last blocking state skipped by a user (or autotimer).
+  import static readonly attribute int BlockingWaitSkipped;
+#endif
 };
 
 builtin struct GameState {
@@ -2751,6 +2812,9 @@ builtin struct GameState {
   
 #ifdef SCRIPT_API_v330
 enum SkipSpeechStyle {
+#ifdef SCRIPT_API_v360
+  eSkipNone         = -1,
+#endif
   eSkipKeyMouseTime = 0,
   eSkipKeyTime      = 1,
   eSkipTime         = 2,
@@ -2791,6 +2855,12 @@ builtin struct Speech {
   import static attribute bool            UseGlobalSpeechAnimationDelay;
   /// Gets/sets whether voice and/or text are used in the game.
   import static attribute eVoiceMode      VoiceMode;
+#ifdef SCRIPT_API_v360
+  /// Gets the overlay representing displayed blocking text, or null if no such text none is displayed at the moment.
+  import static readonly attribute Overlay* TextOverlay;
+  /// Gets the overlay representing displayed portrait, or null if it is not displayed at the moment.
+  import static readonly attribute Overlay* PortraitOverlay;
+#endif
 };
 #endif
 

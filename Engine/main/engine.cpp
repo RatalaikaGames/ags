@@ -71,7 +71,6 @@
 #include "platform/util/pe.h"
 #include "util/directory.h"
 #include "util/error.h"
-#include "util/misc.h"
 #include "util/path.h"
 
 using namespace AGS::Common;
@@ -842,6 +841,7 @@ void engine_init_game_settings()
     play.music_queue_size = 0;
     play.shakesc_length = 0;
     play.wait_counter=0;
+    play.SetWaitSkipResult(SKIP_NONE);
     play.key_skip_wait = SKIP_NONE;
     play.cur_music_number=-1;
     play.music_repeat=1;
@@ -911,6 +911,8 @@ void engine_init_game_settings()
     play.speech_has_voice = false;
     play.speech_voice_blocking = false;
     play.speech_in_post_state = false;
+    play.complete_overlay_on = 0;
+    play.text_overlay_on = 0;
     play.narrator_speech = game.playercharacter;
     play.crossfading_out_channel = 0;
     play.speech_textwindow_gui = game.options[OPT_TWCUSTOM];

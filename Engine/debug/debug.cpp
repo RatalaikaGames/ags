@@ -254,6 +254,7 @@ void apply_debug_config(const ConfigTree &cfg)
         legacy_log_enabled,
         { DbgGroupOption(kDbgGroup_Main, kDbgMsg_All),
           DbgGroupOption(kDbgGroup_Game, kDbgMsg_Info),
+          DbgGroupOption(kDbgGroup_Script, kDbgMsg_All),
 #ifdef DEBUG_SPRITECACHE
           DbgGroupOption(kDbgGroup_SprCache, kDbgMsg_All),
 #else
@@ -273,7 +274,8 @@ void apply_debug_config(const ConfigTree &cfg)
             /* defaults */
             true,
             { DbgGroupOption(kDbgGroup_Main, kDbgMsg_All),
-              DbgGroupOption(kDbgGroup_Game, kDbgMsg_All)
+              DbgGroupOption(kDbgGroup_Game, kDbgMsg_All),
+              DbgGroupOption(kDbgGroup_Script, kDbgMsg_All)
             });
         debug_set_console(true);
     }
@@ -284,7 +286,10 @@ void apply_debug_config(const ConfigTree &cfg)
     {
         auto dbgout = create_log_output(OutputFileID, "warnings.log", LogFile::kLogFile_OverwriteAtFirstMessage);
         if (dbgout)
+        {
             dbgout->SetGroupFilter(kDbgGroup_Game, kDbgMsg_Warn);
+            dbgout->SetGroupFilter(kDbgGroup_Script, kDbgMsg_Warn);
+        }
     }
 
     // We don't need message buffer beyond this point

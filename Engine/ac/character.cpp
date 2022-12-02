@@ -74,7 +74,6 @@ extern SpriteCache spriteset;
 extern Bitmap *walkable_areas_temp;
 extern IGraphicsDriver *gfxDriver;
 extern Bitmap **actsps;
-extern int is_text_overlay;
 extern int said_speech_line;
 extern int said_text;
 extern int our_eip;
@@ -768,15 +767,10 @@ ScriptOverlay* Character_SayBackground(CharacterInfo *chaa, const char *texx) {
     if (ovri<0)
         quit("!SayBackground internal error: no overlay");
 
-    // Convert the overlay ID to an Overlay object
-    ScriptOverlay *scOver = new ScriptOverlay();
-    scOver->overlayId = ovltype;
+    ScriptOverlay *scOver = create_scriptobj_for_overlay(screenover[ovri]);
     scOver->borderHeight = 0;
     scOver->borderWidth = 0;
     scOver->isBackgroundSpeech = 1;
-    int handl = ccRegisterManagedObject(scOver, scOver);
-    screenover[ovri].associatedOverlayHandle = handl;
-
     return scOver;
 }
 
@@ -1469,10 +1463,12 @@ void Character_SetScaling(CharacterInfo *chaa, int zoomlevel) {
         debug_script_warn("Character.Scaling: cannot set property unless ManualScaling is enabled");
         return;
     }
-    if ((zoomlevel < 5) || (zoomlevel > 200))
-        quit("!Character.Scaling: scaling level must be between 5 and 200%");
+    int zoom_fixed = Math::Clamp(zoomlevel, 1, (int)(INT16_MAX)); // CharacterExtras.zoom is int16
+    if (zoomlevel != zoom_fixed)
+        debug_script_warn("Character.Scaling: scaling level must be between 1 and %d%%, asked for: %d",
+                        (int)(INT16_MAX), zoomlevel);
 
-    charextra[chaa->index_id].zoom = zoomlevel;
+    charextra[chaa->index_id].zoom = zoom_fixed;
 }
 
 int Character_GetSolid(CharacterInfo *chaa) {
@@ -2362,7 +2358,7 @@ void _displayspeech(const char*texx, int aschar, int xx, int yy, int widd, int i
     if ((speakingChar->view < 0) || (speakingChar->view >= game.numviews))
         quit("!DisplaySpeech: character has invalid view");
 
-    if (is_text_overlay > 0)
+    if (play.text_overlay_on > 0)
     {
         debug_script_warn("DisplaySpeech: speech was already displayed (nested DisplaySpeech, perhaps room script and global script conflict?)");
         return;
@@ -2488,15 +2484,17 @@ void _displayspeech(const char*texx, int aschar, int xx, int yy, int widd, int i
         if (viewWasLocked)
             charFrameWas = speakingChar->frame;
 
-        // if the current loop doesn't exist in talking view, use loop 0
-        if (speakingChar->loop >= views[speakingChar->view].numLoops)
-            speakingChar->loop = 0;
-
-        if ((speakingChar->view < 0) || 
-            (speakingChar->loop >= views[speakingChar->view].numLoops) ||
-            (views[speakingChar->view].loops[speakingChar->loop].numFrames < 1))
+        // If speech view is missing a loop or the loop does not have frames - use loop 0
+        if (speakingChar->loop >= views[speakingChar->view].numLoops ||
+            views[speakingChar->view].loops[speakingChar->loop].numFrames < 1)
         {
-            quitprintf("Unable to display speech because the character %s has an invalid view frame (View %d, loop %d, frame %d)", speakingChar->scrname, speakingChar->view + 1, speakingChar->loop, speakingChar->frame);
+            String err = String::FromFormat("Character %s speech view %d does not have necessary loop %d or it has no frames",
+                speakingChar->scrname, speakingChar->view + 1, speakingChar->loop);
+            // is there even a fallback loop?
+            if (views[speakingChar->view].numLoops == 0 || views[speakingChar->view].loops[0].numFrames == 0)
+                quitprintf("!%s; and there's no valid loop to fall back.", err.GetCStr());
+            debug_script_warn("WARNING: %s; switching to loop 0.", err.GetCStr());
+            speakingChar->loop = 0;
         }
 
         our_eip=1504;
@@ -2746,20 +2744,20 @@ void _displayspeech(const char*texx, int aschar, int xx, int yy, int widd, int i
             speakingChar->frame=0;
             speakingChar->flags|=CHF_FIXVIEW;
 
-            if (speakingChar->loop >= views[speakingChar->view].numLoops)
+            // If speech view is missing a loop or the loop does not have frames - use loop 0
+            if (speakingChar->loop >= views[speakingChar->view].numLoops ||
+                views[speakingChar->view].loops[speakingChar->loop].numFrames < 1)
             {
-                // current character loop is outside the normal talking directions
+                String err = String::FromFormat("Character %s speech view %d does not have necessary loop %d or it has no frames",
+                    speakingChar->scrname, speakingChar->view + 1, speakingChar->loop);
+                // is there even a fallback loop?
+                if (views[speakingChar->view].numLoops == 0 || views[speakingChar->view].loops[0].numFrames == 0)
+                    quitprintf("!%s; and there's no valid loop to fall back.", err.GetCStr());
+                debug_script_warn("WARNING: %s; switching to loop 0.", err.GetCStr());
                 speakingChar->loop = 0;
             }
 
             facetalkBlinkLoop = speakingChar->loop;
-
-            if (speakingChar->on && // don't bother checking if character is not visible (also fixes 'Trilby's Notes' legacy game)
-                ((speakingChar->loop >= views[speakingChar->view].numLoops) ||
-                (views[speakingChar->view].loops[speakingChar->loop].numFrames < 1)))
-            {
-                quitprintf("!Unable to display speech because the character %s has an invalid speech view (View %d, loop %d, frame %d)", speakingChar->scrname, speakingChar->view + 1, speakingChar->loop, speakingChar->frame);
-            }
 
             // set up the speed of the first frame
             speakingChar->wait = GetCharacterSpeechAnimationDelay(speakingChar) + 

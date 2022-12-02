@@ -105,6 +105,7 @@ DebugManager::DebugManager()
     // Add hardcoded groups
     RegisterGroup(DebugGroup(DebugGroupID(kDbgGroup_Main, "main"), ""));
     RegisterGroup(DebugGroup(DebugGroupID(kDbgGroup_Game, "game"), "Game"));
+    RegisterGroup(DebugGroup(DebugGroupID(kDbgGroup_Script, "script"), "Script"));
     RegisterGroup(DebugGroup(DebugGroupID(kDbgGroup_SprCache, "sprcache"), "Sprite cache"));
     RegisterGroup(DebugGroup(DebugGroupID(kDbgGroup_ManObj, "manobj"), "Managed obj"));
     _firstFreeGroupID = _groups.size();
@@ -150,7 +151,9 @@ DebugGroup DebugManager::RegisterGroup(const String &id, const String &out_name)
 
 void DebugManager::RegisterGroup(const DebugGroup &group)
 {
-    _groups.push_back(group);
+    if (_groups.size() <= group.UID.ID)
+        _groups.resize(group.UID.ID + 1);
+    _groups[group.UID.ID] = group;
     _groupByStrLookup[group.UID.SID] = group.UID;
 }
 

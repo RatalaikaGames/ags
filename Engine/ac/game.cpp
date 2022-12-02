@@ -356,34 +356,34 @@ String get_save_game_path(int slotNum)
 }
 
 // Convert a path possibly containing path tags into acceptable save path
-bool MakeSaveGameDir(const String &newFolder, ResolvedPath &rp)
+bool MakeSaveGameDir(const String &newFolder, FSLocation &fsloc)
 {
-    rp = ResolvedPath();
+    fsloc = FSLocation();
     // don't allow absolute paths
     if (!Path::IsRelativePath(newFolder))
         return false;
 
     String base_dir;
-    String newSaveGameDir = newFolder;
+    String sub_dir;
 
-    if (newSaveGameDir.CompareLeft(UserSavedgamesRootToken) == 0)
+    if (newFolder.CompareLeft(UserSavedgamesRootToken) == 0)
     {
         // IMPORTANT: for compatibility reasons we support both cases:
         // when token is followed by the path separator and when it is not, in which case it's assumed.
         if (saveGameParent.IsEmpty())
         {
             base_dir = PathFromInstallDir(platform->GetUserSavedgamesDirectory());
-            newSaveGameDir = Path::ConcatPaths(base_dir, newFolder.Mid(newSaveGameDir.GetLength()));
+            sub_dir = newFolder.Mid(UserSavedgamesRootToken.GetLength());
         }
         else
         {
             // If there is a custom save parent directory, then replace
             // not only root token, but also first subdirectory after the token
-            newSaveGameDir = Path::ConcatPaths(".", newFolder.Mid(newSaveGameDir.GetLength()));
-            newSaveGameDir.ClipSection('/', 0, 1); // TODO: Path helper function for this?
-            newSaveGameDir = Path::ConcatPaths(saveGameParent, newSaveGameDir);
             base_dir = saveGameParent;
+            sub_dir = Path::ConcatPaths(".", newFolder.Mid(UserSavedgamesRootToken.GetLength()));
+            sub_dir.ClipSection('/', 0, 1); // TODO: Path helper function for this?
         }
+        fsloc = FSLocation(base_dir, sub_dir);
     }
     else
     {
@@ -392,22 +392,21 @@ bool MakeSaveGameDir(const String &newFolder, ResolvedPath &rp)
         if (saveGameParent.IsEmpty())
         {
             base_dir = PathFromInstallDir(platform->GetUserSavedgamesDirectory());
-            newSaveGameDir = Path::ConcatPaths(Path::ConcatPaths(base_dir, game.saveGameFolderName), newFolder);
+            sub_dir = Path::ConcatPaths(game.saveGameFolderName, newFolder);
         }
         else
         {
             base_dir = saveGameParent;
-            newSaveGameDir = Path::ConcatPaths(saveGameParent, newFolder);
+            sub_dir = newFolder;
         }
+        fsloc = FSLocation(base_dir, sub_dir);
         // For games made in the safe-path-aware versions of AGS, report a warning
         if (game.options[OPT_SAFEFILEPATHS])
         {
             debug_script_warn("Attempt to explicitly set savegame location relative to the game installation directory ('%s') denied;\nPath will be remapped to the user documents directory: '%s'",
-                newFolder.GetCStr(), newSaveGameDir.GetCStr());
+                newFolder.GetCStr(), fsloc.FullDir.GetCStr());
         }
     }
-    rp.BaseDir = base_dir;
-    rp.FullPath = newSaveGameDir;
     return true;
 }
 
@@ -433,15 +432,19 @@ bool SetSaveGameDirectoryPath(const String &new_dir, bool explicit_path)
     }
     else
     {
-        ResolvedPath rp;
-        if (!MakeSaveGameDir(newFolder, rp))
+        FSLocation fsloc;
+        if (!MakeSaveGameDir(newFolder, fsloc))
             return false;
-        if (!platform->DirectoryCreateAll(rp.BaseDir, rp.FullPath))
+#ifdef AGS_RATA
+        if (!platform->DirectoryCreateAll(fsloc.BaseDir, fsloc.SubDir))
+#else
+        if (!Directory::CreateAllDirectories(fsloc.BaseDir, fsloc.SubDir))
+#endif
         {
-            debug_script_warn("SetSaveGameDirectory: failed to create all subdirectories: %s", rp.FullPath.GetCStr());
+            debug_script_warn("SetSaveGameDirectory: failed to create all subdirectories: %s", fsloc.FullDir.GetCStr());
             return false;
         }
-        newSaveGameDir = rp.FullPath;
+        newSaveGameDir = fsloc.FullDir;
     }
 
     String newFolderTempFile = Path::ConcatPaths(newSaveGameDir, "agstmp.tmp");
@@ -920,6 +923,11 @@ void Game_SimulateKeyPress(int key)
     ags_simulate_keypress(static_cast<eAGSKeyCode>(key));
 }
 
+int Game_BlockingWaitSkipped()
+{
+    return play.GetWaitSkipResult();
+}
+
 //=============================================================================
 
 // save game functions
@@ -1277,9 +1285,11 @@ void start_skipping_cutscene () {
         remove_popup_interface(ifacepopped);
 
     // if a text message is currently displayed, remove it
-    if (is_text_overlay > 0)
-        remove_screen_overlay(OVER_TEXTMSG);
-
+    if (play.text_overlay_on > 0)
+    {
+        remove_screen_overlay(play.text_overlay_on);
+        play.SetWaitSkipResult(SKIP_AUTOTIMER);
+    }
 }
 
 bool check_skip_cutscene_keypress (int kgn) {
@@ -2004,6 +2014,11 @@ RuntimeScriptValue Sc_Game_SimulateKeyPress(const RuntimeScriptValue *params, in
     API_SCALL_VOID_PINT(Game_SimulateKeyPress);
 }
 
+RuntimeScriptValue Sc_Game_BlockingWaitSkipped(const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_SCALL_INT(Game_BlockingWaitSkipped);
+}
+
 void RegisterGameAPI()
 {
     ccAddExternalStaticFunction("Game::IsAudioPlaying^1",                       Sc_Game_IsAudioPlaying);
@@ -2057,6 +2072,7 @@ void RegisterGameAPI()
     ccAddExternalStaticFunction("Game::IsPluginLoaded",                         Sc_Game_IsPluginLoaded);
     ccAddExternalStaticFunction("Game::PlayVoiceClip",                          Sc_Game_PlayVoiceClip);
     ccAddExternalStaticFunction("Game::SimulateKeyPress",                       Sc_Game_SimulateKeyPress);
+    ccAddExternalStaticFunction("Game::get_BlockingWaitSkipped",                Sc_Game_BlockingWaitSkipped);
 
     ccAddExternalStaticFunction("Game::get_Camera",                             Sc_Game_GetCamera);
     ccAddExternalStaticFunction("Game::get_CameraCount",                        Sc_Game_GetCameraCount);

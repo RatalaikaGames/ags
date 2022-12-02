@@ -33,8 +33,12 @@
 #include "platform/base/agsplatformdriver.h"
 #include "platform/base/sys_main.h"
 
-// Don't try to figure out the window size on the mac because the port resizes itself.
-#if AGS_PLATFORM_OS_MACOS || defined(ALLEGRO_SDL2) || AGS_PLATFORM_OS_IOS || AGS_PLATFORM_OS_ANDROID || defined(CONSOLE_VERSION)
+// Don't try to figure out the window size on the these ports because the port resizes itself.
+#if AGS_PLATFORM_OS_IOS || AGS_PLATFORM_OS_ANDROID
+#define USE_SIMPLE_GFX_INIT
+#endif
+
+#if defined(CONSOLE_VERSION) // DPASCA TODO: do we really need it ?
 #define USE_SIMPLE_GFX_INIT
 #endif
 

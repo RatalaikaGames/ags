@@ -107,7 +107,6 @@ extern int displayed_room;
 extern CharacterExtras *charextra;
 extern CharacterInfo*playerchar;
 extern int eip_guinum;
-extern int is_complete_overlay;
 extern int cur_mode,cur_cursor;
 extern int mouse_frame,mouse_delay;
 extern int lastmx,lastmy;
@@ -539,8 +538,11 @@ void on_mainviewport_changed()
 {
     if (!gfxDriver->RequiresFullRedrawEachFrame())
     {
-        init_invalid_regions(-1, play.GetMainViewport().GetSize(), RectWH(play.GetMainViewport().GetSize()));
-        if (game.GetGameRes().ExceedsByAny(play.GetMainViewport().GetSize()))
+        const auto &view = play.GetMainViewport();
+        set_invalidrects_globaloffs(view.Left, view.Top);
+        // the black background region covers whole game screen
+        init_invalid_regions(-1, game.GetGameRes(), RectWH(game.GetGameRes()));
+        if (game.GetGameRes().ExceedsByAny(view.GetSize()))
             clear_letterbox_borders();
     }
 }
@@ -587,7 +589,10 @@ void sync_roomview(Viewport *view)
 {
     if (view->GetCamera() == nullptr)
         return;
-    init_invalid_regions(view->GetID(), view->GetCamera()->GetRect().GetSize(), play.GetRoomViewportAbs(view->GetID()));
+    // Note the dirty regions' viewport is found using absolute offset on game screen
+    init_invalid_regions(view->GetID(),
+        view->GetCamera()->GetRect().GetSize(),
+        play.GetRoomViewportAbs(view->GetID()));
     prepare_roomview_frame(view);
 }
 
@@ -707,14 +712,17 @@ void invalidate_camera_frame(int index)
 
 void invalidate_rect(int x1, int y1, int x2, int y2, bool in_room)
 {
-    //if (!in_room)
     invalidate_rect_ds(x1, y1, x2, y2, in_room);
 }
 
 void invalidate_sprite(int x1, int y1, IDriverDependantBitmap *pic, bool in_room)
 {
-    //if (!in_room)
     invalidate_rect_ds(x1, y1, x1 + pic->GetWidth(), y1 + pic->GetHeight(), in_room);
+}
+
+void invalidate_sprite_glob(int x1, int y1, IDriverDependantBitmap *pic)
+{
+    invalidate_rect_global(x1, y1, x1 + pic->GetWidth(), y1 + pic->GetHeight());
 }
 
 void mark_current_background_dirty()
@@ -1436,23 +1444,24 @@ int construct_object_gfx(int aa, int *drawnWidth, int *drawnHeight, bool alwaysU
     int zoom_level = 100;
 
     // calculate the zoom level
-    if (objs[aa].flags & OBJF_USEROOMSCALING) {
+    if ((objs[aa].flags & OBJF_USEROOMSCALING) == 0)
+    {
+        zoom_level = objs[aa].zoom;
+    }
+    else
+    {
         int onarea = get_walkable_area_at_location(objs[aa].x, objs[aa].y);
-
         if ((onarea <= 0) && (thisroom.WalkAreas[0].ScalingFar == 0)) {
             // just off the edge of an area -- use the scaling we had
             // while on the area
-            zoom_level = objs[aa].last_zoom;
+            zoom_level = objs[aa].zoom;
         }
         else
             zoom_level = get_area_scaling(onarea, objs[aa].x, objs[aa].y);
-
-        if (zoom_level != 100)
-            scale_sprite_size(objs[aa].num, zoom_level, &sprwidth, &sprheight);
-
     }
-    // save the zoom level for next time
-    objs[aa].last_zoom = zoom_level;
+    if (zoom_level != 100)
+        scale_sprite_size(objs[aa].num, zoom_level, &sprwidth, &sprheight);
+    objs[aa].zoom = zoom_level;
 
     // save width/height into parameters if requested
     if (drawnWidth)
@@ -1633,7 +1642,7 @@ void prepare_objects_for_drawing() {
         }
         else if (walkBehindMethod == DrawAsSeparateCharSprite) 
         {
-            sort_out_char_sprite_walk_behind(useindx, atxp, atyp, usebasel, objs[aa].last_zoom, objs[aa].last_width, objs[aa].last_height);
+            sort_out_char_sprite_walk_behind(useindx, atxp, atyp, usebasel, objs[aa].zoom, objs[aa].last_width, objs[aa].last_height);
         }
         else if ((!actspsIntact) && (walkBehindMethod == DrawOverCharSprite))
         {
@@ -1762,10 +1771,12 @@ void prepare_characters_for_drawing() {
         onarea = get_walkable_area_at_character (aa);
         our_eip = 332;
 
+        // calculate the zoom level
         if (chin->flags & CHF_MANUALSCALING)  // character ignores scaling
             zoom_level = charextra[aa].zoom;
         else if ((onarea <= 0) && (thisroom.WalkAreas[0].ScalingFar == 0)) {
             zoom_level = charextra[aa].zoom;
+            // NOTE: room objects don't have this fix
             if (zoom_level == 0)
                 zoom_level = 100;
         }
@@ -2121,7 +2132,7 @@ void draw_fps(const Rect &viewport)
         ddb = gfxDriver->CreateDDBFromBitmap(fpsDisplay, false);
     int yp = viewport.GetHeight() - fpsDisplay->GetHeight();
     gfxDriver->DrawSprite(1, yp, ddb);
-    invalidate_sprite(1, yp, ddb, false);
+    invalidate_sprite_glob(1, yp, ddb);
 }
 
 // Draw GUI and overlays of all kinds, anything outside the room space
@@ -2378,7 +2389,7 @@ void construct_game_scene(bool full_redraw)
         play.UpdateRoomCameras();
 
     // Stage: room viewports
-    if (play.screen_is_faded_out == 0 && is_complete_overlay == 0)
+    if (play.screen_is_faded_out == 0 && play.complete_overlay_on == 0)
     {
         if (displayed_room >= 0)
         {
@@ -2497,7 +2508,7 @@ void construct_engine_overlay()
             gfxDriver->UpdateDDBFromBitmap(debugConsole, debugConsoleBuffer, false);
 
         gfxDriver->DrawSprite(0, 0, debugConsole);
-        invalidate_sprite(0, 0, debugConsole, false);
+        invalidate_sprite_glob(0, 0, debugConsole);
     }
 
     if (display_fps != kFPS_Hide)

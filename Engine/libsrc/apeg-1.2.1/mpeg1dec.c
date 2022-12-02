@@ -10,7 +10,7 @@
 #include <setjmp.h>
 #include <math.h>
 
-#include <allegro.h>
+#include <SDL.h>
 #include "apeg.h"
 
 #include "mpeg1dec.h"
@@ -189,9 +189,10 @@ static PACKFILE_VTABLE ext_vtable =
 
 
 // The timer.. increments the int pointed to by 'param'
-static void timer_proc(void *param)
+static Uint32 timer_proc(Uint32 interval, void *param)
 {
 	++(*(volatile int*)param);
+    return interval;
 }
 END_OF_STATIC_FUNCTION(timer_proc);
 
@@ -215,9 +216,6 @@ static void Initialize_Decoder(void)
 // The default callback; requires Allegro's keyboard handler
 static int default_callback(BITMAP *tempBuffer)
 {
-	if(keypressed())
-		return 1;
-
 	return 0;
 }
 static int (*callback_proc)(BITMAP* tempBuffer);
@@ -247,7 +245,11 @@ void apeg_close_stream(APEG_STREAM *stream)
 	{
 		_apeg_start_audio(layer, FALSE);
 
-		remove_param_int(timer_proc, (void*)&(layer->stream.timer));
+		if (layer->stream.sdl_timer_id > 0)
+		{
+			SDL_RemoveTimer(layer->stream.sdl_timer_id);
+			layer->stream.sdl_timer_id = 0;
+		}
 
 		destroy_bitmap(layer->stream.bitmap);
 
@@ -264,70 +266,6 @@ void apeg_close_stream(APEG_STREAM *stream)
 }
 
 
-// Open an MPEG or Ogg file. Returns a structure for stream manipulation.
-APEG_STREAM *apeg_open_stream(const char *filename)
-{
-	APEG_LAYER *layer;
-
-	// Initialize the decoder
-	Initialize_Decoder();
-
-	// Create a new stream structure
-	layer = new_apeg_stream();
-	if(!layer)
-		return NULL;
-
-	// Set the jump position in case the decoder faults on opening.
-	if(setjmp(jmp_buffer))
-	{
-		apeg_close_stream((APEG_STREAM*)layer);
-		return NULL;
-	}
-
-	// Copy the filename so we can (re)open the file when the buffer
-	// gets initialized
-	layer->fname = strdup(filename);
-	if(!layer->fname)
-		apeg_error_jump("Couldn't duplicate filename");
-
-	// Set the buffer type and size
-	layer->buffer_type = DISK_BUFFER;
-	layer->buffer_size = F_BUF_SIZE;
-
-	setup_stream(layer);
-
-	return (APEG_STREAM*)layer;
-}
-
-APEG_STREAM *apeg_open_memory_stream(void *mpeg_data, int data_len)
-{
-	APEG_LAYER *layer;
-
-	Initialize_Decoder();
-
-	layer = new_apeg_stream();
-	if(!layer)
-		return NULL;
-
-	if(setjmp(jmp_buffer))
-	{
-		apeg_close_stream((APEG_STREAM*)layer);
-		return NULL;
-	}
-
-	layer->mem_data.buf = mpeg_data;
-	layer->mem_data.bytes_left = data_len;
-	layer->pf = pack_fopen_vtable(&mem_vtable, layer);
-	if(!layer->pf)
-		apeg_error_jump("Could not open stream");
-
-	layer->buffer_type = MEMORY_BUFFER;
-	layer->buffer_size = data_len;
-
-	setup_stream(layer);
-
-	return (APEG_STREAM*)layer;
-}
 
 APEG_STREAM *apeg_open_stream_ex(void *ptr)
 {
@@ -360,85 +298,6 @@ APEG_STREAM *apeg_open_stream_ex(void *ptr)
 	return (APEG_STREAM*)layer;
 }
 
-
-int apeg_advance_stream(APEG_STREAM *stream, int loop)
-{
-	APEG_LAYER *layer = (APEG_LAYER*)stream;
-	int ret;
-
-	// Set the jump buffer
-	if((ret = setjmp(jmp_buffer)) != 0)
-		return ret;
-
-	layer->stream.frame_updated = -1;
-	layer->stream.audio.flushed = FALSE;
-	ret = APEG_OK;
-
-	if((layer->stream.flags&APEG_HAS_AUDIO) && layer->multiple > 0.0)
-	{
-		ret = _apeg_audio_poll(layer);
-		if((layer->stream.flags&APEG_HAS_VIDEO))
-		{
-			int t = _apeg_audio_get_position(layer);
-			if(t >= 0)
-				layer->stream.timer = (double)t*stream->frame_rate/
-				                      (double)stream->audio.freq -
-				                      stream->frame;
-		}
-	}
-
-	if((layer->stream.flags&APEG_HAS_VIDEO))
-	{
-		if(!layer->picture)
-		{
-			if((layer->stream.flags&APEG_MPG_VIDEO))
-			{
-				// Get the next MPEG header
-				if(apeg_get_header(layer) == 1)
-				{
-					// Decode the next picture
-					if(layer->picture_type != B_TYPE ||
-					   !framedrop || layer->stream.timer <= 1)
-						layer->picture = apeg_get_frame(layer);
-				}
-				// If end of stream, display the last frame
-				else if((!framedrop || layer->stream.timer <= 1) &&
-				        !layer->got_last)
-				{
-					layer->got_last = TRUE;
-					layer->picture = layer->backward_frame;
-				}
-			}
-			else
-				layer->picture = altheora_get_frame(layer);
-
-			if(pack_feof(layer->pf) && (!(layer->stream.flags&APEG_HAS_AUDIO)||
-			                            layer->multiple==0.0 ||
-			                            ret!=APEG_OK))
-				ret = APEG_EOF;
-		}
-
-		if(layer->stream.timer > 0)
-		{
-			// Update frame and timer count
-			++(layer->stream.frame);
-			--(layer->stream.timer);
-
-			// If we're not behind, update the display frame
-			layer->stream.frame_updated = 0;
-			if(layer->picture && (!framedrop || layer->stream.timer == 0))
-				apeg_display_frame(layer, layer->picture);
-			layer->picture = NULL;
-		}
-		if(layer->stream.frame_updated == 1 || layer->picture)
-			ret = APEG_OK;
-	}
-
-	if(ret == APEG_EOF && loop)
-		ret = apeg_reset_stream((APEG_STREAM*)layer);
-
-	return ret;
-}
 
 int apeg_reset_stream(APEG_STREAM *stream)
 {
@@ -507,84 +366,8 @@ restart_loop:
 	return ret;
 }
 
-int apeg_play_memory_mpg(void *mpeg_data, BITMAP *bmp, int loop, int (*callback)(BITMAP *tempBuffer))
-{
-	int ret;
-
-	Initialize_Decoder();
-
-	apeg_stream = apeg_open_memory_stream(mpeg_data, mem_buffer_size);
-	if(!apeg_stream)
-		return APEG_ERROR;
-
-	if(bmp)
-		clear_to_color(bmp, makecol(0, 0, 0));
-
-	if(callback)
-		callback_proc = callback;
-	else
-		callback_proc = default_callback;
-
-restart_loop:
-	ret = decode_stream((APEG_LAYER*)apeg_stream, bmp);
-	if(loop && ret == APEG_OK)
-	{
-		apeg_reset_stream(apeg_stream);
-		goto restart_loop;
-	}
-
-	apeg_close_stream(apeg_stream);
-	apeg_stream = NULL;
-
-	return ret;
-}
 
 
-int apeg_play_mpg_ex(void *ptr, BITMAP *bmp, int loop, int (*callback)(BITMAP*))
-{
-	int ret;
-
-	Initialize_Decoder();
-
-	apeg_stream = apeg_open_stream_ex(ptr);
-	if(!apeg_stream)
-		return APEG_ERROR;
-
-	if(bmp)
-		clear_to_color(bmp, makecol(0, 0, 0));
-
-	if(callback)
-		callback_proc = callback;
-	else
-		callback_proc = default_callback;
-
-restart_loop:
-	ret = decode_stream((APEG_LAYER*)apeg_stream, bmp);
-	if(loop && ret == APEG_OK)
-	{
-		apeg_reset_stream(apeg_stream);
-		goto restart_loop;
-	}
-
-	apeg_close_stream(apeg_stream);
-	apeg_stream = NULL;
-
-	return ret;
-}
-
-
-void apeg_set_disk_buffer_size(int size)
-{
-	(void)size;
-}
-
-void apeg_set_memory_stream_size(int size)
-{
-	if(size < 4)
-		size = -1;
-
-	mem_buffer_size = size;
-}
 
 void apeg_set_stream_reader(int (*init_func)(void *ptr), int (*request_func)(void *bfr, int bytes, void *ptr), void (*skip_func)(int bytes, void *ptr))
 {
@@ -602,15 +385,7 @@ int apeg_ignore_video(int ignore)
 	return last;
 }
 
-void apeg_set_quality(int quality)
-{
-	if(quality == 0)
-		quality = 0;
-	else if(quality == 1)
-		quality = RECON_SUBPIXEL;
-	else
-		quality = RECON_SUBPIXEL | RECON_AVG_SUBPIXEL;
-}
+
 
 void apeg_get_video_size(APEG_STREAM *stream, int *w, int *h)
 {
@@ -634,28 +409,6 @@ void apeg_get_video_size(APEG_STREAM *stream, int *w, int *h)
 		*w = stream->w;
 		*h = stream->h;
 	}
-}
-
-void apeg_set_stream_rate(APEG_STREAM *stream, float multiple)
-{
-	if(multiple < 0.0f)
-		return;
-
-	if((stream->flags&APEG_HAS_AUDIO))
-		_apeg_audio_set_speed_multiple((APEG_LAYER*)stream, multiple);
-
-	if((stream->flags&APEG_HAS_VIDEO))
-	{
-		// Make sure the multiple is large enough
-		float fps = stream->frame_rate * multiple;
-		if(fps > 0.0f)
-			install_param_int_ex(timer_proc, (void*)&(stream->timer),
-			                     FPS_TO_TIMER(fps));
-		else
-			remove_param_int(timer_proc, (void*)&(stream->timer));
-	}
-
-	((APEG_LAYER*)stream)->multiple = multiple;
 }
 
 
@@ -695,16 +448,18 @@ static int decode_stream(APEG_LAYER *layer, BITMAP *target)
 		layer->stream.audio.flushed = FALSE;
 		ret = APEG_OK;
 
-		if((layer->stream.flags & APEG_HAS_AUDIO) && layer->multiple > 0.0)
+		if((layer->stream.flags & APEG_HAS_AUDIO))
 		{
 			ret = _apeg_audio_poll(layer);
 			if((layer->stream.flags & APEG_HAS_VIDEO))
 			{
 				int t = _apeg_audio_get_position(layer);
-				if(t >= 0)
-					layer->stream.timer = (double)t*layer->stream.frame_rate/
-					                      (double)layer->stream.audio.freq -
-					                      layer->stream.frame;
+				if(t >= 0) {
+					double audio_pos_secs = (double)t / (double)layer->stream.audio.freq;
+					double audio_frames = audio_pos_secs * layer->stream.frame_rate;
+					layer->stream.timer = audio_frames - layer->stream.frame;
+					// could be negative.. so will wait until 0 ?
+				}
 			}
 		}
 
@@ -735,7 +490,7 @@ static int decode_stream(APEG_LAYER *layer, BITMAP *target)
 
 				if(pack_feof(layer->pf) &&
 				   (!(layer->stream.flags&APEG_HAS_AUDIO)||
-				    layer->multiple==0.0 || ret!=APEG_OK))
+				     ret!=APEG_OK))
 					ret = APEG_EOF;
 			}
 
@@ -764,7 +519,7 @@ static int decode_stream(APEG_LAYER *layer, BITMAP *target)
 				break;
 
 			if(layer->stream.frame_updated < 0 && !layer->stream.audio.flushed)
-				rest(1);
+				SDL_Delay(1);
 		}
 	} while(ret == APEG_OK);
 
@@ -806,8 +561,9 @@ static void setup_stream(APEG_LAYER *layer)
 		if(layer->stream.frame_rate <= 0.0)
 			apeg_error_jump("Illegal frame rate in stream");
 
-		install_param_int_ex(timer_proc, (void*)&(layer->stream.timer),
-		                     FPS_TO_TIMER(layer->stream.frame_rate));
+		Uint32 interval_ms = FPS_TO_TIMER(layer->stream.frame_rate);
+		layer->stream.sdl_timer_id =
+			SDL_AddTimer(interval_ms, timer_proc, (void*)&(layer->stream.timer));
 
 		// Reset the timer and return the stream
 		layer->stream.timer = -1;
@@ -919,10 +675,6 @@ recheck:
 						apeg_error_jump("Error opening Ogg stream");
 					return;
 				}
-#ifndef DISABLE_MPEG_AUDIO
-				if(almpa_head_backcheck(show_bits32(layer)))
-					break;
-#endif
 			}
 
 			/* no positive stream identified; recheck */
@@ -942,25 +694,11 @@ void _apeg_initialize_buffer(APEG_LAYER *layer)
 
 	switch(layer->buffer_type)
 	{
-		case DISK_BUFFER:
-			// (Re)open the file
-			if(layer->pf)
-				pack_fclose(layer->pf);
-
-			layer->pf = pack_fopen(layer->fname, F_READ);
-			if(!layer->pf)
-			{
-				sprintf(apeg_error, "Couldn't open %s", layer->fname);
-				apeg_error_jump(NULL);
-			}
-			break;
-
 		case MEMORY_BUFFER:
 			layer->mem_data.buf -= layer->buffer_size -
 			                       layer->mem_data.bytes_left;
 			layer->mem_data.bytes_left = layer->buffer_size;
 			break;
-
 		case USER_BUFFER:
 			if(!layer->ext_data.request || !layer->ext_data.skip ||
 			   !layer->ext_data.init)

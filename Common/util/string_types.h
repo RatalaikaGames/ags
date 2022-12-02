@@ -55,7 +55,7 @@ namespace tr1
 #endif
 // std::hash for String object
 template<>
-struct hash<AGS::Common::String> : public unary_function<AGS::Common::String, size_t>
+struct hash<AGS::Common::String>
 {
     size_t operator ()(const AGS::Common::String &key) const
     {
@@ -78,7 +78,7 @@ namespace Common
 //
 
 // Test case-insensitive String equality
-struct StrEqNoCase : public std::binary_function<String, String, bool>
+struct StrEqNoCase
 {
     bool operator()(const String &s1, const String &s2) const
     {
@@ -87,7 +87,7 @@ struct StrEqNoCase : public std::binary_function<String, String, bool>
 };
 
 // Case-insensitive String less
-struct StrLessNoCase : public std::binary_function<String, String, bool>
+struct StrLessNoCase
 {
     bool operator()(const String &s1, const String &s2) const
     {
@@ -96,7 +96,7 @@ struct StrLessNoCase : public std::binary_function<String, String, bool>
 };
 
 // Compute case-insensitive hash for a String object
-struct HashStrNoCase : public std::unary_function<String, size_t>
+struct HashStrNoCase
 {
     size_t operator ()(const String &key) const
     {

@@ -20,10 +20,9 @@
 #error This file should only be included on the Console build
 #endif
 
-#include <allegro.h>
+#include <SDL.h>
 #include <cmath>
 
-#include "main/main_allegro.h"
 #include "debug/assert.h"
 #include "debug/out.h"
 #include "platform/base/agsplatformdriver.h"
@@ -127,48 +126,6 @@ namespace AGS
 				}
 			}
 
-			void dummy_vsync() { }
-
-			#define GFX_CONSOLE AL_ID('C','O','N','S')
-
-			GFX_DRIVER gfx_direct3d_win =
-			{
-				GFX_CONSOLE,
-				empty_string,
-				empty_string,
-				"Console",
-				NULL,    // init
-				NULL,   // exit
-				NULL,                        // AL_METHOD(int, scroll, (int x, int y)); 
-				dummy_vsync,   // vsync
-				NULL,  // setpalette
-				NULL,                        // AL_METHOD(int, request_scroll, (int x, int y));
-				NULL,                        // AL_METHOD(int, poll_scroll, (void));
-				NULL,                        // AL_METHOD(void, enable_triple_buffer, (void));
-				NULL,  //create_video_bitmap
-				NULL,  //destroy_video_bitmap
-				NULL,   //show_video_bitmap
-				NULL,
-				NULL,  //gfx_directx_create_system_bitmap,
-				NULL, //gfx_directx_destroy_system_bitmap,
-				NULL, //gfx_directx_set_mouse_sprite,
-				NULL, //gfx_directx_show_mouse,
-				NULL, //gfx_directx_hide_mouse,
-				NULL, //gfx_directx_move_mouse,
-				NULL,                        // AL_METHOD(void, drawing_mode, (void));
-				NULL,                        // AL_METHOD(void, save_video_state, (void*));
-				NULL,                        // AL_METHOD(void, restore_video_state, (void*));
-				NULL,                        // AL_METHOD(void, set_blender_mode, (int mode, int r, int g, int b, int a));
-				NULL,                        // AL_METHOD(int, fetch_mode_list, (void));
-				0, 0,                        // int w, h;
-				FALSE,                        // int linear;
-				0,                           // long bank_size;
-				0,                           // long bank_gran;
-				0,                           // long vid_mem;
-				0,                           // long vid_phys_base;
-				TRUE                         // int windowed;
-			};
-
 			ConsoleGraphicsDriver::ConsoleGraphicsDriver(int secret, float key) {}
 
 			void ConsoleGraphicsDriver::Init()
@@ -241,11 +198,11 @@ namespace AGS
 			{
 				if (mode.Width <= 0 || mode.Height <= 0 || mode.ColorDepth <= 0)
 				{
-					set_allegro_error("Invalid resolution parameters: %d x %d x %d", mode.Width, mode.Height, mode.ColorDepth);
+                    SDL_SetError("Invalid resolution parameters: %d x %d x %d", mode.Width, mode.Height, mode.ColorDepth);
 					return false;
 				}
 
-				set_allegro_error("The requested adapter mode is not supported");
+                SDL_SetError("The requested adapter mode is not supported");
 				return false;
 			}
 
@@ -325,7 +282,7 @@ namespace AGS
 				//we'll hack games if this is inadequate
 				if (mode.ColorDepth != 32)
 				{
-					set_allegro_error("THIS driver does not support THAT display mode");
+                    SDL_SetError("THIS driver does not support THAT display mode");
 					return false;
 				}
 
@@ -354,8 +311,6 @@ namespace AGS
 
 				// create initial stage screen for plugin raw drawing
 				_stageVirtualScreen = CreateStageScreen(0, _srcRect.GetSize());
-				// we must set Allegro's screen pointer to **something**
-				screen = (BITMAP*)_stageVirtualScreen->GetAllegroBitmap();
 			}
 
 			bool ConsoleGraphicsDriver::SetNativeSize(const Size &src_size)
@@ -1237,7 +1192,6 @@ namespace AGS
 				{
 					ddb->SetTransparency(fadingOut ? a : (255 - a));
 					this->_renderAndPresent(false);
-					update_polled_mp3();
 
 					if (_pollingCallback)
 						_pollingCallback();
@@ -1260,7 +1214,7 @@ namespace AGS
 				do_fade(true, speed, targetColourRed, targetColourGreen, targetColourBlue);
 			}
 
-			void ConsoleGraphicsDriver::FadeIn(int speed, PALLETE p, int targetColourRed, int targetColourGreen, int targetColourBlue) 
+			void ConsoleGraphicsDriver::FadeIn(int speed, PALETTE p, int targetColourRed, int targetColourGreen, int targetColourBlue) 
 			{
 				do_fade(false, speed, targetColourRed, targetColourGreen, targetColourBlue);
 			}

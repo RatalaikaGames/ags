@@ -14,6 +14,7 @@
 
 #include <aastr.h>
 #include "gfx/allegrobitmap.h"
+#include <string.h> // memcpy
 #include "debug/assert.h"
 
 
@@ -149,16 +150,6 @@ bool Bitmap::SaveToFile(const char *filename, const void *palette)
 void Bitmap::SetMaskColor(color_t color)
 {
 	// not supported? CHECKME
-}
-
-void Bitmap::Acquire()
-{
-	acquire_bitmap(_alBitmap);
-}
-
-void Bitmap::Release()
-{
-	release_bitmap(_alBitmap);
 }
 
 color_t Bitmap::GetCompatibleColor(color_t color)

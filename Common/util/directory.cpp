@@ -11,6 +11,8 @@
 #include "util/path.h"
 #include "stdio_compat.h"
 
+#include "platform/base/agsplatformdriver.h"
+
 namespace AGS
 {
 namespace Common
@@ -21,11 +23,8 @@ namespace Directory
 
 bool CreateDirectory(const String &path)
 {
-    return mkdir(path
-#if ! AGS_PLATFORM_OS_WINDOWS && !defined(WIN32)
-        , 0755
-#endif
-        ) == 0 || errno == EEXIST;
+    //MBG - USE PLATFORM, WHY NOT????
+    return platform->DirectoryCreate(path);
 }
 
 bool CreateAllDirectories(const String &parent, const String &path)
@@ -53,15 +52,15 @@ bool CreateAllDirectories(const String &parent, const String &path)
 
 String SetCurrentDirectory(const String &path)
 {
-    chdir(path);
+    //MBG - USE PLATFORM, WHY NOT????
+    platform->DirectorySetCurrent(path);
     return GetCurrentDirectory();
 }
 
 String GetCurrentDirectory()
 {
-    char buf[512];
-    getcwd(buf, 512);
-    String str(buf);
+    //MBG - USE PLATFORM, WHY NOT????
+    String str = platform->DirectoryGetCurrent();
     Path::FixupPath(str);
     return str;
 }

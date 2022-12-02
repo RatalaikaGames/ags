@@ -15,9 +15,7 @@
 // AGS Platform-specific functions
 //
 //=============================================================================
-
 #include <thread>
-#include "util/wgt2allg.h"
 #include "platform/base/agsplatformdriver.h"
 #include "ac/common.h"
 #include "ac/runtime_defines.h"
@@ -25,7 +23,6 @@
 #include "util/string_utils.h"
 #include "util/stream.h"
 #include "gfx/bitmap.h"
-#include "plugin/agsplugin.h"
 #include "ac/timer.h"
 #include "media/audio/audio_system.h"
 #include "util/path.h"
@@ -34,7 +31,7 @@ using namespace AGS::Common;
 using namespace AGS::Engine;
 
 #if defined (AGS_HAS_CD_AUDIO)
-#include "libcda.h"
+#include "libsrc/libcda-0.5/libcda.h"
 #endif
 
 // We don't have many places where we delay longer than a frame, but where we
@@ -48,20 +45,16 @@ AGSPlatformDriver *platform = nullptr;
 // ******** DEFAULT IMPLEMENTATIONS *******
 
 void AGSPlatformDriver::AboutToQuitGame() { }
-void AGSPlatformDriver::PostAllegroInit(bool windowed) { }
 void AGSPlatformDriver::AttachToParentConsole() { }
-void AGSPlatformDriver::DisplaySwitchOut() { }
-void AGSPlatformDriver::DisplaySwitchIn() { }
 void AGSPlatformDriver::PauseApplication() { }
 void AGSPlatformDriver::ResumeApplication() { }
-void AGSPlatformDriver::GetSystemDisplayModes(std::vector<DisplayMode> &dms) { }
-bool AGSPlatformDriver::EnterFullscreenMode(const DisplayMode &dm) { return true; }
-bool AGSPlatformDriver::ExitFullscreenMode() { return true; }
-void AGSPlatformDriver::AdjustWindowStyleForFullscreen() { }
-void AGSPlatformDriver::AdjustWindowStyleForWindowed() { }
 void AGSPlatformDriver::RegisterGameWithGameExplorer() { }
 void AGSPlatformDriver::UnRegisterGameWithGameExplorer() { }
-void AGSPlatformDriver::PlayVideo(const char* name, int skip, int flags) {}
+
+const char* AGSPlatformDriver::GetBackendFailUserHint()
+{
+    return "Make sure you have latest version of SDL2 libraries installed, and your system is running in graphical mode.";
+}
 
 int AGSPlatformDriver::InitializeCDPlayer() { return 1; }
 int AGSPlatformDriver::CDPlayerCommand(int cmdd, int datt) { return 0; }
@@ -118,35 +111,10 @@ void AGSPlatformDriver::YieldCPU() {
     //std::this_thread::yield();
 }
 
-void AGSPlatformDriver::InitialiseAbufAtStartup()
-{
-    // because loading the game file accesses abuf, it must exist
-    // No no no, David Blain, no magic here :P
-    //abuf = BitmapHelper::CreateBitmap(10,10,8);
-}
-
-void AGSPlatformDriver::FinishedUsingGraphicsMode()
-{
-    // don't need to do anything on any OS except DOS
-}
-
 SetupReturnValue AGSPlatformDriver::RunSetup(const ConfigTree &cfg_in, ConfigTree &cfg_out)
 {
     return kSetup_Cancel;
 }
-
-void AGSPlatformDriver::SetGameWindowIcon() {
-    // do nothing
-}
-
-int AGSPlatformDriver::ConvertKeycodeToScanCode(int keycode)
-{
-    keycode -= ('A' - KEY_A);
-    return keycode;
-}
-
-bool AGSPlatformDriver::LockMouseToWindow() { return false; }
-void AGSPlatformDriver::UnlockMouse() { }
 
 void AGSPlatformDriver::SetTranslation(const char* name) {}
 
@@ -380,7 +348,6 @@ void AGSPlatformDriver::Delay(int millis) {
 
     // don't allow it to check for debug messages, since this Delay()
     // call might be from within a debugger polling loop
-    update_polled_mp3();
     now = AGS_Clock::now(); // update now
   }
 }

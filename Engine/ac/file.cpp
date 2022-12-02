@@ -11,9 +11,6 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
-
-#include "core/types.h"
-#include "aldumb.h"
 #include "ac/asset_helper.h"
 #include "ac/audiocliptype.h"
 #include "ac/file.h"
@@ -55,22 +52,7 @@ int File_Exists(const char *fnmm) {
   if (!ResolveScriptPath(fnmm, true, rp))
     return 0;
 
-  if(File::TestReadFile(rp.FullPath))
-      return 1;
-
-  //alt_path is allowed to be empty, due to complex resolving rules
-  //empty paths look like directory names once combined with base directory names
-  //some systems allow fopen'ing directories
-  //thus, an empty path would always exist
-  //to avoid this, assume empty paths don't ever exist.
-  //If someone wants to test the existence of a directory, they'll need to do something else
-  if(rp.AltPath.GetLength()==0)
-      return 0;
-
-  if(File::TestReadFile(rp.AltPath))
-      return 1;
-
-  return 0;
+  return (File::TestReadFile(rp.FullPath) || File::TestReadFile(rp.AltPath)) ? 1 : 0;
 }
 
 int File_Delete(const char *fnmm) {
@@ -79,10 +61,10 @@ int File_Delete(const char *fnmm) {
   if (!ResolveScriptPath(fnmm, false, rp))
     return 0;
 
-  if (platform->PathDelete(rp.FullPath) == 0)
+  if (::remove(rp.FullPath) == 0)
       return 1;
   if (errno == ENOENT && !rp.AltPath.IsEmpty() && rp.AltPath.Compare(rp.FullPath) != 0)
-      return platform->PathDelete(rp.AltPath) == 0 ? 1 : 0;
+      return ::remove(rp.AltPath) == 0 ? 1 : 0;
   return 0;
 }
 
@@ -233,7 +215,7 @@ void FixupFilename(char *filename)
 
 String PathFromInstallDir(const String &path)
 {
-    if (is_relative_filename(path))
+    if (Path::IsRelativePath(path))
         return Path::ConcatPaths(ResPaths.DataDir, path);
     return path;
 }
@@ -275,7 +257,7 @@ String PreparePathForWriting(const FSLocation& fsloc, const String &filename)
 FSLocation GetGlobalUserConfigDir()
 {
     String dir = platform->GetUserGlobalConfigDirectory();
-    if (is_relative_filename(dir)) // relative dir is resolved relative to the game data dir
+    if (Path::IsRelativePath(dir)) // relative dir is resolved relative to the game data dir
         return FSLocation(ResPaths.DataDir, Path::ConcatPaths(ResPaths.DataDir, dir));
     return FSLocation(dir, dir);
 }
@@ -283,7 +265,7 @@ FSLocation GetGlobalUserConfigDir()
 FSLocation GetGameUserConfigDir()
 {
     String dir = platform->GetUserConfigDirectory();
-    if (is_relative_filename(dir)) // relative dir is resolved relative to the game data dir
+    if (Path::IsRelativePath(dir)) // relative dir is resolved relative to the game data dir
         return FSLocation(ResPaths.DataDir, Path::ConcatPaths(ResPaths.DataDir, dir));
     // For absolute dir, we assume it's a special directory prepared for AGS engine
     // and therefore amend it with a game own subdir
@@ -298,7 +280,7 @@ static FSLocation MakeGameDataDir(const String &default_dir, const String &user_
     if (user_option.IsEmpty())
     {
         String dir = default_dir;
-        if (is_relative_filename(dir)) // relative dir is resolved relative to the game data dir
+        if (Path::IsRelativePath(dir)) // relative dir is resolved relative to the game data dir
             return FSLocation(ResPaths.DataDir, Path::ConcatPaths(ResPaths.DataDir, dir));
         // For absolute dir, we assume it's a special directory prepared for AGS engine
         // and therefore amend it with a game own subdir
@@ -326,7 +308,7 @@ bool ResolveScriptPath(const String &orig_sc_path, bool read_only, ResolvedPath 
 {
     rp = ResolvedPath();
 
-    bool is_absolute = !is_relative_filename(orig_sc_path);
+    bool is_absolute = !Path::IsRelativePath(orig_sc_path);
     if (is_absolute && !read_only)
     {
         debug_script_warn("Attempt to access file '%s' denied (cannot write to absolute path)", orig_sc_path.GetCStr());
@@ -517,14 +499,6 @@ PACKFILE *PackfileFromAsset(const AssetPath &path, size_t &asset_size)
         obj->remains = asset_size;
         return pack_fopen_vtable(&ags_packfile_vtable, obj);
     }
-    return nullptr;
-}
-
-DUMBFILE *DUMBfileFromAsset(const AssetPath &path, size_t &asset_size)
-{
-    PACKFILE *pf = PackfileFromAsset(path, asset_size);
-    if (pf)
-        return dumbfile_open_packfile(pf);
     return nullptr;
 }
 

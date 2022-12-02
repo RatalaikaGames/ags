@@ -46,18 +46,21 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#if !defined(AGS_PLATFORM_OS_WINDOWS) && !defined(CONSOLE_VERSION)
+#include <dirent.h>
+#include <unistd.h>
+#endif
 
-//MBG AUG 2019 - why do we need this
-//#if !AGS_PLATFORM_OS_WINDOWS
-//#include <dirent.h>
-//#endif
-
-#include "allegro.h"
+#include <allegro.h> // file path functions
 #include "util/file.h"
 #include "util/stream.h"
 
 
 using namespace AGS::Common;
+
+//
+// TODO: rewrite all this in a cleaner way perhaps, and move to our file or path utilities unit
+//
 
 #if !defined (AGS_CASE_SENSITIVE_FILESYSTEM)
 #include <string.h>

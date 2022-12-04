@@ -3,12 +3,7 @@
 #include <string.h>
 #if AGS_PLATFORM_OS_WINDOWS || defined(WIN32)
 #include <direct.h>
-#include <windows.h>
-#undef CreateFile
-#undef DeleteFile
-#undef CreateDirectory
-#undef GetCurrentDirectory
-#undef SetCurrentDirectory
+#include "platform/windows/windows.h"
 #else
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -27,6 +22,8 @@ namespace AGS
 namespace Common
 {
 
+using namespace Path;
+
 namespace Directory
 {
 
@@ -34,13 +31,15 @@ bool CreateDirectory(const String &path)
 {
 #ifdef AGS_RATA //MBG - USE PLATFORM, WHY NOT????
     return platform->DirectoryCreate(path);
+#else // AGS_RATA
+#if AGS_PLATFORM_OS_WINDOWS
+    WCHAR wstr[MAX_PATH_SZ];
+    MultiByteToWideChar(CP_UTF8, 0, path.GetCStr(), -1, wstr, MAX_PATH_SZ);
+    return (CreateDirectoryW(wstr, NULL) != FALSE) || (GetLastError() == ERROR_ALREADY_EXISTS);
 #else
-    return mkdir(path.GetCStr()
-#if ! AGS_PLATFORM_OS_WINDOWS
-        , 0755
+    return (mkdir(path.GetCStr(), 0755) == 0) || (errno == EEXIST);
 #endif
-        ) == 0 || errno == EEXIST;
-#endif
+#endif // AGS_RATA
 }
 
 bool CreateAllDirectories(const String &parent, const String &sub_dirs)
@@ -77,16 +76,34 @@ String SetCurrentDirectory(const String &path)
 {
 #ifdef AGS_RATA //MBG - USE PLATFORM, WHY NOT????
     platform->DirectorySetCurrent(path);
+#else // AGS_RATA
+#if AGS_PLATFORM_OS_WINDOWS
+    WCHAR wstr[MAX_PATH_SZ];
+    MultiByteToWideChar(CP_UTF8, 0, path.GetCStr(), -1, wstr, MAX_PATH_SZ);
+    SetCurrentDirectoryW(wstr);
 #else
     chdir(path.GetCStr());
 #endif
+#endif // AGS_RATA
     return GetCurrentDirectory();
 }
 
 String GetCurrentDirectory()
 {
-    //MBG - USE PLATFORM, WHY NOT????
+#ifdef AGS_RATA //MBG - USE PLATFORM, WHY NOT????
     String str = platform->DirectoryGetCurrent();
+#else // AGS_RATA
+    String str;
+#if AGS_PLATFORM_OS_WINDOWS
+    WCHAR wstr[MAX_PATH_SZ];
+    GetCurrentDirectoryW(MAX_PATH_SZ, wstr);
+    str = Path::WidePathToUTF8(wstr);
+#else
+    char buf[MAX_PATH_SZ];
+    getcwd(buf, sizeof(buf));
+    str = buf;
+#endif
+#endif // AGS_RATA
     Path::FixupPath(str);
     return str;
 }
@@ -124,8 +141,8 @@ bool GetFilesImpl(const String &dir_path, std::vector<String> &files,
 bool GetFilesImpl(const String &dir_path, std::vector<String> &files,
     int attr_dir)
 {
-    char pattern[MAX_PATH];
-    snprintf(pattern, MAX_PATH, "%s/%s", dir_path.GetCStr(), "*");
+    char pattern[MAX_PATH_SZ];
+    snprintf(pattern, sizeof(pattern), "%s/%s", dir_path.GetCStr(), "*");
     WIN32_FIND_DATAA findData;
     HANDLE hFind = FindFirstFileA(pattern, &findData);
     if (hFind == INVALID_HANDLE_VALUE)
@@ -231,8 +248,8 @@ FindFile FindFile::Open(const String &path, const String &wildcard, bool do_file
         // dummy
 #else
 #if AGS_PLATFORM_OS_WINDOWS
-    char pattern[MAX_PATH];
-    snprintf(pattern, MAX_PATH, "%s/%s", path.GetCStr(), wildcard.GetCStr());
+    char pattern[MAX_PATH_SZ];
+    snprintf(pattern, sizeof(pattern), "%s/%s", path.GetCStr(), wildcard.GetCStr());
     HANDLE hFind = FindFirstFileA(pattern, &ffi.fdata);
     if (hFind == INVALID_HANDLE_VALUE)
         return FindFile(); // return invalid object

@@ -41,7 +41,6 @@
 #include "ac/runtime_defines.h"
 #include "ac/screenoverlay.h"
 #include "ac/sprite.h"
-#include "ac/spritelistentry.h"
 #include "ac/string.h"
 #include "ac/system.h"
 #include "ac/viewframe.h"
@@ -114,13 +113,15 @@ IDriverDependantBitmap *debugConsole = nullptr;
 
 // actsps is used for temporary storage of the bitamp image
 // of the latest version of the sprite
-int actSpsCount = 0;
-Bitmap **actsps;
-IDriverDependantBitmap* *actspsbmp;
+std::vector<Bitmap*> actsps;
+std::vector<IDriverDependantBitmap*> actspsbmp;
 // temporary cache of walk-behind for this actsps image
-Bitmap **actspswb;
-IDriverDependantBitmap* *actspswbbmp;
-CachedActSpsData* actspswbcache;
+std::vector<Bitmap*> actspswb;
+std::vector<IDriverDependantBitmap*>actspswbbmp;
+std::vector<CachedActSpsData> actspswbcache;
+// GUI surfaces
+std::vector<Bitmap*> guibg;
+std::vector<IDriverDependantBitmap*> guibgbmp;
 
 bool current_background_is_dirty = false;
 
@@ -141,11 +142,25 @@ struct RoomCameraDrawData
 };
 std::vector<RoomCameraDrawData> CameraDrawData;
 
-std::vector<SpriteListEntry> sprlist;
-std::vector<SpriteListEntry> thingsToDrawList;
 
-Bitmap **guibg = nullptr;
-IDriverDependantBitmap **guibgbmp = nullptr;
+// A wrap over RenderItem with just a sorting adjustment
+struct SpriteListEntry
+{
+    IDriverDependantBitmap *bmp = nullptr;
+    int x = 0, y = 0;
+    int zorder = 0;
+    // Tells if this item should take priority during sort if z1 == z2
+    // TODO: this is some compatibility feature - find out if may be omited and done without extra struct?
+    bool takesPriorityIfEqual = false;
+    // Mark for the render stage callback (if >= 0 other fields are ignored)
+    int renderStage = -1;
+};
+
+// Two lists of sprites to push into renderer during next render pass
+// thingsToDrawList - is the main list, unsorted, drawn in the index order
+std::vector<SpriteListEntry> thingsToDrawList;
+// sprlist - will be sorted using baseline and appended to main list
+std::vector<SpriteListEntry> sprlist;
 
 
 Bitmap *debugConsoleBuffer = nullptr;
@@ -156,15 +171,6 @@ bool screen_is_dirty = false;
 Bitmap *raw_saved_screen = nullptr;
 Bitmap *dynamicallyCreatedSurfaces[MAX_DYNAMIC_SURFACES];
 
-
-SpriteListEntry::SpriteListEntry()
-    : bmp(nullptr)
-    , pic(nullptr)
-    , baseline(0), x(0), y(0)
-    , transparent(0)
-    , takesPriorityIfEqual(false), hasAlphaChannel(false)
-{
-}
 
 void setpal() {
     set_palette_range(palette, 0, 255, 0);
@@ -241,6 +247,12 @@ Bitmap *AdjustBitmapForUseWithDisplayMode(Bitmap* bitmap, bool has_alpha)
     const int bmp_col_depth = bitmap->GetColorDepth();
     const int sys_col_depth = System_GetColorDepth();
     const int game_col_depth = game.GetColorDepth();
+    const int compat_col_depth = gfxDriver->GetCompatibleBitmapFormat(game_col_depth);
+
+    const bool must_switch_palette = bitmap->GetColorDepth() == 8 && game_col_depth > 8;
+    if (must_switch_palette)
+        select_palette(palette);
+
     Bitmap *new_bitmap = bitmap;
 
     //
@@ -271,7 +283,7 @@ Bitmap *AdjustBitmapForUseWithDisplayMode(Bitmap* bitmap, bool has_alpha)
     // In 32-bit game hicolor bitmaps must be converted to the true color
     else if (game_col_depth == 32 && (bmp_col_depth > 8 && bmp_col_depth <= 16))
     {
-        new_bitmap = BitmapHelper::CreateBitmapCopy(bitmap, game_col_depth);
+        new_bitmap = BitmapHelper::CreateBitmapCopy(bitmap, compat_col_depth);
     }
     // In non-32-bit game truecolor bitmaps must be downgraded
     else if (game_col_depth <= 16 && bmp_col_depth > 16)
@@ -279,51 +291,46 @@ Bitmap *AdjustBitmapForUseWithDisplayMode(Bitmap* bitmap, bool has_alpha)
         if (has_alpha) // if has valid alpha channel, convert it to regular transparency mask
             new_bitmap = remove_alpha_channel(bitmap);
         else // else simply convert bitmap
-            new_bitmap = BitmapHelper::CreateBitmapCopy(bitmap, game_col_depth);
+            new_bitmap = BitmapHelper::CreateBitmapCopy(bitmap, compat_col_depth);
     }
     // Special case when we must convert 16-bit RGB to BGR
     else if (convert_16bit_bgr == 1 && bmp_col_depth == 16)
     {
         new_bitmap = convert_16_to_16bgr(bitmap);
     }
+    
+    // Finally, if we did not create a new copy already, - convert to driver compatible format
+    if ((new_bitmap == bitmap) && (bmp_col_depth != compat_col_depth))
+        new_bitmap = GfxUtil::ConvertBitmap(bitmap, compat_col_depth);
+
+    if (must_switch_palette)
+        unselect_palette();
+
     return new_bitmap;
+}
+
+Bitmap *CreateCompatBitmap(int width, int height, int col_depth)
+{
+    return new Bitmap(width, height,
+        gfxDriver->GetCompatibleBitmapFormat(col_depth == 0 ? game.GetColorDepth() : col_depth));
 }
 
 Bitmap *ReplaceBitmapWithSupportedFormat(Bitmap *bitmap)
 {
-    Bitmap *new_bitmap = GfxUtil::ConvertBitmap(bitmap, gfxDriver->GetCompatibleBitmapFormat(bitmap->GetColorDepth()));
-    if (new_bitmap != bitmap)
-        delete bitmap;
-    return new_bitmap;
+    return GfxUtil::ConvertBitmap(bitmap, gfxDriver->GetCompatibleBitmapFormat(bitmap->GetColorDepth()));
 }
 
 Bitmap *PrepareSpriteForUse(Bitmap* bitmap, bool has_alpha)
 {
-    bool must_switch_palette = bitmap->GetColorDepth() == 8 && game.GetColorDepth() > 8;
-    if (must_switch_palette)
-        select_palette(palette);
-
     Bitmap *new_bitmap = AdjustBitmapForUseWithDisplayMode(bitmap, has_alpha);
     if (new_bitmap != bitmap)
         delete bitmap;
-    new_bitmap = ReplaceBitmapWithSupportedFormat(new_bitmap);
-
-    if (must_switch_palette)
-        unselect_palette();
     return new_bitmap;
 }
 
 PBitmap PrepareSpriteForUse(PBitmap bitmap, bool has_alpha)
 {
-    bool must_switch_palette = bitmap->GetColorDepth() == 8 && System_GetColorDepth() > 8;
-    if (must_switch_palette)
-        select_palette(palette);
-
     Bitmap *new_bitmap = AdjustBitmapForUseWithDisplayMode(bitmap.get(), has_alpha);
-    new_bitmap = ReplaceBitmapWithSupportedFormat(new_bitmap);
-
-    if (must_switch_palette)
-        unselect_palette();
     return new_bitmap == bitmap.get() ? bitmap : PBitmap(new_bitmap); // if bitmap is same, don't create new smart ptr!
 }
 
@@ -462,8 +469,7 @@ void create_blank_image(int coldepth)
     // so it's the most likey place for a crash
     try
     {
-        Bitmap *blank = BitmapHelper::CreateBitmap(16, 16, coldepth);
-        blank = ReplaceBitmapWithSupportedFormat(blank);
+        Bitmap *blank = CreateCompatBitmap(16, 16, coldepth);
         blank->Clear();
         blankImage = gfxDriver->CreateDDBFromBitmap(blank, false, true);
         blankSidebarImage = gfxDriver->CreateDDBFromBitmap(blank, false, true);
@@ -517,10 +523,74 @@ void dispose_draw_method()
     destroy_blank_image();
 }
 
+void init_game_drawdata()
+{
+    for (int i = 0; i < MAX_ROOM_OBJECTS; ++i)
+        objcache[i].image = nullptr;
+
+    size_t actsps_num = game.numcharacters + MAX_ROOM_OBJECTS;
+    actsps.resize(actsps_num);
+    actspsbmp.resize(actsps_num);
+    actspswb.resize(actsps_num);
+    actspswbbmp.resize(actsps_num);
+    actspswbcache.resize(actsps_num);
+    guibg.resize(game.numgui);
+    guibgbmp.resize(game.numgui);
+}
+
+void dispose_game_drawdata()
+{
+    clear_drawobj_cache();
+
+    actsps.clear();
+    actspsbmp.clear();
+    actspswb.clear();
+    actspswbbmp.clear();
+    actspswbcache.clear();
+    guibg.clear();
+}
+
 void dispose_room_drawdata()
 {
     CameraDrawData.clear();
     dispose_invalid_regions(true);
+}
+
+void clear_drawobj_cache()
+{
+    // clear the object cache
+    for (int i = 0; i < MAX_ROOM_OBJECTS; ++i)
+    {
+        delete objcache[i].image;
+        objcache[i].image = nullptr;
+    }
+
+    // cleanup Character + Room object textures
+    for (int i = 0; i < MAX_ROOM_OBJECTS + game.numcharacters; ++i)
+    {
+        delete actsps[i];
+        actsps[i] = nullptr;
+        if (actspsbmp[i] != nullptr)
+            gfxDriver->DestroyDDB(actspsbmp[i]);
+        actspsbmp[i] = nullptr;
+
+        delete actspswb[i];
+        actspswb[i] = nullptr;
+        if (actspswbbmp[i] != nullptr)
+            gfxDriver->DestroyDDB(actspswbbmp[i]);
+        actspswbbmp[i] = nullptr;
+        actspswbcache[i].valid = 0;
+    }
+
+    // cleanup GUI backgrounds
+    for (int i = 0; i < game.numgui; ++i)
+    {
+        delete guibg[i];
+        guibg[i] = nullptr;
+        if (guibgbmp[i])
+            gfxDriver->DestroyDDB(guibgbmp[i]);
+        guibgbmp[i] = nullptr;
+    }
 }
 
 void on_mainviewport_changed()
@@ -861,9 +931,81 @@ IDriverDependantBitmap* recycle_ddb_bitmap(IDriverDependantBitmap *bimp, Bitmap 
     return bimp;
 }
 
+//------------------------------------------------------------------------
+// Functions for filling the lists of sprites to render
+static void clear_draw_list()
+{
+    thingsToDrawList.clear();
+}
+
+static void add_thing_to_draw(IDriverDependantBitmap* bmp, int x, int y)
+{
+    SpriteListEntry sprite;
+    sprite.bmp = bmp;
+    sprite.x = x;
+    sprite.y = y;
+    thingsToDrawList.push_back(sprite);
+}
+
+static void add_render_stage(int stage)
+{
+    SpriteListEntry sprite;
+    sprite.renderStage = stage;
+    thingsToDrawList.push_back(sprite);
+}
+
+static void clear_sprite_list()
+{
+    sprlist.clear();
+}
+
+static void add_to_sprite_list(IDriverDependantBitmap* spp, int xx, int yy, int zorder, bool isWalkBehind)
+{
+    if (spp == nullptr)
+        quit("add_to_sprite_list: attempted to draw NULL sprite");
+    // completely invisible, so don't draw it at all
+    if (spp->GetTransparency() == 255)
+        return;
+
+    SpriteListEntry sprite;
+    sprite.bmp = spp;
+    sprite.zorder = zorder;
+    sprite.x = xx;
+    sprite.y = yy;
+
+    if (walkBehindMethod == DrawAsSeparateSprite)
+        sprite.takesPriorityIfEqual = !isWalkBehind;
+    else
+        sprite.takesPriorityIfEqual = isWalkBehind;
+
+    sprlist.push_back(sprite);
+}
+
+// function to sort the sprites into baseline order
+static bool spritelistentry_less(const SpriteListEntry &e1, const SpriteListEntry &e2)
+{
+    if (e1.zorder == e2.zorder)
+    {
+        if (e1.takesPriorityIfEqual)
+            return false;
+        if (e2.takesPriorityIfEqual)
+            return true;
+    }
+    return e1.zorder < e2.zorder;
+}
+
+// copy the sorted sprites into the Things To Draw list
+static void draw_sprite_list()
+{
+    std::sort(sprlist.begin(), sprlist.end(), spritelistentry_less);
+    thingsToDrawList.insert(thingsToDrawList.end(), sprlist.begin(), sprlist.end());
+}
+//
+//------------------------------------------------------------------------
+
 void invalidate_cached_walkbehinds() 
 {
-    memset(&actspswbcache[0], 0, sizeof(CachedActSpsData) * actSpsCount);
+    memset(&actspswbcache[0], 0, sizeof(CachedActSpsData) * actspswbcache.size());
 }
 
 // sort_out_walk_behinds: modifies the supplied sprite by overwriting parts
@@ -1010,56 +1152,8 @@ void sort_out_char_sprite_walk_behind(int actspsIndex, int xx, int yy, int basel
 
     if (actspswbcache[actspsIndex].isWalkBehindHere)
     {
-        add_to_sprite_list(actspswbbmp[actspsIndex], xx, yy, basel, 0, -1, true);
+        add_to_sprite_list(actspswbbmp[actspsIndex], xx, yy, basel, true);
     }
-}
-
-void clear_draw_list() {
-    thingsToDrawList.clear();
-}
-void add_thing_to_draw(IDriverDependantBitmap* bmp, int x, int y, int trans, bool alphaChannel) {
-    SpriteListEntry sprite;
-    sprite.pic = nullptr;
-    sprite.bmp = bmp;
-    sprite.x = x;
-    sprite.y = y;
-    sprite.transparent = trans;
-    sprite.hasAlphaChannel = alphaChannel;
-    thingsToDrawList.push_back(sprite);
-}
-
-// the sprite list is an intermediate list used to order 
-// objects and characters by their baselines before everything
-// is added to the Thing To Draw List
-void clear_sprite_list() {
-    sprlist.clear();
-}
-void add_to_sprite_list(IDriverDependantBitmap* spp, int xx, int yy, int baseline, int trans, int sprNum, bool isWalkBehind) {
-
-    if (spp == nullptr)
-        quit("add_to_sprite_list: attempted to draw NULL sprite");
-    // completely invisible, so don't draw it at all
-    if (trans == 255)
-        return;
-
-    SpriteListEntry sprite;
-    if ((sprNum >= 0) && ((game.SpriteInfos[sprNum].Flags & SPF_ALPHACHANNEL) != 0))
-        sprite.hasAlphaChannel = true;
-    else
-        sprite.hasAlphaChannel = false;
-
-    sprite.bmp = spp;
-    sprite.baseline = baseline;
-    sprite.x=xx;
-    sprite.y=yy;
-    sprite.transparent=trans;
-
-    if (walkBehindMethod == DrawAsSeparateSprite)
-        sprite.takesPriorityIfEqual = !isWalkBehind;
-    else
-        sprite.takesPriorityIfEqual = isWalkBehind;
-
-    sprlist.push_back(sprite);
 }
 
 void repair_alpha_channel(Bitmap *dest, Bitmap *bgpic)
@@ -1111,44 +1205,6 @@ void draw_gui_sprite_v330(Bitmap *ds, int pic, int x, int y, bool use_alpha, Ble
     draw_gui_sprite(ds, pic, x, y, use_alpha && (loaded_game_file_version >= kGameVersion_330), blend_mode);
 }
 
-// function to sort the sprites into baseline order
-bool spritelistentry_less(const SpriteListEntry &e1, const SpriteListEntry &e2)
-{
-    if (e1.baseline == e2.baseline) 
-    { 
-        if (e1.takesPriorityIfEqual)
-            return false;
-        if (e2.takesPriorityIfEqual)
-            return true;
-    }
-    return e1.baseline < e2.baseline;
-}
-
-
-
-
-void draw_sprite_list() {
-
-    if (walkBehindMethod == DrawAsSeparateSprite)
-    {
-        for (int ee = 1; ee < MAX_WALK_BEHINDS; ee++)
-        {
-            if (walkBehindBitmap[ee] != nullptr)
-            {
-                add_to_sprite_list(walkBehindBitmap[ee], walkBehindLeft[ee], walkBehindTop[ee],
-                    croom->walkbehind_base[ee], 0, -1, true);
-            }
-        }
-    }
-
-    std::sort(sprlist.begin(), sprlist.end(), spritelistentry_less);
-
-    if(pl_any_want_hook(AGSE_PRESCREENDRAW))
-        add_thing_to_draw(nullptr, AGSE_PRESCREENDRAW, 0, TRANS_RUN_PLUGIN, false);
-
-    // copy the sorted sprites into the Things To Draw list
-    thingsToDrawList.insert(thingsToDrawList.end(), sprlist.begin(), sprlist.end());
-}
 
 // Avoid freeing and reallocating the memory if possible
 Bitmap *recycle_bitmap(Bitmap *bimp, int coldep, int wid, int hit, bool make_transparent) {
@@ -1171,6 +1227,19 @@ Bitmap *recycle_bitmap(Bitmap *bimp, int coldep, int wid, int hit, bool make_tra
     return bimp;
 }
 
+// Allocates texture for the GUI
+void recreate_guibg_image(GUIMain *tehgui)
+{
+    int ifn = tehgui->ID;
+    delete guibg[ifn];
+    guibg[ifn] = CreateCompatBitmap(tehgui->Width, tehgui->Height);
+
+    if (guibgbmp[ifn] != nullptr)
+    {
+        gfxDriver->DestroyDDB(guibgbmp[ifn]);
+        guibgbmp[ifn] = nullptr;
+    }
+}
 
 // Get the local tint at the specified X & Y co-ordinates, based on
 // room regions and SetAmbientTint
@@ -1668,7 +1737,8 @@ void prepare_objects_for_drawing() {
                 actspsbmp[useindx]->SetLightLevel(0);
         }
 
-        add_to_sprite_list(actspsbmp[useindx], atxp, atyp, usebasel, objs[aa].transparent,objs[aa].num);
+        actspsbmp[useindx]->SetTransparency(objs[aa].transparent);
+        add_to_sprite_list(actspsbmp[useindx], atxp, atyp, usebasel, false);
     }
 }
 
@@ -1980,8 +2050,19 @@ void prepare_characters_for_drawing() {
         chin->actx = atxp;
         chin->acty = atyp;
 
-        add_to_sprite_list(actspsbmp[useindx], bgX, bgY, usebasel, chin->transparency, sppic);
+        actspsbmp[useindx]->SetTransparency(chin->transparency);
+        add_to_sprite_list(actspsbmp[useindx], bgX, bgY, usebasel, false);
     }
+}
+
+Bitmap *get_cached_character_image(int charid)
+{
+    return actsps[charid + MAX_ROOM_OBJECTS];
+}
+
+Bitmap *get_cached_object_image(int objid)
+{
+    return actsps[objid];
 }
 
 
@@ -2010,7 +2091,7 @@ void prepare_room_sprites()
                 update_walk_behind_images();
             }
         }
-        add_thing_to_draw(roomBackgroundBmp, 0, 0, 0, false);
+        add_thing_to_draw(roomBackgroundBmp, 0, 0);
     }
     current_background_is_dirty = false; // Note this is only place where this flag is checked
 
@@ -2024,6 +2105,22 @@ void prepare_room_sprites()
         if ((debug_flags & DBG_NODRAWSPRITES) == 0)
         {
             our_eip = 34;
+
+            if (walkBehindMethod == DrawAsSeparateSprite)
+            {
+                for (int ee = 1; ee < MAX_WALK_BEHINDS; ee++)
+                {
+                    if (walkBehindBitmap[ee] != nullptr)
+                    {
+                        add_to_sprite_list(walkBehindBitmap[ee], walkBehindLeft[ee], walkBehindTop[ee],
+                            croom->walkbehind_base[ee], true);
+                    }
+                }
+            }
+
+            if (pl_any_want_hook(AGSE_PRESCREENDRAW))
+                add_render_stage(AGSE_PRESCREENDRAW);
+
             draw_sprite_list();
         }
     }
@@ -2088,8 +2185,7 @@ void draw_fps(const Rect &viewport)
     const int font = FONT_NORMAL;
     if (fpsDisplay == nullptr)
     {
-        fpsDisplay = BitmapHelper::CreateBitmap(viewport.GetWidth(), (getfontheight_outlined(font) + get_fixed_pixel_size(5)), game.GetColorDepth());
-        fpsDisplay = ReplaceBitmapWithSupportedFormat(fpsDisplay);
+        fpsDisplay = CreateCompatBitmap(viewport.GetWidth(), (getfontheight_outlined(font) + get_fixed_pixel_size(5)));
     }
     fpsDisplay->ClearTransparent();
     
@@ -2127,25 +2223,22 @@ void draw_fps(const Rect &viewport)
 // Draw GUI and overlays of all kinds, anything outside the room space
 void draw_gui_and_overlays()
 {
-    int gg;
-
     if(pl_any_want_hook(AGSE_PREGUIDRAW))
-        add_thing_to_draw(nullptr, AGSE_PREGUIDRAW, 0, TRANS_RUN_PLUGIN, false);
+        add_render_stage(AGSE_PREGUIDRAW);
 
-    // draw overlays, except text boxes and portraits
-    for (gg=0;gg<numscreenover;gg++) {
-        // complete overlay draw in non-transparent mode
-        if (screenover[gg].type == OVER_COMPLETE)
-            add_thing_to_draw(screenover[gg].bmp, screenover[gg].x, screenover[gg].y, TRANS_OPAQUE, false);
-        else if (screenover[gg].type != OVER_TEXTMSG && screenover[gg].type != OVER_PICTURE) {
-            int tdxp, tdyp;
-            get_overlay_position(screenover[gg], &tdxp, &tdyp);
-            add_thing_to_draw(screenover[gg].bmp, tdxp, tdyp, 0, screenover[gg].hasAlphaChannel);
-        }
+    clear_sprite_list();
+
+    // Add active overlays to the sprite list
+    for (auto &over : screenover)
+    {
+        if (over.transparency == 255) continue; // skip fully transparent
+        over.bmp->SetTransparency(over.transparency);
+        int tdxp, tdyp;
+        get_overlay_position(over, &tdxp, &tdyp);
+        add_to_sprite_list(over.bmp, tdxp, tdyp, over.zorder, false);
     }
 
-    // Draw GUIs - they should always be on top of overlays like
-    // speech background text
+    // Add GUIs
     our_eip=35;
     if (((debug_flags & DBG_NOIFACE)==0) && (displayed_room >= 0)) {
         int aa;
@@ -2164,7 +2257,8 @@ void draw_gui_and_overlays()
                 if (guis[aa].Transparency == 255) continue;
 
                 guis[aa].ClearChanged();
-                if (guibg[aa] == nullptr)
+                if (guibg[aa] == nullptr ||
+                    guibg[aa]->GetSize() != Size(guis[aa].Width, guis[aa].Height))
                     recreate_guibg_image(&guis[aa]);
 
                 eip_guinum = aa;
@@ -2199,7 +2293,7 @@ void draw_gui_and_overlays()
         }
         our_eip = 38;
         // Draw the GUIs
-        for (gg = 0; gg < game.numgui; gg++) {
+        for (int gg = 0; gg < game.numgui; gg++) {
             aa = play.gui_draw_order[gg];
             if (!guis[aa].IsDisplayed()) continue;
             if (guis[aa].Transparency == 255) continue;
@@ -2210,7 +2304,8 @@ void draw_gui_and_overlays()
                 (guis[aa].PopupStyle != kGUIPopupNoAutoRemove))
                 continue;
 
-            add_thing_to_draw(guibgbmp[aa], guis[aa].X, guis[aa].Y, guis[aa].Transparency, guis[aa].HasAlphaChannel());
+            guibgbmp[aa]->SetTransparency(guis[aa].Transparency);
+            add_to_sprite_list(guibgbmp[aa], guis[aa].X, guis[aa].Y, guis[aa].ZOrder, false);
 
             // only poll if the interface is enabled (mouseovers should not
             // work while in Wait state)
@@ -2219,16 +2314,8 @@ void draw_gui_and_overlays()
         }
     }
 
-    // draw speech and portraits (so that they appear over GUIs)
-    for (gg=0;gg<numscreenover;gg++) 
-    {
-        if (screenover[gg].type == OVER_TEXTMSG || screenover[gg].type == OVER_PICTURE)
-        {
-            int tdxp, tdyp;
-            get_overlay_position(screenover[gg], &tdxp, &tdyp);
-            add_thing_to_draw(screenover[gg].bmp, tdxp, tdyp, 0, false);
-        }
-    }
+    // sort and append ui sprites to the global draw things list
+    draw_sprite_list();
 
     our_eip = 1099;
 }
@@ -2236,40 +2323,29 @@ void draw_gui_and_overlays()
 // Push the gathered list of sprites into the active graphic renderer
 void put_sprite_list_on_screen(bool in_room)
 {
-    // *** Draw the Things To Draw List ***
-
-    SpriteListEntry *thisThing;
-
     for (size_t i = 0; i < thingsToDrawList.size(); ++i)
     {
-        thisThing = &thingsToDrawList[i];
-
-        if (thisThing->bmp != nullptr) {
-            // mark the image's region as dirty
-            invalidate_sprite(thisThing->x, thisThing->y, thisThing->bmp, in_room);
-        }
-        else if ((thisThing->transparent != TRANS_RUN_PLUGIN) &&
-            (thisThing->bmp == nullptr)) 
-        {
-            quit("Null pointer added to draw list");
-        }
+        const auto *thisThing = &thingsToDrawList[i];
 
         if (thisThing->bmp != nullptr)
         {
-            if (thisThing->transparent <= 255)
-            {
-                thisThing->bmp->SetTransparency(thisThing->transparent);
-            }
+            if (thisThing->bmp->GetTransparency() == 255)
+                continue; // skip completely invisible things
+            // mark the image's region as dirty
+            invalidate_sprite(thisThing->x, thisThing->y, thisThing->bmp, in_room);
 
+            // push to the graphics driver
             gfxDriver->DrawSprite(thisThing->x, thisThing->y, thisThing->bmp);
         }
-        else if (thisThing->transparent == TRANS_RUN_PLUGIN) 
+        else if (thisThing->renderStage >= 0)
         {
             // meta entry to run the plugin hook
-            gfxDriver->DrawSprite(thisThing->x, thisThing->y, nullptr);
+            gfxDriver->DrawSprite(thisThing->renderStage, 0, nullptr);
         }
         else
-            quit("Unknown entry in draw list");
+        {
+            quit("Null pointer added to draw list");
+        }
     }
 
     our_eip = 1100;
@@ -2479,8 +2555,7 @@ void construct_engine_overlay()
 
         if (debugConsoleBuffer == nullptr)
         {
-            debugConsoleBuffer = BitmapHelper::CreateBitmap(viewport.GetWidth(), barheight, game.GetColorDepth());
-            debugConsoleBuffer = ReplaceBitmapWithSupportedFormat(debugConsoleBuffer);
+            debugConsoleBuffer = CreateCompatBitmap(viewport.GetWidth(), barheight);
         }
 
         color_t draw_color = debugConsoleBuffer->GetCompatibleColor(15);

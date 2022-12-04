@@ -19,6 +19,7 @@
 #define __AGS_EE_AC__SCREENOVERLAY_H
 
 #include <stdint.h>
+#include "core/types.h"
 
 // Forward declaration
 namespace AGS { namespace Common { class Bitmap; class Stream; } }
@@ -29,13 +30,15 @@ using namespace AGS; // FIXME later
 struct ScreenOverlay {
     Engine::IDriverDependantBitmap *bmp = nullptr;
     Common::Bitmap *pic = nullptr;
+    bool hasAlphaChannel = false;
     int type = 0, x = 0, y = 0, timeout = 0;
     int bgSpeechForChar = 0;
     int associatedOverlayHandle = 0;
-    bool hasAlphaChannel = false;
+    int zorder = INT_MIN;
     bool positionRelativeToScreen = false;
     bool hasSerializedBitmap = false;
     int _offsetX = 0, _offsetY = 0;
+    int transparency = 0;
 
     void ReadFromFile(Common::Stream *in, int32_t cmp_ver);
     void WriteToFile(Common::Stream *out) const;

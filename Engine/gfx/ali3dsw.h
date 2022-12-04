@@ -41,12 +41,12 @@ namespace ALSW
 class SDLRendererGfxFilter;
 using AGS::Common::Bitmap;
 
-class ALSoftwareBitmap : public IDriverDependantBitmap
+class ALSoftwareBitmap : public BaseDDB
 {
 public:
-    // NOTE by CJ:
     // Transparency is a bit counter-intuitive
     // 0=not transparent, 255=invisible, 1..254 barely visible .. mostly visible
+    int  GetTransparency() const override { return _transparency; }
     void SetTransparency(int transparency) override { _transparency = transparency; }
     void SetFlippedLeftRight(bool isFlipped) override { _flipped = isFlipped; }
     void SetStretch(int width, int height, bool useResampler = true) override 
@@ -54,15 +54,10 @@ public:
         _stretchToWidth = width;
         _stretchToHeight = height;
     }
-    int GetWidth() override { return _width; }
-    int GetHeight() override { return _height; }
-    int GetColorDepth() override { return _colDepth; }
     void SetLightLevel(int lightLevel) override  { }
     void SetTint(int red, int green, int blue, int tintSaturation) override { }
 
     Bitmap *_bmp;
-    int _width, _height;
-    int _colDepth;
     bool _flipped;
     int _stretchToWidth, _stretchToHeight;
     bool _opaque; // no mask color

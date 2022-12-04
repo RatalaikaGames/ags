@@ -304,6 +304,7 @@ void quit(const char *quitmsg)
     Debug::Printf(kDbgMsg_Alert, "***** ENGINE HAS SHUTDOWN");
 
     shutdown_debug();
+    AGSPlatformDriver::Shutdown();
 
     our_eip = 9904;
     exit(EXIT_NORMAL);

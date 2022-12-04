@@ -101,6 +101,17 @@ bool Bitmap::CreateSubBitmap(Bitmap *src, const Rect &rc)
     return _alBitmap != nullptr;
 }
 
+bool Bitmap::ResizeSubBitmap(int width, int height)
+{
+    if (!is_sub_bitmap(_alBitmap))
+        return false;
+    // TODO: can't clamp to parent size, because subs do not keep parent ref;
+    // might require amending allegro bitmap struct
+    _alBitmap->w = _alBitmap->cr = width;
+    _alBitmap->h = _alBitmap->cb = height;
+    return true;
+}
+
 bool Bitmap::CreateCopy(Bitmap *src, int color_depth)
 {
     if (Create(src->_alBitmap->w, src->_alBitmap->h, color_depth ? color_depth : bitmap_color_depth(src->_alBitmap)))
@@ -181,6 +192,11 @@ void Bitmap::SetClip(const Rect &rc)
 	set_clip_rect(_alBitmap, rc.Left, rc.Top, rc.Right, rc.Bottom);
 }
 
+void Bitmap::ResetClip()
+{
+    set_clip_rect(_alBitmap, 0, 0, _alBitmap->w - 1, _alBitmap->h - 1);
+}
+
 Rect Bitmap::GetClip() const
 {
 	Rect temp;
@@ -217,6 +233,11 @@ void Bitmap::Blit(Bitmap *src, int src_x, int src_y, int dst_x, int dst_y, int w
 	{
 		blit(al_src_bmp, _alBitmap, src_x, src_y, dst_x, dst_y, width, height);
 	}
+}
+
+void Bitmap::MaskedBlit(Bitmap *src, int dst_x, int dst_y)
+{
+    draw_sprite(_alBitmap, src->_alBitmap, dst_x, dst_y);
 }
 
 void Bitmap::StretchBlt(Bitmap *src, const Rect &dst_rc, BitmapMaskOption mask)

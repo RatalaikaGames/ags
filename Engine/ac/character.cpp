@@ -73,7 +73,6 @@ extern ScriptInvItem scrInv[MAX_INV];
 extern SpriteCache spriteset;
 extern Bitmap *walkable_areas_temp;
 extern IGraphicsDriver *gfxDriver;
-extern Bitmap **actsps;
 extern int said_speech_line;
 extern int said_text;
 extern int our_eip;
@@ -2172,12 +2171,13 @@ Bitmap *GetCharacterImage(int charid, int *isFlipped)
 {
     if (!gfxDriver->HasAcceleratedTransform())
     {
-        if (actsps[charid + MAX_ROOM_OBJECTS] != nullptr) 
+        Bitmap *actsp = get_cached_character_image(charid);
+        if (actsp)
         {
-            // the actsps image is pre-flipped, so no longer register the image as such
+            // the cached image is pre-flipped, so no longer register the image as such
             if (isFlipped)
                 *isFlipped = 0;
-            return actsps[charid + MAX_ROOM_OBJECTS];
+            return actsp;
         }
     }
     CharacterInfo*chin=&game.chars[charid];
@@ -2374,14 +2374,13 @@ void _displayspeech(const char*texx, int aschar, int xx, int yy, int widd, int i
 
     said_speech_line = 1;
 
-    int aa;
     if (play.bgspeech_stay_on_display == 0) {
         // remove any background speech
-        for (aa=0;aa<numscreenover;aa++) {
-            if (screenover[aa].timeout > 0) {
-                remove_screen_overlay(screenover[aa].type);
-                aa--;
-            }
+        for (size_t i = 0; i < screenover.size();) {
+            if (screenover[i].timeout > 0)
+                remove_screen_overlay(screenover[i].type);
+            else
+                i++;
         }
     }
     said_text = 1;
@@ -2392,7 +2391,7 @@ void _displayspeech(const char*texx, int aschar, int xx, int yy, int widd, int i
 
     int isPause = 1;
     // if the message is all .'s, don't display anything
-    for (aa = 0; texx[aa] != 0; aa++) {
+    for (size_t aa = 0; texx[aa] != 0; aa++) {
         if (texx[aa] != '.') {
             isPause = 0;
             break;

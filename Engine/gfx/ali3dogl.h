@@ -62,11 +62,12 @@ struct OGLTextureTile : public TextureTile
     unsigned int texture;
 };
 
-class OGLBitmap : public VideoMemDDB
+class OGLBitmap : public BaseDDB
 {
 public:
     // Transparency is a bit counter-intuitive
     // 0=not transparent, 255=invisible, 1..254 barely visible .. mostly visible
+    int  GetTransparency() const override { return _transparency; }
     void SetTransparency(int transparency) override { _transparency = transparency; }
     void SetFlippedLeftRight(bool isFlipped) override { _flipped = isFlipped; }
     void SetStretch(int width, int height, bool useResampler = true) override
@@ -84,6 +85,12 @@ public:
         _tintSaturation = tintSaturation;
     }
 
+    // OpenGL texture data
+    OGLCUSTOMVERTEX* _vertex;
+    OGLTextureTile *_tiles;
+    int _numTiles;
+
+    // Drawing parameters
     bool _flipped;
     int _stretchToWidth, _stretchToHeight;
     bool _useResampler;
@@ -92,12 +99,13 @@ public:
     int _lightLevel;
     bool _hasAlpha;
     int _transparency;
-    OGLCUSTOMVERTEX* _vertex;
-    OGLTextureTile *_tiles;
-    int _numTiles;
 
     OGLBitmap(int width, int height, int colDepth, bool opaque)
     {
+        _vertex = nullptr;
+        _tiles = nullptr;
+        _numTiles = 0;
+
         _width = width;
         _height = height;
         _colDepth = colDepth;
@@ -111,9 +119,6 @@ public:
         _lightLevel = 0;
         _transparency = 0;
         _opaque = opaque;
-        _vertex = nullptr;
-        _tiles = nullptr;
-        _numTiles = 0;
     }
 
     int GetWidthToRender() const { return (_stretchToWidth > 0) ? _stretchToWidth : _width; }

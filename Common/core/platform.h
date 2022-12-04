@@ -153,6 +153,7 @@
 #endif
 
 #define AGS_HAS_DIRECT3D (AGS_PLATFORM_OS_WINDOWS)
+#ifndef AGS_HAS_OPENGL
 #define AGS_HAS_OPENGL (AGS_PLATFORM_OS_WINDOWS    || \
                         AGS_PLATFORM_OS_ANDROID    || \
                         AGS_PLATFORM_OS_IOS        || \
@@ -160,7 +161,10 @@
                         AGS_PLATFORM_OS_EMSCRIPTEN || \
                         AGS_PLATFORM_OS_FREEBSD    || \
                         AGS_PLATFORM_OS_MACOS)
+#endif
+#ifndef AGS_OPENGL_ES2
 #define AGS_OPENGL_ES2 (AGS_PLATFORM_OS_ANDROID || AGS_PLATFORM_OS_EMSCRIPTEN)
+#endif
 
 // Only allow searching around for game data on desktop systems;
 // otherwise use explicit argument either from program wrapper, command-line

@@ -43,6 +43,7 @@
 #include "ac/system.h"
 #include "debug/debugger.h"
 #include "debug/debug_log.h"
+#include "font/fonts.h"
 #include "gui/guidialog.h"
 #include "main/engine.h"
 #include "main/game_start.h"
@@ -218,7 +219,7 @@ void FillSaveList(std::vector<SaveListItem> &saves, size_t max_count)
 
 void SetGlobalInt(int index,int valu) {
     if ((index<0) | (index>=MAXGSVALUES))
-        quit("!SetGlobalInt: invalid index");
+        quitprintf("!SetGlobalInt: invalid index %d, supported range is %d - %d", index, 0, MAXGSVALUES - 1);
 
     if (play.globalscriptvars[index] != valu) {
         debug_script_log("GlobalInt %d set to %d", index, valu);
@@ -230,23 +231,21 @@ void SetGlobalInt(int index,int valu) {
 
 int GetGlobalInt(int index) {
     if ((index<0) | (index>=MAXGSVALUES))
-        quit("!GetGlobalInt: invalid index");
+        quitprintf("!GetGlobalInt: invalid index %d, supported range is %d - %d", index, 0, MAXGSVALUES - 1);
     return play.globalscriptvars[index];
 }
 
 void SetGlobalString (int index, const char *newval) {
     if ((index<0) | (index >= MAXGLOBALSTRINGS))
-        quit("!SetGlobalString: invalid index");
+        quitprintf("!SetGlobalString: invalid index %d, supported range is %d - %d", index, 0, MAXGLOBALSTRINGS - 1);
     debug_script_log("GlobalString %d set to '%s'", index, newval);
-    strncpy(play.globalstrings[index], newval, MAX_MAXSTRLEN);
-    // truncate it to 200 chars, to be sure
-    play.globalstrings[index][MAX_MAXSTRLEN - 1] = 0;
+    snprintf(play.globalstrings[index], MAX_MAXSTRLEN, "%s", newval);
 }
 
 void GetGlobalString (int index, char *strval) {
     if ((index<0) | (index >= MAXGLOBALSTRINGS))
-        quit("!GetGlobalString: invalid index");
-    strcpy (strval, play.globalstrings[index]);
+        quitprintf("!GetGlobalString: invalid index %d, supported range is %d - %d", index, 0, MAXGLOBALSTRINGS - 1);
+    snprintf(strval, MAX_MAXSTRLEN, "%s", play.globalstrings[index]);
 }
 
 // TODO: refactor this method, and use same shared procedure at both normal stop/startup and in RunAGSGame
@@ -450,6 +449,8 @@ int SetGameOption (int opt, int setting) {
     } else if (opt == OPT_PORTRAITSIDE) {
         if (setting == 0)  // set back to Left
             play.swap_portrait_side = 0;
+    } else if (opt == OPT_ANTIALIASFONTS) {
+        adjust_fonts_for_render_mode(setting != 0);
     }
 
     return oldval;

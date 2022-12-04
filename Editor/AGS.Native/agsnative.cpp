@@ -922,7 +922,7 @@ AGSString import_sci_font(const AGSString &filename, int fslot) {
   delete ooo;
   delete iii;
   FontInfo fi;
-  if (!load_font_size(fslot, fi, thisgame.options[OPT_FONTLOADLOGIC]))
+  if (!load_font_size(fslot, fi))
   {
     return "Unable to load converted WFN file";
   }
@@ -1117,7 +1117,7 @@ void NewInteractionCommand::remove ()
 
 void new_font () {
   FontInfo fi;
-  load_font_size(thisgame.numfonts, fi, thisgame.options[OPT_FONTLOADLOGIC]);
+  load_font_size(thisgame.numfonts, fi);
   thisgame.fonts.push_back(FontInfo());
   thisgame.numfonts++;
 }
@@ -1350,7 +1350,7 @@ void update_abuf_coldepth() {
 
 bool reload_font(int curFont)
 {
-  return load_font_size(curFont, thisgame.fonts[curFont], thisgame.options[OPT_FONTLOADLOGIC]);
+  return load_font_size(curFont, thisgame.fonts[curFont]);
 }
 
 HAGSError reset_sprite_file() {
@@ -2220,8 +2220,6 @@ void GameUpdated(Game ^game, bool forceUpdate) {
   thisgame.options[OPT_ANTIALIASFONTS] = game->Settings->AntiAliasFonts;
   antiAliasFonts = thisgame.options[OPT_ANTIALIASFONTS];
 
-  //delete abuf;
-  //abuf = Common::BitmapHelper::CreateBitmap(32, 32, thisgame.color_depth * 8);
   BaseColorDepth = thisgame.color_depth * 8;
 
   // ensure that the sprite import knows about pal slots 
@@ -2252,23 +2250,34 @@ void GameFontUpdated(Game ^game, int fontNumber, bool forceUpdate)
 
     int old_sizept = font_info.SizePt;
     int old_scaling = font_info.SizeMultiplier;
+    int old_flags = font_info.Flags;
 
     font_info.SizePt = font->PointSize;
     font_info.SizeMultiplier = font->SizeMultiplier;
     font_info.YOffset = font->VerticalOffset;
     font_info.LineSpacing = font->LineSpacing;
+    if (game->Settings->TTFHeightDefinedBy == FontHeightDefinition::PixelHeight)
+        font_info.Flags &= ~FFLG_REPORTNOMINALHEIGHT;
+    else
+        font_info.Flags |= FFLG_REPORTNOMINALHEIGHT;
+    if (font->TTFMetricsFixup == FontMetricsFixup::None)
+        font_info.Flags &= ~FFLG_ASCENDERFIXUP;
+    else
+        font_info.Flags |= FFLG_ASCENDERFIXUP;
 
     if (forceUpdate ||
         font_info.SizePt != old_sizept ||
-        font_info.SizeMultiplier != old_scaling)
+        font_info.SizeMultiplier != old_scaling ||
+        font_info.Flags != old_flags)
     {
         reload_font(fontNumber);
     }
     else
     {
-        set_fontinfo(fontNumber, font_info, thisgame.options[OPT_FONTLOADLOGIC]);
+        set_fontinfo(fontNumber, font_info);
     }
 
+    font->FamilyName = gcnew String(get_font_name(fontNumber));
     font->Height = get_font_surface_height(fontNumber);
 }
 
@@ -3319,7 +3328,6 @@ Game^ import_compiled_game_dta(const AGSString &filename)
     game->Settings->RenderAtScreenResolution = (RenderAtScreenResolution)thisgame.options[OPT_RENDERATSCREENRES];
     game->Settings->AllowRelativeAssetResolutions = (thisgame.options[OPT_RELATIVEASSETRES] != 0);
     game->Settings->ScaleMovementSpeedWithMaskResolution = (thisgame.options[OPT_WALKSPEEDABSOLUTE] == 0);
-    game->Settings->UseRealFontHeight = (thisgame.options[OPT_FONTLOADLOGIC] & FONT_LOAD_REPORTREALHEIGHT) != 0;
 
 	game->Settings->InventoryHotspotMarker->DotColor = thisgame.hotdot;
 	game->Settings->InventoryHotspotMarker->CrosshairColor = thisgame.hotdotouter;

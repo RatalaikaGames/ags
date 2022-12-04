@@ -83,7 +83,17 @@ class AGSPlatformDriver
 public:
     virtual ~AGSPlatformDriver() = default;
 
-    virtual void AboutToQuitGame();
+    // Called at the creation of the platform driver
+    virtual void MainInit() { };
+    // Called right before the formal backend init
+    virtual void PreBackendInit() { };
+    // Called right after the formal backend init
+    virtual void PostBackendInit() { };
+    // Called right before the backend is deinitialized
+    virtual void PreBackendExit() { };
+    // Called right after the backend is deinitialized
+    virtual void PostBackendExit() { };
+
     virtual void Delay(int millis);
     virtual void DisplayAlert(const char*, ...) = 0;
     virtual void AttachToParentConsole();
@@ -114,8 +124,6 @@ public:
     // virtual->real coordinate transformation itself (otherwise AGS engine should do it)
     virtual bool IsBackendResponsibleForMouseScaling() { return false; }
     virtual const char* GetAllegroFailUserHint();
-    virtual void PostBackendInit() { };
-    virtual void PostBackendExit() { };
     virtual SetupReturnValue RunSetup(const Common::ConfigTree &cfg_in, Common::ConfigTree &cfg_out);
     // Formats message and writes to standard platform's output;
     // Always adds trailing '\n' after formatted string
@@ -138,8 +146,6 @@ public:
     virtual int  CDPlayerCommand(int cmdd, int datt);
     virtual void ShutdownCDPlayer();
 
-    // Store command line arguments for the future use; preprocess them if necessary
-    virtual void InitCommandArgs(const char *const argv[], size_t argc);
     // Returns command line argument in a UTF-8 format
     virtual Common::String GetCommandArg(size_t arg_index);
 
@@ -189,6 +195,8 @@ public:
     // Shuts down and deletes the platform driver
     static void Shutdown();
 
+    // Store command line arguments for the future use
+    void SetCommandArgs(const char *const argv[], size_t argc);
     // Set whether PrintMessage should output to stdout or stderr
     void SetOutputToErr(bool on) { _logToStdErr = on; }
     // Set whether DisplayAlert is allowed to show modal GUIs on some systems;

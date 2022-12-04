@@ -350,7 +350,7 @@ void DrawingSurface_DrawStringWrapped_Old(ScriptDrawingSurface *sds, int xx, int
 }
 
 void DrawingSurface_DrawStringWrapped(ScriptDrawingSurface *sds, int xx, int yy, int wid, int font, int alignment, const char *msg) {
-    int linespacing = getfontspacing_outlined(font);
+    int linespacing = get_font_linespacing(font);
     sds->PointToGameResolution(&xx, &yy);
     sds->SizeToGameResolution(&wid);
 
@@ -366,11 +366,11 @@ void DrawingSurface_DrawStringWrapped(ScriptDrawingSurface *sds, int xx, int yy,
 
         if (alignment & kMAlignHCenter)
         {
-            drawAtX = xx + ((wid / 2) - wgettextwidth(Lines[i].GetCStr(), font) / 2);
+            drawAtX = xx + ((wid / 2) - get_text_width(Lines[i].GetCStr(), font) / 2);
         }
         else if (alignment & kMAlignRight)
         {
-            drawAtX = (xx + wid) - wgettextwidth(Lines[i].GetCStr(), font);
+            drawAtX = (xx + wid) - get_text_width(Lines[i].GetCStr(), font);
         }
 
         wouttext_outline(ds, drawAtX, yy + linespacing*i, font, text_color, Lines[i].GetCStr());

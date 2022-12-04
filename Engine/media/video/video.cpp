@@ -185,8 +185,7 @@ void play_flc_file(int numb,int playflags) {
     fli_target = BitmapHelper::CreateBitmap(view.GetWidth(), view.GetHeight(), game.GetColorDepth());
     fli_ddb = gfxDriver->CreateDDBFromBitmap(fli_target, false, true);
 
-    size_t asset_size;
-    PACKFILE *pf = PackfileFromAsset(AssetPath("", flicname), asset_size);
+    PACKFILE *pf = PackfileFromAsset(AssetPath("", flicname));
     //MBG HACK - we don't have open_fli_pf in our allegro port right now
     #if 0
     if (open_fli_pf(pf) == FLI_OK)

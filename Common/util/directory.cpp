@@ -10,6 +10,9 @@
 #include <dirent.h>
 #include <unistd.h>
 #endif
+#if AGS_PLATFORM_OS_ANDROID
+#include "util/android_file.h"
+#endif
 #include "util/path.h"
 #include "util/stdio_compat.h"
 #include "util/string_utils.h"
@@ -213,6 +216,8 @@ struct FindFile::Internal
     DIR *dir = nullptr;
     std::regex regex;
 #endif
+#if AGS_PLATFORM_OS_ANDROID
+    std::unique_ptr<AndroidADir> aadir;
 #endif
     int attrFile = 0;
     int attrDir = 0;
@@ -266,6 +271,9 @@ FindFile FindFile::Open(const String &path, const String &wildcard, bool do_file
     String pattern = StrUtil::WildcardToRegex(wildcard);
     ffi.regex = std::regex(pattern.GetCStr(), std::regex_constants::icase);
 #endif
+#if AGS_PLATFORM_OS_ANDROID
+    if (do_file) // NOTE: Android Asset API seem to not support dir list
+        ffi.aadir.reset(new AndroidADir(path));
 #endif
     FindFile ff(std::move(ffi));
     // Try get the first matching entry
@@ -335,6 +343,9 @@ bool FindFile::Next()
         break;
     }
 #endif
+#if AGS_PLATFORM_OS_ANDROID
+    if (_i->aadir && _current.IsEmpty())
+        _current = _i->aadir->Next(_i->regex);
 #endif
     return !_current.IsEmpty();
 }

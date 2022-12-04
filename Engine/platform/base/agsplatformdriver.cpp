@@ -44,7 +44,6 @@ AGSPlatformDriver *platform = nullptr;
 
 // ******** DEFAULT IMPLEMENTATIONS *******
 
-void AGSPlatformDriver::AboutToQuitGame() { }
 void AGSPlatformDriver::AttachToParentConsole() { }
 void AGSPlatformDriver::PauseApplication() { }
 void AGSPlatformDriver::ResumeApplication() { }
@@ -262,7 +261,7 @@ Stream* AGSPlatformDriver::Save_CreateSlotStream(int slnum)
     return Common::File::CreateFile(nametouse);
 }
 
-void AGSPlatformDriver::InitCommandArgs(const char *const argv[], size_t argc)
+void AGSPlatformDriver::SetCommandArgs(const char *const argv[], size_t argc)
 {
     _cmdArgs = argv;
     _cmdArgCount = argc;

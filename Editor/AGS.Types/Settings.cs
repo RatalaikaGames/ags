@@ -89,6 +89,7 @@ namespace AGS.Types
         private bool _alwaysDisplayTextAsSpeech = false;
         private bool _fontsAreHiRes = false;
         private bool _antiAliasFonts = false;
+        private bool _useRealFontHeight = true;
         private int _thoughtGUI = 0;
         private bool _backwardsText = false;
         private int _uniqueID;
@@ -668,7 +669,7 @@ namespace AGS.Types
             get { return _scriptCompatLevelReal; }
         }
 
-        [DisplayName("Enforce object-based scripting")]
+        [DisplayName("Enforce post-2.62 scripting")]
         [Description("Disable old-style AGS 2.62 script commands")]
         [DefaultValue(true)]
         [Category("Backwards Compatibility")]
@@ -917,6 +918,16 @@ namespace AGS.Types
         {
             get { return _antiAliasFonts; }
             set { _antiAliasFonts = value; }
+        }
+
+        [DisplayName("Use graphical font height in game logic")]
+        [Description("Real font's pixel height will be used whenever text height is required by the script or game logic. Otherwise - the formal font height is used, equal to the Point Size property")]
+        [DefaultValue(true)]
+        [Category("Text output")]
+        public bool UseRealFontHeight
+        {
+            get { return _useRealFontHeight; }
+            set { _useRealFontHeight = value; }
         }
 
         [DisplayName("Custom thought bubble GUI")]

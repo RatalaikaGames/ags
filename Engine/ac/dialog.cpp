@@ -483,8 +483,8 @@ void DialogOptions::Prepare(int _dlgnum, bool _runGameLoopsInBackground)
 
   dlgyp = get_fixed_pixel_size(160);
   usingfont=FONT_NORMAL;
-  lineheight = getfontheight_outlined(usingfont);
-  linespacing = getfontspacing_outlined(usingfont);
+  lineheight = get_font_height_outlined(usingfont);
+  linespacing = get_font_linespacing(usingfont);
   curswas=cur_cursor;
   bullet_wid = 0;
   ddb = nullptr;
@@ -506,7 +506,7 @@ void DialogOptions::Prepare(int _dlgnum, bool _runGameLoopsInBackground)
 
   // numbered options, leave space for the numbers
   if (game.options[OPT_DIALOGNUMBERED] == kDlgOptNumbering)
-    bullet_wid += wgettextwidth_compensate("9. ", usingfont);
+    bullet_wid += get_text_width_outlined("9. ", usingfont);
 
   said_text = 0;
 

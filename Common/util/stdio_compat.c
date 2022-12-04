@@ -145,9 +145,9 @@ int ags_remove(const char *path)
     MultiByteToWideChar(CP_UTF8, 0, path, -1, wstr, MAX_PATH_SZ);
     return _wremove(wstr);
 #elif AGS_HAS_POSIX
-    return 0;
-#else
     return remove(path);
+#else
+    return 0;
 #endif
 }
 
@@ -159,8 +159,8 @@ int ags_rename(const char *src, const char *dst)
     MultiByteToWideChar(CP_UTF8, 0, dst, -1, wdst, MAX_PATH_SZ);
     return _wrename(wsrc, wdst);
 #elif AGS_HAS_POSIX
-    return 0;
-#else
     return rename(src, dst);
+#else
+    return 0;
 #endif
 }

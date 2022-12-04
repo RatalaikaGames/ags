@@ -47,6 +47,9 @@ bool CreateDirectory(const String &path)
 
 bool CreateAllDirectories(const String &parent, const String &sub_dirs)
 {
+#ifdef AGS_RATA // DPASCA - use the platform call
+    return platform->DirectoryCreateAll(parent, sub_dirs);
+#else
     if (parent.IsEmpty() || !ags_directory_exists(parent.GetCStr()))
         return false; // no sense, or base dir not exist
     if (sub_dirs.IsEmpty())
@@ -73,6 +76,7 @@ bool CreateAllDirectories(const String &parent, const String &sub_dirs)
         sect = cur;
     }
     return true;
+#endif
 }
 
 String SetCurrentDirectory(const String &path)

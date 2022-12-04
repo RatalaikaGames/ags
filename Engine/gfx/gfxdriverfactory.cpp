@@ -37,11 +37,6 @@ namespace AGS
 {
 namespace Engine
 {
-    namespace AL3DConsole
-    {
-        class ConsoleGraphicsFactory;
-        extern ConsoleGraphicsFactory *g_pGraphicsFactory;
-    }
 
 void GetGfxDriverFactoryNames(StringV &ids)
 {
@@ -68,12 +63,6 @@ IGfxDriverFactory *GetGfxDriverFactory(const String id)
 #if AGS_HAS_OPENGL
     if (id.CompareNoCase("OGL") == 0)
         return OGL::OGLGraphicsFactory::GetFactory();
-#endif
-#if defined (CONSOLE_VERSION)
-     if (id.CompareNoCase("CONS") == 0)
-     {
-        return (IGfxDriverFactory*)::AGS::Engine::AL3DConsole::g_pGraphicsFactory;
-     }
 #endif
     if (id.CompareNoCase("Software") == 0)
         return ALSW::SDLRendererGraphicsFactory::GetFactory();

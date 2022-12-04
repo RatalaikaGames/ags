@@ -146,7 +146,6 @@ public:
      // Allows adjusting parameters and other fixes before engine is initialized
     virtual void MainInitAdjustments() { };
 
-#if 1 // OLDDDDDD
     //called whenever the game script SetTranslation is called (so fonts can be changed, etc.)
     virtual void SetTranslation(const char* name);
 
@@ -157,7 +156,6 @@ public:
     //virtual void Save_DeleteSlot(int slnum);
 
     virtual Common::Stream *OpenFile(const Common::String &filename, Common::FileOpenMode open_mode, Common::FileWorkMode work_mode);
-#endif // OLDDDDDD
 
     //-----------------------
     //New functions which only had posix implementations but need to be done differently on non-posix systems
@@ -169,7 +167,7 @@ public:
     
     // Sets current working directory, returns the resulting path
     virtual Common::String DirectorySetCurrent(const Common::String &path);
-#if 1 // OLDDDDD    
+ 
     // Makes sure all directories in the path are created. Parent path is
     // not touched, and function must fail if parent path is not accessible.
     virtual bool DirectoryCreateAll(const Common::String &parent, const Common::String &path);
@@ -185,7 +183,6 @@ public:
 
     //renames a path
     virtual bool PathRename(const Common::String &oldpath, const Common::String &newpath);
-#endif // OLDDDDDD
 
     // Gets the only platform driver instance, creates one if necessary
     static AGSPlatformDriver *GetDriver();

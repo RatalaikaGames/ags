@@ -712,7 +712,13 @@ void OGLGraphicsDriver::SetupBackbufferTexture()
   const float back_ratio_h = (float)_backRenderSize.Height / (float)_backTextureSize.Height;
   std::fill(_backbuffer_texture_coordinates, _backbuffer_texture_coordinates + sizeof(_backbuffer_texture_coordinates) / sizeof(GLfloat), 0.0f);
   _backbuffer_texture_coordinates[2] = _backbuffer_texture_coordinates[6] = back_ratio_w;
+  
+  //MBG - UNFLUCKED
+  #ifdef CONSOLE_VERSION
+  _backbuffer_texture_coordinates[1] = _backbuffer_texture_coordinates[3] = back_ratio_h;
+  #else
   _backbuffer_texture_coordinates[5] = _backbuffer_texture_coordinates[7] = back_ratio_h;
+  #endif
 
   glGenTextures(1, &_backbuffer);
   glBindTexture(GL_TEXTURE_2D, _backbuffer);

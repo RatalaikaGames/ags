@@ -856,21 +856,37 @@ const char* Game_GetTranslationFilename() {
 int Game_ChangeTranslation(const char *newFilename)
 {
     if ((newFilename == nullptr) || (newFilename[0] == 0))
-    {
+    { // switch back to default translation
         close_translation();
         usetup.translation = "";
         return 1;
     }
 
     String oldTransFileName = get_translation_name();
-    if (init_translation(newFilename, oldTransFileName, false))
-    {
-        usetup.translation = newFilename;
-        //platform->SetTranslation(newFilename); // DAVIDE TODO: see if we want this
-        return 1;
-    }
+    if (!init_translation(newFilename, oldTransFileName))
+        return 0; // failed, kept previous translation
 
-    return 0;
+    usetup.translation = newFilename;
+    return 1;
+}
+
+const char* Game_GetSpeechVoxFilename()
+{
+    return CreateNewScriptString(get_voicepak_name());
+}
+
+bool Game_ChangeSpeechVox(const char *newFilename)
+{
+    if (!init_voicepak(newFilename))
+    {
+        //platform->SetTranslation(newFilename); // DPASCA TODO: see if we want this
+
+        // if failed (and was not default)- fallback to default
+        if (strlen(newFilename) > 0)
+            init_voicepak();
+        return false;
+    }
+    return true;
 }
 
 ScriptAudioClip *Game_GetAudioClip(int index)
@@ -1695,6 +1711,11 @@ RuntimeScriptValue Sc_Game_ChangeTranslation(const RuntimeScriptValue *params, i
     API_SCALL_INT_POBJ(Game_ChangeTranslation, const char);
 }
 
+RuntimeScriptValue Sc_Game_ChangeSpeechVox(const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_SCALL_BOOL_POBJ(Game_ChangeSpeechVox, const char);
+}
+
 // int (const char *token)
 RuntimeScriptValue Sc_Game_DoOnceOnly(const RuntimeScriptValue *params, int32_t param_count)
 {
@@ -1929,6 +1950,11 @@ RuntimeScriptValue Sc_Game_GetTranslationFilename(const RuntimeScriptValue *para
     API_SCALL_OBJ(const char, myScriptStringImpl, Game_GetTranslationFilename);
 }
 
+RuntimeScriptValue Sc_Game_GetSpeechVoxFilename(const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_SCALL_OBJ(const char, myScriptStringImpl, Game_GetSpeechVoxFilename);
+}
+
 // int ()
 RuntimeScriptValue Sc_Game_GetUseNativeCoordinates(const RuntimeScriptValue *params, int32_t param_count)
 {
@@ -1953,7 +1979,7 @@ RuntimeScriptValue Sc_Game_GetAudioClip(const RuntimeScriptValue *params, int32_
 
 RuntimeScriptValue Sc_Game_IsPluginLoaded(const RuntimeScriptValue *params, int32_t param_count)
 {
-    API_SCALL_BOOL_OBJ(pl_is_plugin_loaded, const char);
+    API_SCALL_BOOL_POBJ(pl_is_plugin_loaded, const char);
 }
 
 RuntimeScriptValue Sc_Game_PlayVoiceClip(const RuntimeScriptValue *params, int32_t param_count)
@@ -2037,9 +2063,11 @@ void RegisterGameAPI()
     ccAddExternalStaticFunction("Game::get_AudioClipCount",                     Sc_Game_GetAudioClipCount);
     ccAddExternalStaticFunction("Game::geti_AudioClips",                        Sc_Game_GetAudioClip);
     ccAddExternalStaticFunction("Game::IsPluginLoaded",                         Sc_Game_IsPluginLoaded);
+    ccAddExternalStaticFunction("Game::ChangeSpeechVox",                        Sc_Game_ChangeSpeechVox);
     ccAddExternalStaticFunction("Game::PlayVoiceClip",                          Sc_Game_PlayVoiceClip);
     ccAddExternalStaticFunction("Game::SimulateKeyPress",                       Sc_Game_SimulateKeyPress);
     ccAddExternalStaticFunction("Game::get_BlockingWaitSkipped",                Sc_Game_BlockingWaitSkipped);
+    ccAddExternalStaticFunction("Game::get_SpeechVoxFilename",                  Sc_Game_GetSpeechVoxFilename);
 
     ccAddExternalStaticFunction("Game::get_Camera",                             Sc_Game_GetCamera);
     ccAddExternalStaticFunction("Game::get_CameraCount",                        Sc_Game_GetCameraCount);

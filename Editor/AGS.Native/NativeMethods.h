@@ -55,6 +55,9 @@ namespace AGS
 			Game^ ImportOldGameFile(String^ fileName);
 			void ImportSCIFont(String ^fileName, int fontSlot);
             void ReloadFont(int fontSlot);
+            // Measures the TTF font from the given file, and tries to find a point size corresponding
+            // to the closest pixel height match, returns the found point size, or 0 in case of error.
+            int FindTTFSizeForHeight(String ^fileName, int size);
             void OnGameFontUpdated(Game^ game, int fontSlot, bool forceUpdate);
 			Dictionary<int,Sprite^>^ LoadAllSpriteDimensions();
 			void LoadNewSpriteFile();
@@ -83,8 +86,6 @@ namespace AGS
 			void RenderBufferToHDC(int hDC) ;
 			String ^LoadRoomScript(String ^roomFileName);
 			void CompileScript(Script ^script, cli::array<String^> ^preProcessedScripts, Game ^game);
-			void CreateDataFile(cli::array<String^> ^fileList, long splitSize, String ^baseFileName, bool isGameEXE);
-			void CreateVOXFile(String ^fileName, cli::array<String^> ^fileList);
 			GameTemplate^ LoadTemplateFile(String ^fileName);
       RoomTemplate^ LoadRoomTemplateFile(String ^fileName);
 			void ExtractTemplateFiles(String ^templateFileName);

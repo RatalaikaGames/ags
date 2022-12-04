@@ -205,6 +205,15 @@ namespace AGS.Editor
             _native.ReloadFont(fontSlot);
         }
 
+        /// <summary>
+        /// Measures the TTF font from the given file, and tries to find a point size corresponding
+        /// to the closest pixel height match, returns the found point size, or 0 in case of error.
+        /// </summary>
+        public int FindTTFSizeForHeight(string fileName, int size)
+        {
+            return _native.FindTTFSizeForHeight(fileName, size);
+        }
+
         public void OnFontUpdated(Game game, int fontSlot, bool forceUpdate)
         {
             _native.OnGameFontUpdated(game, fontSlot, forceUpdate);
@@ -378,24 +387,14 @@ namespace AGS.Editor
             _native.CompileScript(script, preProcessedData, game);
         }
 
-        public void CreateDataFile(string[] fileList, int splitSize, string baseFileName, bool isGameEXE)
-        {
-            _native.CreateDataFile(fileList, splitSize, baseFileName, isGameEXE);
-        }
-
         public void CreateDebugMiniEXE(string[] fileList, string exeFileName)
         {
-            CreateDataFile(fileList, 0, exeFileName, false);
-        }
-
-        public void CreateVOXFile(string fileName, string[] fileList)
-        {
-            _native.CreateVOXFile(fileName, fileList);
+            DataFileWriter.MakeFlatDataFile(fileList, 0, exeFileName, false);
         }
 
         public void CreateTemplateFile(string templateFileName, string[] fileList)
         {
-            CreateDataFile(fileList, 0, templateFileName, false);
+            DataFileWriter.MakeDataFile(fileList, 0, templateFileName, false);
         }
 
         public GameTemplate LoadTemplateFile(string fileName)

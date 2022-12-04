@@ -304,8 +304,6 @@ int get_text_lines_surf_height(size_t fontNumber, size_t numlines)
 // Project-dependent implementation
 extern int get_text_width_outlined(const char *tex, int font);
 
-extern int wgettextwidth_compensate(const char *tex, int font);
-
 namespace AGS { namespace Common { SplitLines Lines; } }
 static 
 // Replaces AGS-specific linebreak tags with common '\n'
@@ -393,7 +391,7 @@ size_t split_lines(const char *todis, SplitLines &lines, int wii, int fonnt, siz
         if (theline[i] == '\n')
             splitAt = i;
         // otherwise, see if we are too wide
-        else if (wgettextwidth_compensate(theline, fonnt) > wii) {
+        else if (get_text_width(theline, fonnt) > wii) {
             int endline = i;
 
             //ORIGINAL

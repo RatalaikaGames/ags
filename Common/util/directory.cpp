@@ -208,7 +208,7 @@ struct FindFile::Internal
 
 #if defined(AGS_RATA)
         // dummy
-# else // AGS_RATA
+#else // AGS_RATA
 #if AGS_PLATFORM_OS_WINDOWS
     HANDLE ff = nullptr;
     WIN32_FIND_DATAA fdata = {};
@@ -219,6 +219,7 @@ struct FindFile::Internal
 #if AGS_PLATFORM_OS_ANDROID
     std::unique_ptr<AndroidADir> aadir;
 #endif
+#endif // AGS_RATA
     int attrFile = 0;
     int attrDir = 0;
 };
@@ -250,8 +251,8 @@ FindFile FindFile::Open(const String &path, const String &wildcard, bool do_file
 {
     Internal ffi;
 #if defined(AGS_RATA)
-        // dummy
-#else
+        return {}; // dummy
+#else // AGS_RATA
 #if AGS_PLATFORM_OS_WINDOWS
     char pattern[MAX_PATH_SZ];
     snprintf(pattern, sizeof(pattern), "%s/%s", path.GetCStr(), wildcard.GetCStr());
@@ -280,6 +281,7 @@ FindFile FindFile::Open(const String &path, const String &wildcard, bool do_file
     if (!ff.Next())
         return FindFile(); // return invalid object
     return ff; // success
+#endif // AGS_RATA
 }
 
 void FindFile::Close()
@@ -346,6 +348,7 @@ bool FindFile::Next()
 #if AGS_PLATFORM_OS_ANDROID
     if (_i->aadir && _current.IsEmpty())
         _current = _i->aadir->Next(_i->regex);
+#endif
 #endif
     return !_current.IsEmpty();
 }

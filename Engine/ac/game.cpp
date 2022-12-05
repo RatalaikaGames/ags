@@ -468,21 +468,16 @@ void unload_game_file()
 
     characterScriptObjNames.clear();
     free(charextra);
+    charextra = nullptr;
     free(mls);
+    mls = nullptr;
 
     dispose_game_drawdata();
 
-    if ((gameinst != nullptr) && (gameinst->pc != 0))
-    {
-        quit("Error: unload_game called while script still running");
-    }
-    else
-    {
-        delete gameinstFork;
-        delete gameinst;
-        gameinstFork = nullptr;
-        gameinst = nullptr;
-    }
+    delete gameinstFork;
+    delete gameinst;
+    gameinstFork = nullptr;
+    gameinst = nullptr;
 
     gamescript.reset();
 
@@ -971,11 +966,11 @@ void save_game(int slotn, const char*descript) {
 
     VALIDATE_STRING(descript);
     String nametouse = get_save_game_path(slotn);
-    UBitmap screenShot;
+    std::unique_ptr<Bitmap> screenShot;
     if (game.options[OPT_SAVESCREENSHOT] != 0)
         screenShot.reset(create_savegame_screenshot());
 
-    Engine::UStream out(StartSavegame(nametouse, descript, screenShot.get()));
+    std::unique_ptr<Stream> out(StartSavegame(nametouse, descript, screenShot.get()));
     if (out == nullptr)
     {
         Display("ERROR: Unable to open savegame file for writing!");

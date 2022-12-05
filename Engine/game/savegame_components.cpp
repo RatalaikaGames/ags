@@ -752,7 +752,7 @@ HSaveError ReadMouseCursors(Stream *in, int32_t cmp_ver, const PreservedParams &
         return err;
     for (int i = 0; i < game.numcursors; ++i)
     {
-        game.mcurs[i].ReadFromSavegame(in);
+        game.mcurs[i].ReadFromSavegame(in, cmp_ver);
     }
     return err;
 }
@@ -990,7 +990,7 @@ HSaveError ReadRoomStates(Stream *in, int32_t cmp_ver, const PreservedParams &pp
             if (!AssertFormatTagStrict(err, in, "RoomState", true))
                 return err;
             RoomStatus *roomstat = getRoomStatus(id);
-            roomstat->ReadFromSavegame(in);
+            roomstat->ReadFromSavegame(in, cmp_ver);
             if (!AssertFormatTagStrict(err, in, "RoomState", false))
                 return err;
         }
@@ -1083,7 +1083,7 @@ HSaveError ReadThisRoom(Stream *in, int32_t cmp_ver, const PreservedParams &pp, 
         return err;
     for (int i = 0; i < objmls_count; ++i)
     {
-        err = mls[i].ReadFromFile(in, cmp_ver > 0 ? 1 : 0);
+        err = mls[i].ReadFromFile(in, cmp_ver > 0 ? 1 : 0); // FIXME!!
         if (!err)
             return err;
     }
@@ -1093,7 +1093,7 @@ HSaveError ReadThisRoom(Stream *in, int32_t cmp_ver, const PreservedParams &pp, 
 
     // read the current troom state, in case they saved in temporary room
     if (!in->ReadBool())
-        troom.ReadFromSavegame(in);
+        troom.ReadFromSavegame(in, cmp_ver > 1 ? 1 : 0); // FIXME!!
 
     return HSaveError::None();
 }
@@ -1190,7 +1190,7 @@ ComponentHandler ComponentHandlers[] =
     },
     {
         "Mouse Cursors",
-        0,
+        1,
         0,
         WriteMouseCursors,
         ReadMouseCursors
@@ -1232,14 +1232,14 @@ ComponentHandler ComponentHandlers[] =
     },
     {
         "Room States",
-        0,
+        1,
         0,
         WriteRoomStates,
         ReadRoomStates
     },
     {
         "Loaded Room State",
-        1,
+        2,
         0,
         WriteThisRoom,
         ReadThisRoom
@@ -1323,7 +1323,8 @@ HSaveError ReadComponent(Stream *in, SvgCmpReadHelper &hlp, ComponentInfo &info)
     if (!err)
         return err;
     if (in->GetPosition() - info.DataOffset != info.DataSize)
-        return new SavegameError(kSvgErr_ComponentSizeMismatch, String::FromFormat("Expected: %lld, actual: %lld", info.DataSize, in->GetPosition() - info.DataOffset));
+        return new SavegameError(kSvgErr_ComponentSizeMismatch, String::FromFormat("Expected: %jd, actual: %jd",
+            static_cast<intmax_t>(info.DataSize), static_cast<intmax_t>(in->GetPosition() - info.DataOffset)));
     if (!AssertFormatTag(in, info.Name, false))
         return new SavegameError(kSvgErr_ComponentClosingTagFormat);
     return HSaveError::None();

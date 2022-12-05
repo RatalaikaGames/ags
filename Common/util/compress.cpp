@@ -191,7 +191,7 @@ static int cunpackbitl16(uint16_t *line, size_t size, Stream *in)
     if (in->HasErrors())
       break;
 
-    char cx = ix;
+    signed char cx = ix;
     if (cx == -128)
       cx = 0;
 
@@ -229,7 +229,7 @@ static int cunpackbitl32(uint32_t *line, size_t size, Stream *in)
     if (in->HasErrors())
       break;
 
-    char cx = ix;
+    signed char cx = ix;
     if (cx == -128)
       cx = 0;
 

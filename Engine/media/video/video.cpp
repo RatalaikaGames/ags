@@ -186,8 +186,7 @@ void play_flc_file(int numb,int playflags) {
     fli_ddb = gfxDriver->CreateDDBFromBitmap(fli_target, false, true);
 
     PACKFILE *pf = PackfileFromAsset(AssetPath("", flicname));
-    //MBG HACK - we don't have open_fli_pf in our allegro port right now
-    #if 0
+    #if 0 //MBG HACK - we don't have open_fli_pf in our allegro port right now
     if (open_fli_pf(pf) == FLI_OK)
     {
         // TODO: refactor all this later!!!

@@ -21,6 +21,7 @@
 #include "ac/timer.h"
 #include "debug/out.h"
 #include "gfx/ali3dexception.h"
+#include "gfx/gfx_def.h"
 #include "gfx/gfxfilter_ogl.h"
 #include "gfx/gfxfilter_aaogl.h"
 #include "platform/base/agsplatformdriver.h"
@@ -967,12 +968,12 @@ void OGLGraphicsDriver::_reDrawLastFrame()
     RestoreDrawLists();
 }
 
-void OGLGraphicsDriver::_renderSprite(const OGLDrawListEntry *drawListEntry, const glm::mat4 &projection, const glm::mat4 &matGlobal)
+void OGLGraphicsDriver::_renderSprite(const OGLDrawListEntry *drawListEntry,
+    const glm::mat4 &projection, const glm::mat4 &matGlobal, const SpriteColorTransform &color)
 {
-  OGLBitmap *bmpToDraw = drawListEntry->bitmap;
+  OGLBitmap *bmpToDraw = drawListEntry->ddb;
 
-  if (bmpToDraw->_transparency >= 255)
-    return;
+  const int alpha = (color.Alpha * bmpToDraw->_alpha) / 255;
 
   ShaderProgram program;
 
@@ -1042,14 +1043,8 @@ void OGLGraphicsDriver::_renderSprite(const OGLDrawListEntry *drawListEntry, con
     glUseProgram(_transparencyShader.Program);
   }
 
-
   glUniform1i(program.TextureId, 0);
-
-  float alpha = 1.0f;
-  if (bmpToDraw->_transparency > 0) {
-    alpha = bmpToDraw->_transparency / 255.0f;
-  }
-  glUniform1f(program.Alpha, alpha);
+  glUniform1f(program.Alpha, alpha / 255.0f);
 
   float width = bmpToDraw->GetWidthToRender();
   float height = bmpToDraw->GetHeightToRender();
@@ -1252,72 +1247,80 @@ void OGLGraphicsDriver::_render(bool clearDrawListAfterwards)
   ResetFxPool();
 }
 
+void OGLGraphicsDriver::SetScissor(const Rect &clip)
+{
+    if (!clip.IsEmpty())
+    {
+        Rect scissor = _do_render_to_texture ? clip : _scaling.ScaleRange(clip);
+        int surface_height = _do_render_to_texture ? _srcRect.GetHeight() : device_screen_physical_height;
+        scissor = ConvertTopDownRect(scissor, surface_height);
+        glScissor(scissor.Left, scissor.Top, scissor.GetWidth(), scissor.GetHeight());
+    }
+    else
+    {
+        Rect main_viewport = _do_render_to_texture ? _srcRect : _viewportRect;
+        glScissor(main_viewport.Left, main_viewport.Top, main_viewport.GetWidth(), main_viewport.GetHeight());
+    }
+}
+
 void OGLGraphicsDriver::RenderSpriteBatches(const glm::mat4 &projection)
 {
+    // Close unended batches, and issue a warning
+    assert(_actSpriteBatch == 0);
+    while (_actSpriteBatch > 0)
+        EndSpriteBatch();
+
     // Render all the sprite batches with necessary transformations
-    Rect main_viewport = _do_render_to_texture ? _srcRect : _viewportRect;
-    int surface_height = _do_render_to_texture ? _srcRect.GetHeight() : device_screen_physical_height;
     // TODO: see if it's possible to refactor and not enable/disable scissor test
     // TODO: also maybe sync scissor code logic with D3D renderer
     if (_do_render_to_texture)
         glEnable(GL_SCISSOR_TEST);
 
-    for (size_t i = 0; i <= _actSpriteBatch; ++i)
+    // Render all the sprite batches with necessary transformations
+    for (size_t cur_spr = 0; cur_spr < _spriteList.size();)
     {
-        const Rect &viewport = _spriteBatches[i].Viewport;
-        const OGLSpriteBatch &batch = _spriteBatches[i];
-        if (!viewport.IsEmpty())
-        {
-            Rect scissor = _do_render_to_texture ? viewport : _scaling.ScaleRange(viewport);
-            scissor = ConvertTopDownRect(scissor, surface_height);
-            glScissor(scissor.Left, scissor.Top, scissor.GetWidth(), scissor.GetHeight());
-        }
-        else
-        {
-            glScissor(main_viewport.Left, main_viewport.Top, main_viewport.GetWidth(), main_viewport.GetHeight());
-        }
-        _stageScreen = GetStageScreen(i);
-        _stageMatrixes.World = _spriteBatches[i].Matrix;
-        RenderSpriteBatch(batch, projection);
+        const OGLSpriteBatch &batch = _spriteBatches[_spriteList[cur_spr].node];
+        SetScissor(batch.Viewport);
+        _stageScreen = GetStageScreen(batch.ID);
+        _stageMatrixes.World = batch.Matrix;
+        cur_spr = RenderSpriteBatch(batch, cur_spr, projection);
     }
 
     _stageScreen = GetStageScreen(0);
     _stageMatrixes.World = _spriteBatches[0].Matrix;
-    glScissor(main_viewport.Left, main_viewport.Top, main_viewport.GetWidth(), main_viewport.GetHeight());
+    SetScissor(Rect());
     if (_do_render_to_texture)
         glDisable(GL_SCISSOR_TEST);
 }
 
-void OGLGraphicsDriver::RenderSpriteBatch(const OGLSpriteBatch &batch, const glm::mat4 &projection)
+size_t OGLGraphicsDriver::RenderSpriteBatch(const OGLSpriteBatch &batch, size_t from, const glm::mat4 &projection)
 {
-  OGLDrawListEntry stageEntry; // raw-draw plugin support
-
-  const std::vector<OGLDrawListEntry> &listToDraw = batch.List;
-  for (size_t i = 0; i < listToDraw.size(); i++)
-  {
-    if (listToDraw[i].skip)
-      continue;
-
-    const OGLDrawListEntry *sprite = &listToDraw[i];
-    if (listToDraw[i].bitmap == nullptr)
+    for (; (from < _spriteList.size()) && (_spriteList[from].node == batch.ID); ++from)
     {
-      if (DoNullSpriteCallback(listToDraw[i].x, listToDraw[i].y))
-        stageEntry = OGLDrawListEntry((OGLBitmap*)_stageScreen.DDB);
-      else
-        continue;
-      sprite = &stageEntry;
-    }
+        const auto &e = _spriteList[from];
+        if (e.skip)
+            continue;
 
-    this->_renderSprite(sprite, projection, batch.Matrix);
-  }
+        switch (reinterpret_cast<intptr_t>(e.ddb))
+        {
+        case DRAWENTRY_STAGECALLBACK:
+            // raw-draw plugin support
+            if (DoNullSpriteCallback(e.x, e.y))
+            {
+                auto stageEntry = OGLDrawListEntry((OGLBitmap*)_stageScreen.DDB, batch.ID, 0, 0);
+                _renderSprite(&stageEntry, projection, batch.Matrix, batch.Color);
+            }
+            break;
+        default:
+            _renderSprite(&e, projection, batch.Matrix, batch.Color);
+            break;
+        }
+    }
+    return from;
 }
 
 void OGLGraphicsDriver::InitSpriteBatch(size_t index, const SpriteBatchDesc &desc)
 {
-    if (_spriteBatches.size() <= index)
-        _spriteBatches.resize(index + 1);
-    _spriteBatches[index].List.clear();
-
     Rect orig_viewport = desc.Viewport;
     Rect node_viewport = desc.Viewport;
 
@@ -1340,7 +1343,7 @@ void OGLGraphicsDriver::InitSpriteBatch(size_t index, const SpriteBatchDesc &des
         node_viewport.MoveToY(top);
         node_sy = -1.f;
     }
-    _spriteBatches[index].Viewport = Rect::MoveBy(node_viewport, node_tx, node_ty);
+    Rect viewport = Rect::MoveBy(node_viewport, node_tx, node_ty);
     // glTranslatef(node_tx, -(node_ty), 0.0f);
     model = glm::translate(model, {(float)node_tx, (float)-(node_ty), 0.0f});
     // glScalef(node_sx, node_sy, 1.f);
@@ -1365,7 +1368,19 @@ void OGLGraphicsDriver::InitSpriteBatch(size_t index, const SpriteBatchDesc &des
     model = glm::translate(model, {(float)desc.Transform.X, (float)-desc.Transform.Y, 0.0f});
     //glGetFloatv(GL_MODELVIEW_MATRIX, _spriteBatches[index].Matrix.m);
     //glLoadIdentity();
-    _spriteBatches[index].Matrix = model;
+
+    // Apply parent batch's settings, if preset
+    if (desc.Parent > 0)
+    {
+        const auto &parent = _spriteBatches[desc.Parent];
+        model = model * parent.Matrix;
+        viewport = ClampToRect(parent.Viewport, viewport);
+    }
+
+    // Assign the new spritebatch
+    if (_spriteBatches.size() <= index)
+        _spriteBatches.resize(index + 1);
+    _spriteBatches[index] = OGLSpriteBatch(index, viewport, model, desc.Transform.Color);
 
     // create stage screen for plugin raw drawing
     int src_w = orig_viewport.GetWidth() / desc.Transform.ScaleX;
@@ -1382,56 +1397,46 @@ void OGLGraphicsDriver::InitSpriteBatch(size_t index, const SpriteBatchDesc &des
 
 void OGLGraphicsDriver::ResetAllBatches()
 {
-    for (size_t i = 0; i < _spriteBatches.size(); ++i)
-        _spriteBatches[i].List.clear();
+    _spriteBatches.clear();
+    _spriteList.clear();
 }
 
 void OGLGraphicsDriver::ClearDrawBackups()
 {
     _backupBatchDescs.clear();
     _backupBatches.clear();
+    _backupSpriteList.clear();
 }
 
 void OGLGraphicsDriver::BackupDrawLists()
 {
-    ClearDrawBackups();
-    for (size_t i = 0; i <= _actSpriteBatch; ++i)
-    {
-        _backupBatchDescs.push_back(_spriteBatchDesc[i]);
-        _backupBatches.push_back(_spriteBatches[i]);
-    }
+    _backupBatchDescs = _spriteBatchDesc;
+    _backupBatches = _spriteBatches;
+    _backupSpriteList = _spriteList;
 }
 
 void OGLGraphicsDriver::RestoreDrawLists()
 {
-    if (_backupBatchDescs.size() == 0)
-    {
-        ClearDrawLists();
-        return;
-    }
     _spriteBatchDesc = _backupBatchDescs;
     _spriteBatches = _backupBatches;
-    _actSpriteBatch = _backupBatchDescs.size() - 1;
+    _spriteList = _backupSpriteList;
+    _actSpriteBatch = 0;
 }
 
-void OGLGraphicsDriver::DrawSprite(int x, int y, IDriverDependantBitmap* bitmap)
+void OGLGraphicsDriver::DrawSprite(int x, int y, IDriverDependantBitmap* ddb)
 {
-    _spriteBatches[_actSpriteBatch].List.push_back(OGLDrawListEntry((OGLBitmap*)bitmap, x, y));
+    _spriteList.push_back(OGLDrawListEntry((OGLBitmap*)ddb, _actSpriteBatch, x, y));
 }
 
-void OGLGraphicsDriver::DestroyDDB(IDriverDependantBitmap* bitmap)
+void OGLGraphicsDriver::DestroyDDB(IDriverDependantBitmap* ddb)
 {
     // Remove deleted DDB from backups
-    for (OGLSpriteBatches::iterator it = _backupBatches.begin(); it != _backupBatches.end(); ++it)
+    for (auto &backup_spr : _backupSpriteList)
     {
-        std::vector<OGLDrawListEntry> &drawlist = it->List;
-        for (size_t i = 0; i < drawlist.size(); i++)
-        {
-            if (drawlist[i].bitmap == bitmap)
-                drawlist[i].skip = true;
-        }
+        if (backup_spr.ddb == ddb)
+            backup_spr.skip = true;
     }
-    delete (OGLBitmap*)bitmap;
+    delete (OGLBitmap*)ddb;
 }
 
 
@@ -1724,6 +1729,7 @@ void OGLGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, 
   BeginSpriteBatch(_srcRect, SpriteTransform());
   d3db->SetStretch(_srcRect.GetWidth(), _srcRect.GetHeight(), false);
   this->DrawSprite(0, 0, d3db);
+  EndSpriteBatch();
   if (_drawPostScreenCallback != NULL)
       _drawPostScreenCallback();
 
@@ -1731,7 +1737,7 @@ void OGLGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, 
   speed *= 2;  // harmonise speeds with software driver which is faster
   for (int a = 1; a < 255; a += speed)
   {
-    d3db->SetTransparency(fadingOut ? a : (255 - a));
+    d3db->SetAlpha(fadingOut ? a : (255 - a));
     this->_render(false);
 
     sys_evt_process_pending();
@@ -1742,7 +1748,7 @@ void OGLGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, 
 
   if (fadingOut)
   {
-    d3db->SetTransparency(0);
+    d3db->SetAlpha(255);
     this->_render(false);
   }
 
@@ -1784,6 +1790,11 @@ void OGLGraphicsDriver::BoxOutEffect(bool blackingOut, int speed, int delay)
     this->DrawSprite(0, 0, d3db);
     this->DrawSprite(0, 0, d3db);
   }
+  EndSpriteBatch();
+  OGLSpriteBatch &batch = _spriteBatches[fx_batch];
+  std::vector<OGLDrawListEntry> &drawList = _spriteList;
+  const size_t last = drawList.size() - 1;
+
   if (_drawPostScreenCallback != NULL)
     _drawPostScreenCallback();
 
@@ -1795,9 +1806,6 @@ void OGLGraphicsDriver::BoxOutEffect(bool blackingOut, int speed, int delay)
   {
     boxWidth += speed;
     boxHeight += yspeed;
-    OGLSpriteBatch &batch = _spriteBatches[fx_batch];
-    std::vector<OGLDrawListEntry> &drawList = batch.List;
-    size_t last = drawList.size() - 1;
     if (blackingOut)
     {
       drawList[last].x = _srcRect.GetWidth() / 2- boxWidth / 2;
@@ -1831,8 +1839,8 @@ void OGLGraphicsDriver::SetScreenFade(int red, int green, int blue)
     OGLBitmap *ddb = static_cast<OGLBitmap*>(MakeFx(red, green, blue));
     ddb->SetStretch(_spriteBatches[_actSpriteBatch].Viewport.GetWidth(),
         _spriteBatches[_actSpriteBatch].Viewport.GetHeight(), false);
-    ddb->SetTransparency(0);
-    _spriteBatches[_actSpriteBatch].List.push_back(OGLDrawListEntry(ddb));
+    ddb->SetAlpha(255);
+    _spriteList.push_back(OGLDrawListEntry(ddb, _actSpriteBatch, 0, 0));
 }
 
 void OGLGraphicsDriver::SetScreenTint(int red, int green, int blue)
@@ -1841,8 +1849,8 @@ void OGLGraphicsDriver::SetScreenTint(int red, int green, int blue)
     OGLBitmap *ddb = static_cast<OGLBitmap*>(MakeFx(red, green, blue));
     ddb->SetStretch(_spriteBatches[_actSpriteBatch].Viewport.GetWidth(),
         _spriteBatches[_actSpriteBatch].Viewport.GetHeight(), false);
-    ddb->SetTransparency(128);
-    _spriteBatches[_actSpriteBatch].List.push_back(OGLDrawListEntry(ddb));
+    ddb->SetAlpha(128);
+    _spriteList.push_back(OGLDrawListEntry(ddb, _actSpriteBatch, 0, 0));
 }
 
 

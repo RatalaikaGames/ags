@@ -131,7 +131,6 @@ namespace AGS.Editor
         public const string SETUP_ICON_FILE_NAME = "setup.ico";
         public const string SETUP_PROGRAM_SOURCE_FILE = "setup.dat";
         public const string COMPILED_SETUP_FILE_NAME = "winsetup.exe";
-		public const string GAME_EXPLORER_THUMBNAIL_FILE_NAME = "GameExplorer.png";
 
         public readonly string[] RestrictedGameDirectories = new string[]
         {
@@ -986,7 +985,7 @@ namespace AGS.Editor
             return dialogScripts;
         }
 
-        private object CompileScripts(object parameter)
+        private object CompileScripts(IWorkProgress progress, object parameter)
         {
             CompileScriptsParameters parameters = (CompileScriptsParameters)parameter;
             CompileMessages errors = parameters.Errors;
@@ -1069,7 +1068,7 @@ namespace AGS.Editor
             }
         }
 
-        private object CreateCompiledFiles(object parameter)
+        private object CreateCompiledFiles(IWorkProgress progress, object parameter)
         {
             CompileScriptsParameters parameters = (CompileScriptsParameters)parameter;
             CompileMessages errors = parameters.Errors;
@@ -1135,12 +1134,6 @@ namespace AGS.Editor
                 (_game.Settings.SpeechStyle == SpeechStyle.Lucasarts))
             {
                 errors.Add(new CompileError("Voice lip-sync cannot be used with Lucasarts-style speech"));
-            }
-
-            if ((_game.Settings.EnhancedSaveGames) &&
-                (_game.Settings.SaveGameFileExtension == string.Empty))
-            {
-                errors.Add(new CompileError("Enhanced Save Games are enabled but no file extension is specified"));
             }
 
             if (_game.PlayerCharacter == null)
@@ -1651,7 +1644,7 @@ namespace AGS.Editor
             }
         }
 
-        private object SaveGameFilesProcess(object parameter)
+        private object SaveGameFilesProcess(IWorkProgress progress, object parameter)
         {
 			WriteConfigFile(Path.Combine(OUTPUT_DIRECTORY, DATA_OUTPUT_DIRECTORY));
 

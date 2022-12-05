@@ -70,27 +70,6 @@
 #include "util/file.h"
 #include "util/path.h"
 
-#if 1 // DAVIDE - for RestoreData and other savegame symbols
-#include "game/savegame_internal.h"
-#include "game/savegame_components.h"
-#include "util/string_utils.h"
-#include "ac/movelist.h"
-
-// see savegame_components.cpp
-#include "ac/runtime_defines.h"
-#include "gui/animatingguibutton.h"
-#include "gfx/allegrobitmap.h"
-#include "plugin/agsplugin.h"
-#include "script/cc_error.h"
-
-extern AnimatingGUIButton animbuts[MAX_ANIMATING_BUTTONS];
-extern int numAnimButs;
-extern Common::Bitmap *raw_saved_screen;
-
-// duplicating savegame_v321.cpp ...urgh
-static const int32_t MAGICNUMBER = 0xbeefcafe;
-#endif
-
 using namespace AGS::Common;
 using namespace AGS::Engine;
 

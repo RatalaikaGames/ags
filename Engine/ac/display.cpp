@@ -273,7 +273,7 @@ int _display_main(int xx, int yy, int wii, const char *text, int disp_type, int 
         }
 
         if (!play.mouse_cursor_hidden)
-            ags_domouse(DOMOUSE_ENABLE);
+            ags_domouse();
         int countdown = GetTextDisplayTime (todis);
         int skip_setting = user_to_internal_skip_speech((SkipSpeechStyle)play.skip_display);
         // Loop until skipped
@@ -336,7 +336,7 @@ int _display_main(int xx, int yy, int wii, const char *text, int disp_type, int 
                 break;
         }
         if (!play.mouse_cursor_hidden)
-            ags_domouse(DOMOUSE_DISABLE);
+            ags_domouse();
         remove_screen_overlay(OVER_TEXTMSG);
         invalidate_screen();
     }
@@ -371,7 +371,7 @@ void _display_at(int xx, int yy, int wii, const char *text, int disp_type, int a
 
     EndSkippingUntilCharStops();
 
-    if (try_auto_play_speech(text, text, play.narrator_speech, true))
+    if (try_auto_play_speech(text, text, play.narrator_speech))
     {// TODO: is there any need for this flag?
         need_stop_speech = true;
     }
@@ -381,7 +381,7 @@ void _display_at(int xx, int yy, int wii, const char *text, int disp_type, int a
         stop_voice_speech();
 }
 
-bool try_auto_play_speech(const char *text, const char *&replace_text, int charid, bool blocking)
+bool try_auto_play_speech(const char *text, const char *&replace_text, int charid)
 {
     const char *src = text;
     if (src[0] != '&')

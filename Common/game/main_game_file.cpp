@@ -121,6 +121,7 @@ bool IsMainGameLibrary(const String &filename)
 }
 
 // Scans given directory for game data libraries, returns first found or none.
+// Uses fn_testfile callback to test the file.
 // Tracks files with standard AGS package names:
 // - *.ags is a standart cross-platform file pattern for AGS games,
 // - ac2game.dat is a legacy file name for very old games,
@@ -138,7 +139,7 @@ String FindGameData(const String &path, std::function<bool(const String&)> fn_te
             test_file.CompareRightNoCase(".exe") == 0)
         {
             test_file = Path::ConcatPaths(path, test_file);
-            if (IsMainGameLibrary(test_file) && fn_testfile(path))
+            if (fn_testfile(test_file))
             {
                 Debug::Printf("Found game data pak: %s", test_file.GetCStr());
                 return test_file;
@@ -150,7 +151,7 @@ String FindGameData(const String &path, std::function<bool(const String&)> fn_te
 
 String FindGameData(const String &path)
 {
-    return FindGameData(path, [](const String&){ return true; });
+    return FindGameData(path, IsMainGameLibrary);
 }
 
 // Begins reading main game file from a generic stream
@@ -198,17 +199,17 @@ HGameFileError OpenMainGameFile(const String &filename, MainGameSource &src)
     return OpenMainGameFileBase(in, src);
 }
 
-HGameFileError OpenMainGameFileFromDefaultAsset(MainGameSource &src)
+HGameFileError OpenMainGameFileFromDefaultAsset(MainGameSource &src, AssetManager *mgr)
 {
     // Cleanup source struct
     src = MainGameSource();
     // Try to find and open main game file
     String filename = MainGameSource::DefaultFilename_v3;
-    Stream *in = AssetMgr->OpenAsset(filename);
+    Stream *in = mgr->OpenAsset(filename);
     if (!in)
     {
         filename = MainGameSource::DefaultFilename_v2;
-        in = AssetMgr->OpenAsset(filename);
+        in = mgr->OpenAsset(filename);
     }
     if (!in)
         return new MainGameFileError(kMGFErr_FileOpenFailed, String::FromFormat("Filename: %s.", filename.GetCStr()));
@@ -378,8 +379,8 @@ void ReadDialogs(DialogTopic *&dialog,
         // Encrypted text on > 2.60
         while (1)
         {
-            size_t newlen = in->ReadInt32();
-            if (static_cast<int32_t>(newlen) == 0xCAFEBEEF)  // GUI magic
+            size_t newlen = static_cast<uint32_t>(in->ReadInt32());
+            if (newlen == 0xCAFEBEEF)  // GUI magic
             {
                 in->Seek(-4);
                 break;
@@ -785,9 +786,10 @@ protected:
     GameDataVersion _dataVer {};
 };
 
-HError GameDataExtReader::ReadBlock(int block_id, const String &ext_id,
-    soff_t block_len, bool &read_next)
+HError GameDataExtReader::ReadBlock(int /*block_id*/, const String &ext_id,
+    soff_t /*block_len*/, bool &read_next)
 {
+    read_next = true;
     // Add extensions here checking ext_id, which is an up to 16-chars name, for example:
     // if (ext_id.CompareNoCase("GUI_NEWPROPS") == 0)
     // {
@@ -848,7 +850,7 @@ HGameFileError ReadGameData(LoadedGameEntities &ents, Stream *in, GameDataVersio
     if (!err)
         return err;
     game.ReadInvInfo_Aligned(in);
-    err = game.read_cursors(in, data_ver);
+    err = game.read_cursors(in);
     if (!err)
         return err;
     game.read_interaction_scripts(in, data_ver);
@@ -876,7 +878,7 @@ HGameFileError ReadGameData(LoadedGameEntities &ents, Stream *in, GameDataVersio
         in->Seek(count * 0x204);
     }
 
-    game.read_characters(in, data_ver);
+    game.read_characters(in);
     game.read_lipsync(in, data_ver);
     game.read_messages(in, data_ver);
 

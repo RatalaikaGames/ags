@@ -305,15 +305,9 @@ void GUI_ProcessClick(int x, int y, int mbut)
     int guiid = gui_get_interactable(x, y);
     if (guiid >= 0)
     {
-        const int real_mousex = mousex;
-        const int real_mousey = mousey;
-        mousex = x;
-        mousey = y;
-        guis[guiid].Poll();
+        guis[guiid].Poll(x, y);
         gui_on_mouse_down(guiid, mbut);
         gui_on_mouse_up(guiid, mbut);
-        mousex = real_mousex;
-        mousey = real_mousey;
     }
 }
 
@@ -344,7 +338,7 @@ void process_interface_click(int ifce, int btn, int mbut) {
     }
 
     int btype = guis[ifce].GetControlType(btn);
-    int rtype=kGUIAction_None,rdata;
+    int rtype=kGUIAction_None,rdata=0;
     if (btype==kGUIButton) {
         GUIButton*gbuto=(GUIButton*)guis[ifce].GetControl(btn);
         rtype=gbuto->ClickAction[kMouseLeft];
@@ -365,7 +359,7 @@ void process_interface_click(int ifce, int btn, int mbut) {
             (!theObj->EventHandlers[0].IsEmpty()) &&
             (!gameinst->GetSymbolAddress(theObj->EventHandlers[0].GetCStr()).IsNull())) {
                 // control-specific event handler
-                if (theObj->GetEventArgs(0).FindChar(',') != -1)
+                if (theObj->GetEventArgs(0).FindChar(',') != String::NoIndex)
                 {
                     RuntimeScriptValue params[]{ RuntimeScriptValue().SetDynamicObject(theObj, &ccDynamicGUIObject),
                         RuntimeScriptValue().SetInt32(mbut) };
@@ -658,7 +652,7 @@ void gui_on_mouse_up(const int wasongui, const int wasbutdown)
 void gui_on_mouse_down(const int guin, const int mbut)
 {
     debug_script_log("Mouse click over GUI %d", guin);
-    guis[guin].OnMouseButtonDown();
+    guis[guin].OnMouseButtonDown(mousex, mousey);
     // run GUI click handler if not on any control
     if ((guis[guin].MouseDownCtrl < 0) && (!guis[guin].OnClickHandler.IsEmpty()))
         force_event(EV_IFACECLICK, guin, -1, mbut);

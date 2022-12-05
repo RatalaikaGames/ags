@@ -11,6 +11,7 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
+#include "gui/cscidialog.h"
 #include <cctype>
 #include "ac/common.h"
 #include "ac/draw.h"
@@ -22,7 +23,6 @@
 #include "ac/sys_events.h"
 #include "ac/runtime_defines.h"
 #include "font/fonts.h"
-#include "gui/cscidialog.h"
 #include "gui/guidialog.h"
 #include "gui/guimain.h"
 #include "gui/mycontrols.h"
@@ -36,7 +36,6 @@
 using AGS::Common::Bitmap;
 namespace BitmapHelper = AGS::Common::BitmapHelper;
 
-extern char ignore_bounds; // from mousew32
 extern IGraphicsDriver *gfxDriver;
 extern GameSetup usetup;
 
@@ -280,15 +279,15 @@ void multiply_up(int *x1, int *y1, int *x2, int *y2)
 int checkcontrols()
 {
     // NOTE: this is because old code was working with full game screen
-    const int mousex = ::mousex - win_x;
-    const int mousey = ::mousey - win_y;
+    const int mx = ::mousex - win_x;
+    const int my = ::mousey - win_y;
 
     smcode = 0;
     for (int kk = 0; kk < MAXCONTROLS; kk++) {
         if (vobjs[kk] != nullptr) {
-            if (vobjs[kk]->mouseisinarea(mousex, mousey)) {
+            if (vobjs[kk]->mouseisinarea(mx, my)) {
                 controlid = kk;
-                return vobjs[kk]->pressedon(mousex, mousey);
+                return vobjs[kk]->pressedon(mx, my);
             }
         }
     }

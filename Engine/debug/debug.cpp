@@ -81,7 +81,7 @@ IAGSEditorDebugger *GetEditorDebugger(const char *instanceToken)
 # endif // AGS_RATA
 #else   // AGS_PLATFORM_OS_WINDOWS
 
-IAGSEditorDebugger *GetEditorDebugger(const char *instanceToken)
+IAGSEditorDebugger *GetEditorDebugger(const char* /*instanceToken*/)
 {
     return nullptr;
 }
@@ -123,7 +123,7 @@ static MessageType SDL_to_MT[SDL_NUM_LOG_PRIORITIES] = {
     kDbgMsg_None, kDbgMsg_All, kDbgMsg_Debug, kDbgMsg_Info, kDbgMsg_Warn, kDbgMsg_Error, kDbgMsg_Alert
 };
 // Print SDL message through our own log
-void SDL_Log_Output(void *userdata, int category, SDL_LogPriority priority, const char *message) {
+void SDL_Log_Output(void* /*userdata*/, int category, SDL_LogPriority priority, const char *message) {
     char buf[SDL_MAX_LOG_MESSAGE];
     snprintf(buf, SDL_MAX_LOG_MESSAGE, "%s: %s: %s",
         SDL_category[category], SDL_priority[priority], message);
@@ -175,6 +175,7 @@ std::vector<String> parse_log_multigroup(const String &group_str)
         {
         case 'm': grplist.push_back("main"); break;
         case 'g': grplist.push_back("game"); break;
+        case 's': grplist.push_back("script"); break;
         case 'c': grplist.push_back("sprcache"); break;
         case 'o': grplist.push_back("manobj"); break;
         case 'l': grplist.push_back("sdl"); break;
@@ -197,7 +198,7 @@ void apply_log_config(const ConfigTree &cfg, const String &log_id,
                       bool def_enabled,
                       std::initializer_list<DbgGroupOption> def_opts)
 {
-    String value = INIreadstring(cfg, "log", log_id);
+    String value = CfgReadString(cfg, "log", log_id);
     if (value.IsEmpty() && !def_enabled)
         return;
 
@@ -206,7 +207,7 @@ void apply_log_config(const ConfigTree &cfg, const String &log_id,
     const bool was_created_earlier = dbgout != nullptr;
     if (!dbgout)
     {
-        String path = INIreadstring(cfg, "log", String::FromFormat("%s-path", log_id.GetCStr()));
+        String path = CfgReadString(cfg, "log", String::FromFormat("%s-path", log_id.GetCStr()));
         dbgout = create_log_output(log_id, path);
         if (!dbgout)
             return; // unknown output type
@@ -259,7 +260,7 @@ void init_debug(const ConfigTree &cfg, bool stderr_only)
 {
     // Setup SDL output
     SDL_LogSetOutputFunction(SDL_Log_Output, nullptr);
-    String sdl_log = INIreadstring(cfg, "log", "sdl");
+    String sdl_log = CfgReadString(cfg, "log", "sdl");
     SDL_LogPriority priority = StrUtil::ParseEnumAllowNum<SDL_LogPriority>(sdl_log,
         CstrArr<SDL_NUM_LOG_PRIORITIES>{"", "verbose", "debug", "info", "warn", "error", "critical"}, SDL_LOG_PRIORITY_INFO);
     SDL_LogSetAllPriority(priority);
@@ -282,7 +283,7 @@ void apply_debug_config(const ConfigTree &cfg)
         { DbgGroupOption(kDbgGroup_Main, kDbgMsg_Info),
           DbgGroupOption(kDbgGroup_SDL, kDbgMsg_Info),
         });
-    bool legacy_log_enabled = INIreadint(cfg, "misc", "log", 0) != 0;
+    bool legacy_log_enabled = CfgReadBoolInt(cfg, "misc", "log", false);
     apply_log_config(cfg, OutputFileID,
         /* defaults */
         legacy_log_enabled,
@@ -605,6 +606,8 @@ bool send_exception_to_editor(const char *qmsg)
     {
         platform->Delay(10);
     }
+#else
+    (void)qmsg;
 #endif
     return true;
 }

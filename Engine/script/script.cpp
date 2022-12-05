@@ -87,7 +87,7 @@ std::vector<PScript> scriptModules;
 std::vector<ccInstance *> moduleInst;
 std::vector<ccInstance *> moduleInstFork;
 std::vector<RuntimeScriptValue> moduleRepExecAddr;
-int numScriptModules = 0;
+size_t numScriptModules = 0;
 
 std::vector<String> characterScriptObjNames;
 String              objectScriptObjNames[MAX_ROOM_OBJECTS];
@@ -130,8 +130,8 @@ void run_function_on_non_blocking_thread(NonBlockingScriptFunction* funcToRun) {
 
     // run modules
     // modules need a forkedinst for this to work
-    for (int kk = 0; kk < numScriptModules; kk++) {
-        funcToRun->moduleHasFunction[kk] = DoRunScriptFuncCantBlock(moduleInstFork[kk], funcToRun, funcToRun->moduleHasFunction[kk]);
+    for (size_t i = 0; i < numScriptModules; ++i) {
+        funcToRun->moduleHasFunction[i] = DoRunScriptFuncCantBlock(moduleInstFork[i], funcToRun, funcToRun->moduleHasFunction[i]);
 
         if (room_changes_was != play.room_changes)
             return;
@@ -195,7 +195,7 @@ int run_interaction_event (Interaction *nint, int evnt, int chkAny, int isInv) {
 // Returns 0 normally, or -1 to indicate that the NewInteraction has
 // become invalid and don't run another interaction on it
 // (eg. a room change occured)
-int run_interaction_script(InteractionScripts *nint, int evnt, int chkAny, int isInv) {
+int run_interaction_script(InteractionScripts *nint, int evnt, int chkAny) {
 
     if ((nint->ScriptFuncNames[evnt] == nullptr) || (nint->ScriptFuncNames[evnt][0u] == 0)) {
         // no response defined for this event
@@ -243,12 +243,12 @@ int create_global_script() {
     ccSetOption(SCOPT_AUTOIMPORT, 1);
 
     std::vector<ccInstance *> instances_for_resolving;
-    for (int kk = 0; kk < numScriptModules; kk++)
+    for (size_t i = 0; i < numScriptModules; ++i)
     {
-        moduleInst[kk] = ccInstance::CreateFromScript(scriptModules[kk]);
-        if (moduleInst[kk] == nullptr)
+        moduleInst[i] = ccInstance::CreateFromScript(scriptModules[i]);
+        if (moduleInst[i] == nullptr)
             return kscript_create_error;
-        instances_for_resolving.push_back(moduleInst[kk]);
+        instances_for_resolving.push_back(moduleInst[i]);
     }
 
     gameinst = ccInstance::CreateFromScript(gamescript);
@@ -440,7 +440,7 @@ int RunScriptFunction(ccInstance *sci, const char *tsname, size_t numParam, cons
 
 void RunScriptFunctionInModules(const char *tsname, size_t param_count, const RuntimeScriptValue *params)
 {
-    for (int i = 0; i < numScriptModules; ++i)
+    for (size_t i = 0; i < numScriptModules; ++i)
         RunScriptFunction(moduleInst[i], tsname, param_count, params);
     RunScriptFunction(gameinst, tsname, param_count, params);
 }
@@ -464,7 +464,7 @@ static int RunUnclaimableEvent(const char *tsname)
 {
     const int room_changes_was = play.room_changes;
     const int restore_game_count_was = gameHasBeenRestored;
-    for (int i = 0; i < numScriptModules; ++i)
+    for (size_t i = 0; i < numScriptModules; ++i)
     {
         if (!moduleRepExecAddr[i].IsNull())
             RunScriptFunction(moduleInst[i], tsname);
@@ -745,13 +745,11 @@ int run_interaction_commandlist (InteractionCommandList *nicl, int *timesrun, in
           PlayFlic(IPARAM1, IPARAM2);
           break;
       case 9:  // Run Dialog
-          { int room_was = play.room_changes;
           RunDialog(IPARAM1);
           // if they changed room within the dialog script,
           // the interaction command list is no longer valid
           if (room_was != play.room_changes)
               return -1;
-          }
           break;
       case 10: // Enable Dialog Option
           SetDialogOption (IPARAM1, IPARAM2, 1);

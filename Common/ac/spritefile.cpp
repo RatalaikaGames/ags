@@ -48,12 +48,12 @@ typedef ImBufferPtrT<uint8_t*> ImBufferPtr;
 typedef ImBufferPtrT<const uint8_t*> ImBufferCPtr;
 
 
-// Finds the given color's index in the palette, or returns -1 if such color is not there
+// Finds the given color's index in the palette, or returns SIZE_MAX if such color is not there
 static size_t lookup_palette(uint32_t col, uint32_t palette[256], uint32_t ncols)
 {
     for (size_t i = 0; i < ncols; ++i)
         if (palette[i] == col) return i;
-    return -1;
+    return SIZE_MAX;
 }
 
 // Converts a 16/32-bit image into the indexed 8-bit pixel data with palette;
@@ -88,7 +88,7 @@ static bool CreateIndexedBitmap(const Bitmap *image, std::vector<uint8_t> &dst_d
         default: assert(0); return false;
         }
         
-        if (pal_n == -1)
+        if (pal_n == SIZE_MAX)
         {
             if (pal_count == 256) return false;
             pal_n = pal_count;
@@ -118,7 +118,7 @@ static void UnpackIndexedBitmap(Bitmap *image, const uint8_t *data, size_t data_
         {
         case 2: *((uint16_t*)dst) = color; break;
         case 4: *((uint32_t*)dst) = color; break;
-        default: assert(0); break;
+        default: assert(0); return;
         }
     }
 }
@@ -131,8 +131,8 @@ static inline SpriteFormat PaletteFormatForBPP(int bpp)
     case 1: return kSprFmt_PaletteRgb888;
     case 2: return kSprFmt_PaletteRgb565;
     case 4: return kSprFmt_PaletteArgb8888;
+    default: return kSprFmt_Undefined;
     }
-    return kSprFmt_Undefined;
 }
 
 static inline uint8_t GetPaletteBPP(SpriteFormat fmt)
@@ -142,8 +142,8 @@ static inline uint8_t GetPaletteBPP(SpriteFormat fmt)
     case kSprFmt_PaletteRgb888: return 3;
     case kSprFmt_PaletteArgb8888: return 4;
     case kSprFmt_PaletteRgb565: return 2;
+    default: return 0; // means no palette
     }
-    return 0; // means no palette
 }
 
 
@@ -232,7 +232,7 @@ HError SpriteFile::OpenFile(const String &filename, const String &sprindex_filen
     }
 
     // Failed, index file is invalid; index sprites manually
-    return RebuildSpriteIndex(_stream.get(), topmost, _version, metrics);
+    return RebuildSpriteIndex(_stream.get(), topmost, metrics);
 }
 
 void SpriteFile::Close()
@@ -357,8 +357,7 @@ static inline void ReadSprHeader(SpriteDatHeader &hdr, Stream *in,
     hdr = SpriteDatHeader(bpp, sformat, pal_count, compress, w, h);
 }
 
-HError SpriteFile::RebuildSpriteIndex(Stream *in, sprkey_t topmost,
-    SpriteFileVersion vers, std::vector<Size> &metrics)
+HError SpriteFile::RebuildSpriteIndex(Stream *in, sprkey_t topmost, std::vector<Size> &metrics)
 {
     topmost = std::min(topmost, (sprkey_t)_spriteData.size() - 1);
     for (sprkey_t i = 0; !in->EOS() && (i <= topmost); ++i)
@@ -411,8 +410,10 @@ HError SpriteFile::LoadSprite(sprkey_t index, Common::Bitmap *&sprite)
     { // read palette if format assumes one
         switch (pal_bpp)
         {
-        case 2: for (uint32_t i = 0; i < hdr.PalCount; ++i) palette[i] = _stream->ReadInt16(); break;
-        case 4: for (uint32_t i = 0; i < hdr.PalCount; ++i) palette[i] = _stream->ReadInt32(); break;
+        case 2: for (uint32_t i = 0; i < hdr.PalCount; ++i) { palette[i] = _stream->ReadInt16(); }
+            break;
+        case 4: for (uint32_t i = 0; i < hdr.PalCount; ++i) { palette[i] = _stream->ReadInt32(); }
+            break;
         default: assert(0); break;
         }
         indexed_buf.resize(w * h);
@@ -431,9 +432,11 @@ HError SpriteFile::LoadSprite(sprkey_t index, Common::Bitmap *&sprite)
         }
         switch (hdr.Compress)
         {
-        case kSprCompress_RLE: rle_decompress(im_data.Buf, im_data.Size, im_data.BPP, _stream.get()); break;
-        case kSprCompress_LZW: lzw_decompress(im_data.Buf, im_data.Size, im_data.BPP, _stream.get()); break;
-        default: assert(!"Unsupported compression type!");
+        case kSprCompress_RLE: rle_decompress(im_data.Buf, im_data.Size, im_data.BPP, _stream.get());
+            break;
+        case kSprCompress_LZW: lzw_decompress(im_data.Buf, im_data.Size, im_data.BPP, _stream.get());
+            break;
+        default: assert(!"Unsupported compression type!"); break;
         }
         // TODO: test that not more than data_size was read!
     }
@@ -442,12 +445,15 @@ HError SpriteFile::LoadSprite(sprkey_t index, Common::Bitmap *&sprite)
     {
         switch (im_data.BPP)
         {
-        case 1: _stream->Read(im_data.Buf, im_data.Size); break;
+        case 1: _stream->Read(im_data.Buf, im_data.Size);
+            break;
         case 2: _stream->ReadArrayOfInt16(
-            reinterpret_cast<int16_t*>(im_data.Buf), im_data.Size / sizeof(int16_t)); break;
+                reinterpret_cast<int16_t*>(im_data.Buf), im_data.Size / sizeof(int16_t));
+            break;
         case 4: _stream->ReadArrayOfInt32(
-            reinterpret_cast<int32_t*>(im_data.Buf), im_data.Size / sizeof(int32_t)); break;
-        default: assert(0);
+                reinterpret_cast<int32_t*>(im_data.Buf), im_data.Size / sizeof(int32_t));
+            break;
+        default: assert(0); break;
         }
     }
     // Finally revert storage options
@@ -674,9 +680,11 @@ void SpriteFileWriter::WriteBitmap(Bitmap *image)
         VectorStream mems(_membuf, kStream_Write);
         switch (compress)
         {
-        case kSprCompress_RLE: rle_compress(im_data.Buf, im_data.Size, im_data.BPP, &mems); break;
-        case kSprCompress_LZW: lzw_compress(im_data.Buf, im_data.Size, im_data.BPP, &mems); break;
-        default: assert(!"Unsupported compression type!");
+        case kSprCompress_RLE: rle_compress(im_data.Buf, im_data.Size, im_data.BPP, &mems);
+            break;
+        case kSprCompress_LZW: lzw_compress(im_data.Buf, im_data.Size, im_data.BPP, &mems);
+            break;
+        default: assert(!"Unsupported compression type!"); break;
         }
         // mark to write as a plain byte array
         im_data = ImBufferCPtr(&_membuf[0], _membuf.size(), 1);
@@ -714,19 +722,24 @@ void SpriteFileWriter::WriteSpriteData(const SpriteDatHeader &hdr,
         assert(hdr.PalCount > 0);
         switch (pal_bpp)
         {
-        case 2: for (uint32_t i = 0; i < hdr.PalCount; ++i) _out->WriteInt16(palette[i]);
-        case 4: for (uint32_t i = 0; i < hdr.PalCount; ++i) _out->WriteInt32(palette[i]);
+        case 2: for (uint32_t i = 0; i < hdr.PalCount; ++i) { _out->WriteInt16(palette[i]); }
+            break;
+        case 4: for (uint32_t i = 0; i < hdr.PalCount; ++i) { _out->WriteInt32(palette[i]); }
+            break;
         }
     }
     // write the image pixel data
     _out->WriteInt32(im_data_sz);
     switch (im_bpp)
     {
-    case 1: _out->Write(im_data, im_data_sz); break;
+    case 1: _out->Write(im_data, im_data_sz);
+        break;
     case 2: _out->WriteArrayOfInt16(reinterpret_cast<const int16_t*>(im_data),
-        im_data_sz / sizeof(int16_t)); break;
+            im_data_sz / sizeof(int16_t));
+        break;
     case 4: _out->WriteArrayOfInt32(reinterpret_cast<const int32_t*>(im_data),
-        im_data_sz / sizeof(int32_t)); break;
+            im_data_sz / sizeof(int32_t));
+        break;
     default: assert(0); break;
     }
 }

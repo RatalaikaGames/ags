@@ -20,11 +20,6 @@
 
 #include "ac/dynobj/scriptmouse.h"
 
-#define DOMOUSE_UPDATE 0
-#define DOMOUSE_ENABLE 1
-#define DOMOUSE_DISABLE 2
-#define DOMOUSE_NOCURSOR 5
-
 void Mouse_SetVisible(int isOn);
 int Mouse_GetVisible();
 int Mouse_GetModeGraphic(int curs);
@@ -65,6 +60,8 @@ int find_previous_enabled_cursor(int startwith);
 
 extern ScriptMouse scmouse;
 
+extern int mousex, mousey;
+extern char ignore_bounds;
 extern int cur_mode;
 extern int cur_cursor;
 

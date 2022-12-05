@@ -39,7 +39,8 @@ using namespace AGS; // FIXME later
 
 enum eScriptSystemOSID
 {
-    eOS_DOS = 1,
+    eOS_Unknown = 0,
+    eOS_DOS,
     eOS_Win,
     eOS_Linux,
     eOS_Mac,
@@ -47,7 +48,9 @@ enum eScriptSystemOSID
     eOS_iOS,
     eOS_PSP,
     eOS_Web,
-    eOS_FreeBSD
+    eOS_FreeBSD,
+    eNumOS
+#ifdef AGS_RATA
     ,
     eOS_PSVita,
     eOS_PSX,
@@ -70,6 +73,7 @@ enum eScriptSystemOSID
     //Oftentimes, people will have a windows prototype while developing for consoles.
     //This is here to distinguish it from the eOS_Win case, which would be the legit windows release
     eOS_WinProto
+#endif
 };
 
 enum SetupReturnValue

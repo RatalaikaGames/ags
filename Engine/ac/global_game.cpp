@@ -204,8 +204,8 @@ void FillSaveList(std::vector<SaveListItem> &saves, size_t max_count)
     for (FindFile ff = FindFile::OpenFiles(svg_dir, pattern); !ff.AtEnd(); ff.Next())
     {
         int saveGameSlot = Path::GetFileExtension(ff.Current()).ToInt();
-        // only list games .000 to .099 (to allow higher slots for other perposes)
-        if (saveGameSlot > 99)
+        // only list games .000 to .XXX (to allow higher slots for other perposes)
+        if (saveGameSlot < 0 || saveGameSlot > TOP_LISTEDSAVESLOT)
             continue;
         String description;
         GetSaveSlotDescription(saveGameSlot, description);
@@ -805,6 +805,10 @@ void SetGraphicalVariable (const char *varName, int p_value) {
 
 int WaitImpl(int skip_type, int nloops)
 {
+    // if skipping cutscene and expecting user input: don't wait at all
+    if (play.fast_forward && ((skip_type & ~SKIP_AUTOTIMER) != 0))
+        return 0;
+
     play.wait_counter = nloops;
     play.wait_skipped_by = SKIP_NONE;
     play.wait_skipped_by_data = 0;

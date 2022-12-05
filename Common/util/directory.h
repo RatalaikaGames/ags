@@ -62,6 +62,7 @@ public:
         { return Open(path, wildcard, false, true); }
     bool AtEnd() const { return _current.IsEmpty(); }
     String Current() const { return _current; }
+    time_t CurrentTime() const { return _currentTime; }
     void Close();
     bool Next();
 
@@ -76,8 +77,13 @@ private:
     static FindFile Open(const String &path, const String &wildcard,
                          bool do_file, bool do_dir);
 
+#ifdef AGS_RATA // DPASCA - quick solution to Internal's invisibility
+    std::shared_ptr<Internal> _i;
+#else
     std::unique_ptr<Internal> _i;
+#endif
     String _current;
+    time_t _currentTime{};
 };
 
 

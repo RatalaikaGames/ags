@@ -148,19 +148,22 @@ bool GetFilesImpl(const String &dir_path, std::vector<String> &files,
 bool GetFilesImpl(const String &dir_path, std::vector<String> &files,
     int attr_dir)
 {
-    char pattern[MAX_PATH_SZ];
-    snprintf(pattern, sizeof(pattern), "%s/%s", dir_path.GetCStr(), "*");
-    WIN32_FIND_DATAA findData;
-    HANDLE hFind = FindFirstFileA(pattern, &findData);
+    char filename[MAX_PATH_SZ];
+    wchar_t wpattern[MAX_PATH_SZ];
+    snprintf(filename, sizeof(filename), "%s/%s", dir_path.GetCStr(), "*");
+    StrUtil::ConvertUtf8ToWstr(filename, wpattern, sizeof(wpattern));
+    WIN32_FIND_DATAW findData;
+    HANDLE hFind = FindFirstFileW(wpattern, &findData);
     if (hFind == INVALID_HANDLE_VALUE)
         return false;
     do
     {
-        if (strcmp(findData.cFileName, ".") == 0 ||
-            strcmp(findData.cFileName, "..") == 0) continue;
+        StrUtil::ConvertWstrToUtf8(findData.cFileName, filename, sizeof(filename));
+        if (strcmp(filename, ".") == 0 ||
+            strcmp(filename, "..") == 0) continue;
         if ((findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == attr_dir)
-            files.push_back(findData.cFileName);
-    } while (FindNextFileA(hFind, &findData) != 0);
+            files.push_back(filename);
+    } while (FindNextFileW(hFind, &findData) != 0);
     FindClose(hFind);
     return true;
 }
@@ -187,15 +190,17 @@ bool GetFiles(const String &dir_path, std::vector<String> &files)
 
 } // namespace Directory
 
+#ifdef AGS_RATA
+
+// DPASCA - external implementations
+
+#else // AGS_RATA
 
 struct FindFile::Internal
 {
     Internal() = default;
     Internal(Internal &&ffi)
     {
-#if defined(AGS_RATA)
-        // dummy
-# else // AGS_RATA
 #if AGS_PLATFORM_OS_WINDOWS
         ff = ffi.ff;
         ffi.ff = nullptr;
@@ -205,17 +210,13 @@ struct FindFile::Internal
         ffi.dir = nullptr;
         regex = std::move(ffi.regex);
 #endif
-#endif // AGS_RATA
         attrFile = ffi.attrFile;
         attrDir = ffi.attrDir;
     }
 
-#if defined(AGS_RATA)
-        // dummy
-#else // AGS_RATA
 #if AGS_PLATFORM_OS_WINDOWS
     HANDLE ff = nullptr;
-    WIN32_FIND_DATAA fdata = {};
+    WIN32_FIND_DATAW fdata = {};
 #else
     DIR *dir = nullptr;
     std::regex regex;
@@ -223,7 +224,6 @@ struct FindFile::Internal
 #if AGS_PLATFORM_OS_ANDROID
     std::unique_ptr<AndroidADir> aadir;
 #endif
-#endif // AGS_RATA
     int attrFile = 0;
     int attrDir = 0;
 };
@@ -248,19 +248,19 @@ FindFile &FindFile::operator =(FindFile &&ff)
 {
     _i = std::move(ff._i);
     _current = std::move(ff._current);
+    _currentTime = ff._currentTime;
     return *this;
 }
 
 FindFile FindFile::Open(const String &path, const String &wildcard, bool do_file, bool do_dir)
 {
     Internal ffi;
-#if defined(AGS_RATA)
-        return {}; // dummy
-#else // AGS_RATA
 #if AGS_PLATFORM_OS_WINDOWS
     char pattern[MAX_PATH_SZ];
+    wchar_t wpattern[MAX_PATH_SZ];
     snprintf(pattern, sizeof(pattern), "%s/%s", path.GetCStr(), wildcard.GetCStr());
-    HANDLE hFind = FindFirstFileA(pattern, &ffi.fdata);
+    StrUtil::ConvertUtf8ToWstr(pattern, wpattern, sizeof(wpattern));
+    HANDLE hFind = FindFirstFileW(wpattern, &ffi.fdata);
     if (hFind == INVALID_HANDLE_VALUE)
         return FindFile(); // return invalid object
     ffi.ff = hFind;
@@ -285,14 +285,10 @@ FindFile FindFile::Open(const String &path, const String &wildcard, bool do_file
     if (!ff.Next())
         return FindFile(); // return invalid object
     return ff; // success
-#endif // AGS_RATA
 }
 
 void FindFile::Close()
 {
-#if defined(AGS_RATA)
-        // dummy
-#else
 #if AGS_PLATFORM_OS_WINDOWS
     if (_i)
         FindClose(_i->ff);
@@ -300,32 +296,44 @@ void FindFile::Close()
     if (_i)
         closedir(_i->dir);
 #endif
-#endif
     _i.reset();
 }
+
+#if AGS_PLATFORM_OS_WINDOWS
+static time_t FileTime2time_t(const FILETIME &ft)
+{
+    // A FILETIME is the number of 100-nanosecond intervals since January 1, 1601.
+    // A time_t is the number of 1 - second intervals since January 1, 1970.
+    // https://docs.microsoft.com/en-us/windows/win32/sysinfo/converting-a-time-t-value-to-a-file-time
+    ULARGE_INTEGER ull;
+    ull.LowPart = ft.dwLowDateTime;
+    ull.HighPart = ft.dwHighDateTime;
+    return ull.QuadPart / 10000000ULL - 11644473600ULL;
+}
+#endif
 
 bool FindFile::Next()
 {
     if (!_i)
         return false;
-#if defined(AGS_RATA)
-        // dummy
-#else
 #if AGS_PLATFORM_OS_WINDOWS
     auto ff = _i->ff;
     auto &fdata = _i->fdata;
     const int attrDir = _i->attrDir;
+    char filename[MAX_PATH_SZ];
     // We already have an entry opened at this point, so check that first;
     // if it's not valid then continue searching
     _current.Empty();
     for (; (fdata.cFileName[0] != 0) && _current.IsEmpty();
-        fdata.cFileName[0] = 0, FindNextFileA(ff, &fdata) != 0)
+        fdata.cFileName[0] = 0, FindNextFileW(ff, &fdata) != 0)
     {
-        if (strcmp(fdata.cFileName, ".") == 0 ||
-            strcmp(fdata.cFileName, "..") == 0) continue;
+        StrUtil::ConvertWstrToUtf8(fdata.cFileName, filename, sizeof(filename));
+        if (strcmp(filename, ".") == 0 ||
+            strcmp(filename, "..") == 0) continue;
         if ((fdata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != attrDir)
             continue;
-        _current = fdata.cFileName;
+        _current = filename;
+        _currentTime = FileTime2time_t(fdata.ftLastWriteTime);
     }
 #else
     auto dir = _i->dir;
@@ -346,17 +354,21 @@ bool FindFile::Next()
         if (!std::regex_match(ent->d_name, mr, _i->regex))
             continue;
         _current = ent->d_name;
+        _currentTime = f_stat.st_mtime;
         break;
     }
 #endif
 #if AGS_PLATFORM_OS_ANDROID
     if (_i->aadir && _current.IsEmpty())
+    {
         _current = _i->aadir->Next(_i->regex);
-#endif
+        _currentTime = 0; // TODO?
+    }
 #endif
     return !_current.IsEmpty();
 }
 
+#endif // AGS_RATA
 
 FindFileRecursive FindFileRecursive::Open(const String &path, const String &wildcard, size_t max_level)
 {

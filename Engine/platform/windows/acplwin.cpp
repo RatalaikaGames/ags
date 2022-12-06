@@ -51,7 +51,6 @@ using namespace AGS::Common;
 using namespace AGS::Engine;
 
 extern GameSetupStruct game;
-extern GameSetup usetup;
 extern int our_eip;
 extern IGraphicsDriver *gfxDriver;
 extern RGB palette[256];
@@ -72,45 +71,36 @@ struct AGSWin32 : AGSPlatformDriver {
   AGSWin32();
   ~AGSWin32();
 
-  virtual int  CDPlayerCommand(int cmdd, int datt);
-  virtual void AttachToParentConsole();
-  virtual void DisplayAlert(const char*, ...);
-  virtual int  GetLastSystemError();
-  virtual FSLocation GetAllUsersDataDirectory();
-  virtual FSLocation GetUserSavedgamesDirectory();
-  virtual FSLocation GetUserConfigDirectory();
-  virtual FSLocation GetUserGlobalConfigDirectory();
-  virtual FSLocation GetAppOutputDirectory();
-  virtual const char *GetIllegalFileChars();
-  virtual const char *GetGraphicsTroubleshootingText();
-  virtual unsigned long GetDiskFreeSpaceMB();
-  virtual const char* GetBackendFailUserHint();
-  virtual eScriptSystemOSID GetSystemOSID();
-  virtual int  InitializeCDPlayer();
-  virtual void PostBackendInit();
-  virtual void PostBackendExit();
-  virtual SetupReturnValue RunSetup(const ConfigTree &cfg_in, ConfigTree &cfg_out);
-  virtual void ShutdownCDPlayer();
-  virtual void WriteStdOut(const char *fmt, ...);
-  virtual void WriteStdErr(const char *fmt, ...);
-  virtual void PauseApplication();
-  virtual void ResumeApplication();
-  virtual void ValidateWindowSize(int &x, int &y, bool borderless) const;
-  virtual SDL_Surface *CreateWindowIcon();
+  int  CDPlayerCommand(int cmdd, int datt) override;
+  void AttachToParentConsole() override;
+  void DisplayAlert(const char*, ...) override;
+  int  GetLastSystemError() override;
+  FSLocation GetAllUsersDataDirectory() override;
+  FSLocation GetUserSavedgamesDirectory() override;
+  FSLocation GetUserConfigDirectory() override;
+  FSLocation GetUserGlobalConfigDirectory() override;
+  FSLocation GetAppOutputDirectory() override;
+  const char *GetIllegalFileChars() override;
+  const char *GetGraphicsTroubleshootingText() override;
+  unsigned long GetDiskFreeSpaceMB() override;
+  const char* GetBackendFailUserHint() override;
+  eScriptSystemOSID GetSystemOSID() override;
+  int  InitializeCDPlayer() override;
+  void PostBackendInit() override;
+  void PostBackendExit() override;
+  SetupReturnValue RunSetup(const ConfigTree &cfg_in, ConfigTree &cfg_out) override;
+  void ShutdownCDPlayer() override;
+  void WriteStdOut(const char *fmt, ...) override;
+  void WriteStdErr(const char *fmt, ...) override;
+  void PauseApplication() override;
+  void ResumeApplication() override;
+  void ValidateWindowSize(int &x, int &y, bool borderless) const override;
+  SDL_Surface *CreateWindowIcon() override;
 
   // Returns command line argument in a UTF-8 format
   String GetCommandArg(size_t arg_index) override;
 
 private:
-  void add_game_to_game_explorer(IGameExplorer* pFwGameExplorer, GUID *guid, const char *guidAsText, bool allUsers);
-  void remove_game_from_game_explorer(IGameExplorer* pFwGameExplorer, GUID *guid);
-  void add_tasks_for_game(const char *guidAsText, const char *gameEXE, const char *workingFolder, bool allUsers);
-  void get_tasks_directory(char *directoryNameBuffer, const char *guidAsText, bool allUsers);
-  void update_game_explorer(bool add);
-  void create_shortcut(const char *pathToEXE, const char *workingFolder, const char *arguments, const char *shortcutPath);
-  void register_file_extension(const char *exePath);
-  void unregister_file_extension();
-
   bool _isDebuggerPresent; // indicates if the win app is running in the context of a debugger
   bool _isAttachedToParentConsole; // indicates if the win app is attached to the parent console
 };

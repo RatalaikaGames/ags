@@ -415,9 +415,11 @@ void GameSetupStruct::ReadFromSaveGame_v321(Stream *in, char* gswas, ccScript* c
 }
 
 //=============================================================================
+#if defined (OBSOLETE)
+#include <stdio.h>
 
 void ConvertOldGameStruct (OldGameSetupStruct *ogss, GameSetupStruct *gss) {
-    strcpy (gss->gamename, ogss->gamename);
+    snprintf(gss->gamename, sizeof(GameSetupStruct::gamename), "%s", ogss->gamename);
     for (int i = 0; i < 20; i++)
         gss->options[i] = ogss->options[i];
     memcpy (&gss->paluses[0], &ogss->paluses[0], 256);
@@ -459,6 +461,7 @@ void ConvertOldGameStruct (OldGameSetupStruct *ogss, GameSetupStruct *gss) {
     gss->compiled_script = ogss->compiled_script;
     gss->numcursors = 10;
 }
+#endif // OBSOLETE
 
 void GameSetupStruct::ReadFromSavegame(Stream *in)
 {

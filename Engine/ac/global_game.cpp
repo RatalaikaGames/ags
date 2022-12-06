@@ -11,11 +11,11 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
-#include <stdio.h>
+#include "ac/global_game.h"
 #include <math.h>
+#include <stdio.h>
 #include "core/platform.h"
 #include "ac/audiocliptype.h"
-#include "ac/global_game.h"
 #include "ac/common.h"
 #include "ac/view.h"
 #include "ac/character.h"
@@ -72,7 +72,6 @@ extern ExecutingScript*curscript;
 extern int displayed_room;
 extern int game_paused;
 extern SpriteCache spriteset;
-extern GameSetup usetup;
 extern unsigned int load_new_game;
 extern int load_new_game_restore;
 extern GameSetupStruct game;
@@ -82,6 +81,13 @@ extern RoomStruct thisroom;
 extern int getloctype_index;
 extern IGraphicsDriver *gfxDriver;
 extern RGB palette[256];
+
+
+void AbortGame()
+{
+    // make sure scripts stop at the next step
+    cancel_all_scripts();
+}
 
 void GiveScore(int amnt) 
 {
@@ -580,7 +586,7 @@ void GetLocationName(int xxx,int yyy,char*tempo) {
             if (play.get_loc_name_last_time != 1000 + mover)
                 GUI::MarkSpecialLabelsForUpdate(kLabelMacro_Overhotspot);
             play.get_loc_name_last_time = 1000 + mover;
-            strcpy(tempo,get_translation(game.invinfo[mover].name));
+            snprintf(tempo, MAX_MAXSTRLEN, "%s", get_translation(game.invinfo[mover].name));
         }
         else if ((play.get_loc_name_last_time > 1000) && (play.get_loc_name_last_time < 1000 + MAX_INV)) {
             // no longer selecting an item
@@ -611,7 +617,7 @@ void GetLocationName(int xxx,int yyy,char*tempo) {
     // on character
     if (loctype == LOCTYPE_CHAR) {
         onhs = getloctype_index;
-        strcpy(tempo,get_translation(game.chars[onhs].name));
+        snprintf(tempo, MAX_MAXSTRLEN, "%s", get_translation(game.chars[onhs].name));
         if (play.get_loc_name_last_time != 2000+onhs)
             GUI::MarkSpecialLabelsForUpdate(kLabelMacro_Overhotspot);
         play.get_loc_name_last_time = 2000+onhs;
@@ -620,7 +626,7 @@ void GetLocationName(int xxx,int yyy,char*tempo) {
     // on object
     if (loctype == LOCTYPE_OBJ) {
         aa = getloctype_index;
-        strcpy(tempo,get_translation(croom->obj[aa].name.GetCStr()));
+        snprintf(tempo, MAX_MAXSTRLEN, "%s", get_translation(croom->obj[aa].name.GetCStr()));
         // Compatibility: < 3.1.1 games returned space for nameless object
         // (presumably was a bug, but fixing it affected certain games behavior)
         if (loaded_game_file_version < kGameVersion_311 && tempo[0] == 0) {
@@ -633,7 +639,8 @@ void GetLocationName(int xxx,int yyy,char*tempo) {
         return;
     }
     onhs = getloctype_index;
-    if (onhs>0) strcpy(tempo,get_translation(croom->hotspot[onhs].Name.GetCStr()));
+    if (onhs>0)
+        snprintf(tempo, MAX_MAXSTRLEN, "%s", get_translation(croom->hotspot[onhs].Name.GetCStr()));
     if (play.get_loc_name_last_time != onhs)
         GUI::MarkSpecialLabelsForUpdate(kLabelMacro_Overhotspot);
     play.get_loc_name_last_time = onhs;
@@ -671,21 +678,37 @@ void SetMultitasking (int mode) {
     if ((mode < 0) | (mode > 1))
         quit("!SetMultitasking: invalid mode parameter");
 
-    if (usetup.override_multitasking >= 0)
+    // Account for the override config option (must be checked first!)
+    if ((usetup.override_multitasking >= 0) && (mode != usetup.override_multitasking))
     {
+        Debug::Printf("SetMultitasking: overridden by user config: %d -> %d",
+            mode, usetup.override_multitasking);
         mode = usetup.override_multitasking;
     }
 
-    // Don't allow background running if full screen
-    if ((mode == 1) && (!scsystem.windowed))
+    // Must run on background if debugger is connected
+    if ((mode == 0) && (editor_debugging_initialized != 0))
+    {
+        Debug::Printf("SetMultitasking: overridden by the external debugger: %d -> 1", mode);
+        mode = 1;
+    }
+
+    // Regardless, don't allow background running if exclusive full screen
+    if ((mode == 1) && gfxDriver->GetDisplayMode().IsRealFullscreen())
+    {
+        Debug::Printf("SetMultitasking: overridden by fullscreen: %d -> 0", mode);
         mode = 0;
+    }
 
     // Install engine callbacks for switching in and out the window
-    if (mode == 0) {
+    Debug::Printf(kDbgMsg_Info, "Multitasking mode set: %d", mode);
+    if (mode == 0)
+    {
         sys_set_background_mode(false);
         sys_evt_set_focus_callbacks(display_switch_in_resume, display_switch_out_suspend);
     }
-    else {
+    else
+    {
         sys_set_background_mode(true);
         sys_evt_set_focus_callbacks(display_switch_in, display_switch_out);
     }

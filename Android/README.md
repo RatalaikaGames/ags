@@ -1,12 +1,16 @@
 # Welcome to AGS Android
 
+If you have questions, feel free to ask in the [Forum thread](https://www.adventuregamestudio.co.uk/forums/index.php?topic=59751.0), which also contains additional information.
+
+If you are using the AGS Editor, [check the manual page](https://adventuregamestudio.github.io/ags-manual/BuildAndroid.html).
+
 ## Building
 
 There are three projects here, in three different directories:
 
 - `agsplayer/` : App AGS Player for running `.ags` games on your phone.
 - `library/runtime/` : Module AGS Runtime for building AGS based Apps.
-- `mygame/` : App MyGame you can customize for shipping your AGS game on Android (tbd)
+- `mygame/` : App MyGame you can customize for shipping your AGS game on Android, see it's own [`README`](mygame/README.md) file.
 
 If you load the `agsplayer` directory on Android Studio, it will pickup and use the `library/runtime` module.
 
@@ -22,7 +26,7 @@ Building should be done using Android Studio 4.1.2 or above. For the native part
 - CMake 3.16.3, which has to be added to PATH
 - Ninja (at least 1.10.0 should be good), also needs to be added to PATH
 
-In the future Android Studio 4.2 and above will ship with CMake 3.18, once this happens, installing CMake and Ninja outside of it won't be needed.
+In the Android Studio 4.2 and above, CMake 3.18+ and ninja are included, if you are using it, there's no need to install them externally - In Android Studio, see Tools, SDK Manager, SDK Tools and select and install CMake.
 
 You can use other versions of CMake locally, you will need to adjust the version number `ags/Android/library/runtime/build.gradle`.
 
@@ -55,6 +59,33 @@ If you want to build from the command line, you can run `./gradlew assembleRelea
 
 ---
 
+## Touch controls
+
+By default the Android port provides a touch-to-mouse emulation, where certain taps and moves are translated into the pseudo-"mouse" input in game. Using game config file (or Preferences menu in the AGS Player) you may choose between 2 control schemes and additionally enable relative cursor mode. It's also possible to disable touch-to-mouse emulation completely: this option is left for the future games which might have proper touch controls implemented in the game script.
+
+The 2 touch-to-mouse schemes follow:
+
+### One Finger
+
+This is a simple reimplementation of the default SDL2 touch-to-mouse emulation.
+
+In this scheme holding a finger down translates into Left mouse button down, while releasing a finger would release the "mouse button".
+
+Moving finger translates into mouse cursor motion with Left button pressed.
+
+This scheme might work well for games with one-click style controls and/or drag'n'drop mechanics, but may be inconvenient for others. Also it's not possible to move the cursor without having a LMB not pressed (so impossible to just "hover" the cursor around hotspots, for example).
+
+### Two Fingers
+
+This is a reimplementation of an older AGS Android touch-to-mouse controls, with minor differences.
+
+* Single tap with one finger = LMB click (the click occurs when the finger is *released*).
+* Hold finger and drag = move mouse cursor around *without* any button press (useful for hovering cursor above the hotspots).
+* Two fingers tap (or, hold one finger and tap with another) = RMB click (the click occurs when the second finger is released).
+* Double tap + drag (tap once then hold down again quickly and drag) = move mouse cursor with LMB pressed (useful for drag'n'drop action).
+
+---
+
 ## Using the AGS Player
 
 ### Adding games to the game list
@@ -79,6 +110,56 @@ you choose custom preferences specifically for that game.
 
 In the same menu you can also choose "Continue" to resume the game from
 your last savegame.
+
+### Preferences
+
+The preferences modifies the `android.cfg` file, either the local or global one.
+
+#### General `[misc]`
+
+- **Enable config** : yes or no - Uses per game config instead of the global one, _available only in per game config_.  
+  `config_enabled = 0, 1`  
+- **Lock screen orientation** : None, Portrait, Landscape  
+  `rotation = 0, 1, 2`  
+
+#### Controls `[controls]`
+
+- **Touch-to-mouse emulation** : Off, One Finger, Two Fingers
+  `mouse_emulation = 0, 1, 2`  
+- **Relative mouse control** : yes or no  
+  `mouse_method = 0, 1`  
+- **Mouse speed in relative control** : a multiplier to the cursor speed
+  `mouse_speed = a floating-point value`  
+
+#### Sound `[sound]`
+
+- **Enabled** : yes or no  
+  `enabled = 0, 1`  
+
+#### Video `[video]`
+
+- **Drop frames if necessary** : disabled, to be removed  
+  `framedrop = 0, 1`
+
+#### Graphics `[graphics]`
+
+- **Renderer** : Software (SDL2) or Hardware (OpenGL ES2)  
+  `renderer = 0, 1`  
+- **Screen Scaling** : No scaling, Fullscreen Preserving Aspect Ration, Fullscreen Stretch.  
+  `scaling = 0, 1`  
+- **Linear Filtering** :  yes or no  
+  `smoothing = 0, 1`  
+- **Super Sampling** : yes or no
+  `super_sampling = 0, 1`
+- **Smooth Scaled Sprites** : yes or no  
+  `smooth_sprites = 0, 1`
+  
+#### Debug `[debug]`
+
+- **Show framerate** : yes or no  
+  `show_fps = 0, 1`
+- **Log debug messages** : yes or no  
+  `logging = 0, 1`  
 
 ---
 

@@ -85,7 +85,8 @@ namespace AGS.Editor
         // Autocomplete list
         private List<string> _autoCKeywords = new List<string>();
 
-        private bool _doBraceMatch = false;
+        private bool _skipBraceMatchOnce = false;
+        private bool _doAlignIdentation = false;
         private bool _braceMatchVisible = false;
         private bool _doShowAutocomplete = false;
         private bool _doCalltip = false;
@@ -112,61 +113,77 @@ namespace AGS.Editor
             if (_theme == null) return;
             ColorTheme t = _theme;
 
-            scintillaControl1.Styles[Style.Default].BackColor = t.GetColor("script-editor/text-editor/global-default/background");
-            scintillaControl1.Styles[Style.Default].ForeColor = t.GetColor("script-editor/text-editor/global-default/foreground");
-            scintillaControl1.Styles[Style.Cpp.Default].BackColor = t.GetColor("script-editor/text-editor/default/background");
-            scintillaControl1.Styles[Style.Cpp.Default].ForeColor = t.GetColor("script-editor/text-editor/default/foreground");
-            scintillaControl1.Styles[Style.Cpp.Word].BackColor = t.GetColor("script-editor/text-editor/word-1/background");
-            scintillaControl1.Styles[Style.Cpp.Word].ForeColor = t.GetColor("script-editor/text-editor/word-1/foreground");
-            scintillaControl1.Styles[Style.Cpp.Word2].BackColor = t.GetColor("script-editor/text-editor/word-2/background");
-            scintillaControl1.Styles[Style.Cpp.Word2].ForeColor = t.GetColor("script-editor/text-editor/word-2/foreground");
-            scintillaControl1.Styles[Style.Cpp.GlobalClass].BackColor = t.GetColor("script-editor/text-editor/word-2/background");
-            scintillaControl1.Styles[Style.Cpp.GlobalClass].ForeColor = t.GetColor("script-editor/text-editor/word-2/foreground");
-            scintillaControl1.Styles[Style.Cpp.Identifier].BackColor = t.GetColor("script-editor/text-editor/identifier/background");
-            scintillaControl1.Styles[Style.Cpp.Identifier].ForeColor = t.GetColor("script-editor/text-editor/identifier/foreground");
-            scintillaControl1.Styles[Style.Cpp.Comment].BackColor = t.GetColor("script-editor/text-editor/comment/background");
-            scintillaControl1.Styles[Style.Cpp.Comment].ForeColor = t.GetColor("script-editor/text-editor/comment/foreground");
-            scintillaControl1.Styles[Style.Cpp.CommentLine].BackColor = t.GetColor("script-editor/text-editor/comment-line/background");
-            scintillaControl1.Styles[Style.Cpp.CommentLine].ForeColor = t.GetColor("script-editor/text-editor/comment-line/foreground");
-            scintillaControl1.Styles[Style.Cpp.CommentDoc].BackColor = t.GetColor("script-editor/text-editor/comment-doc/background");
-            scintillaControl1.Styles[Style.Cpp.CommentDoc].ForeColor = t.GetColor("script-editor/text-editor/comment-doc/foreground");
-            scintillaControl1.Styles[Style.Cpp.CommentLineDoc].BackColor = t.GetColor("script-editor/text-editor/comment-line-doc/background");
-            scintillaControl1.Styles[Style.Cpp.CommentLineDoc].ForeColor = t.GetColor("script-editor/text-editor/comment-line-doc/foreground");
-            scintillaControl1.Styles[Style.Cpp.CommentDocKeyword].BackColor = t.GetColor("script-editor/text-editor/comment-doc-keyword/background");
-            scintillaControl1.Styles[Style.Cpp.CommentDocKeyword].ForeColor = t.GetColor("script-editor/text-editor/comment-doc-keyword/foreground");
-            scintillaControl1.Styles[Style.Cpp.CommentDocKeywordError].BackColor = t.GetColor("script-editor/text-editor/comment-doc-keyword-error/background");
-            scintillaControl1.Styles[Style.Cpp.CommentDocKeywordError].ForeColor = t.GetColor("script-editor/text-editor/comment-doc-keyword-error/foreground");
-            scintillaControl1.Styles[Style.Cpp.Number].BackColor = t.GetColor("script-editor/text-editor/number/background");
-            scintillaControl1.Styles[Style.Cpp.Number].ForeColor = t.GetColor("script-editor/text-editor/number/foreground");
-            scintillaControl1.Styles[Style.Cpp.Regex].BackColor = t.GetColor("script-editor/text-editor/regex/background");
-            scintillaControl1.Styles[Style.Cpp.Regex].ForeColor = t.GetColor("script-editor/text-editor/regex/foreground");
-            scintillaControl1.Styles[Style.Cpp.String].BackColor = t.GetColor("script-editor/text-editor/string/background");
-            scintillaControl1.Styles[Style.Cpp.String].ForeColor = t.GetColor("script-editor/text-editor/string/foreground");
-            scintillaControl1.Styles[Style.Cpp.StringEol].BackColor = t.GetColor("script-editor/text-editor/string-eol/background");
-            scintillaControl1.Styles[Style.Cpp.StringEol].ForeColor = t.GetColor("script-editor/text-editor/string-eol/foreground");
-            scintillaControl1.Styles[Style.Cpp.Operator].BackColor = t.GetColor("script-editor/text-editor/operator/background");
-            scintillaControl1.Styles[Style.Cpp.Operator].ForeColor = t.GetColor("script-editor/text-editor/operator/foreground");
-            scintillaControl1.Styles[Style.Cpp.Preprocessor].BackColor = t.GetColor("script-editor/text-editor/preprocessor/background");
-            scintillaControl1.Styles[Style.Cpp.Preprocessor].ForeColor = t.GetColor("script-editor/text-editor/preprocessor/foreground");
-            scintillaControl1.Styles[Style.LineNumber].BackColor = t.GetColor("script-editor/text-editor/line-number/background");
-            scintillaControl1.Styles[Style.LineNumber].ForeColor = t.GetColor("script-editor/text-editor/line-number/foreground");
-            scintillaControl1.Styles[Style.IndentGuide].BackColor = t.GetColor("script-editor/text-editor/indent-guide/background");
-            scintillaControl1.Styles[Style.IndentGuide].ForeColor = t.GetColor("script-editor/text-editor/indent-guide/foreground");
-            scintillaControl1.SetFoldMarginColor(true, t.GetColor("script-editor/text-editor/fold-margin"));
-            scintillaControl1.SetFoldMarginHighlightColor(true, t.GetColor("script-editor/text-editor/fold-margin-hi"));
-            scintillaControl1.Markers[Marker.Folder].SetBackColor(t.GetColor("script-editor/text-editor/marknum-folder/background"));
-            scintillaControl1.Markers[Marker.Folder].SetForeColor(t.GetColor("script-editor/text-editor/marknum-folder/foreground"));
-            scintillaControl1.Markers[Marker.FolderEnd].SetBackColor(t.GetColor("script-editor/text-editor/marknum-folder-end/background"));
-            scintillaControl1.Markers[Marker.FolderEnd].SetForeColor(t.GetColor("script-editor/text-editor/marknum-folder-end/foreground"));
-            scintillaControl1.Markers[Marker.FolderOpen].SetBackColor(t.GetColor("script-editor/text-editor/marknum-folder-open/background"));
-            scintillaControl1.Markers[Marker.FolderOpen].SetForeColor(t.GetColor("script-editor/text-editor/marknum-folder-open/foreground"));
-            scintillaControl1.Markers[Marker.FolderOpenMid].SetBackColor(t.GetColor("script-editor/text-editor/marknum-folder-open-mid/background"));
-            scintillaControl1.Markers[Marker.FolderOpenMid].SetForeColor(t.GetColor("script-editor/text-editor/marknum-folder-open-mid/foreground"));
-            scintillaControl1.Markers[Marker.FolderMidTail].SetBackColor(t.GetColor("script-editor/text-editor/marknum-folder-mid-tail"));
-            scintillaControl1.Markers[Marker.FolderSub].SetBackColor(t.GetColor("script-editor/text-editor/marknum-folder-sub"));
-            scintillaControl1.Markers[Marker.FolderTail].SetBackColor(t.GetColor("script-editor/text-editor/marknum-folder-tail"));
-            scintillaControl1.SetSelectionBackColor(true, t.GetColor("script-editor/text-editor/selected"));
-            scintillaControl1.CaretForeColor = t.GetColor("script-editor/text-editor/caret");
+            if (!t.Has("script-editor/text-editor")) return;
+            t.SetColor("script-editor/text-editor/global-default/background", c => scintillaControl1.Styles[Style.Default].BackColor = c);
+            t.SetColor("script-editor/text-editor/global-default/foreground", c => scintillaControl1.Styles[Style.Default].ForeColor = c);
+            t.SetColor("script-editor/text-editor/default/background", c => scintillaControl1.Styles[Style.Cpp.Default].BackColor = c);
+            t.SetColor("script-editor/text-editor/default/foreground", c => scintillaControl1.Styles[Style.Cpp.Default].ForeColor = c);
+            t.SetColor("script-editor/text-editor/word-1/background", c => scintillaControl1.Styles[Style.Cpp.Word].BackColor = c);
+            t.SetColor("script-editor/text-editor/word-1/foreground", c => scintillaControl1.Styles[Style.Cpp.Word].ForeColor = c);
+            t.SetColor("script-editor/text-editor/word-2/background", c => scintillaControl1.Styles[Style.Cpp.Word2].BackColor = c);
+            t.SetColor("script-editor/text-editor/word-2/foreground", c => scintillaControl1.Styles[Style.Cpp.Word2].ForeColor = c);
+            t.SetColor("script-editor/text-editor/word-2/background", c => scintillaControl1.Styles[Style.Cpp.GlobalClass].BackColor = c);
+            t.SetColor("script-editor/text-editor/word-2/foreground", c => scintillaControl1.Styles[Style.Cpp.GlobalClass].ForeColor = c);
+            t.SetColor("script-editor/text-editor/identifier/background", c => scintillaControl1.Styles[Style.Cpp.Identifier].BackColor = c);
+            t.SetColor("script-editor/text-editor/identifier/foreground", c => scintillaControl1.Styles[Style.Cpp.Identifier].ForeColor = c);
+            t.SetColor("script-editor/text-editor/comment/background", c => scintillaControl1.Styles[Style.Cpp.Comment].BackColor = c);
+            t.SetColor("script-editor/text-editor/comment/foreground", c => scintillaControl1.Styles[Style.Cpp.Comment].ForeColor = c);
+            t.SetColor("script-editor/text-editor/comment-line/background", c => scintillaControl1.Styles[Style.Cpp.CommentLine].BackColor = c);
+            t.SetColor("script-editor/text-editor/comment-line/foreground", c => scintillaControl1.Styles[Style.Cpp.CommentLine].ForeColor = c);
+            t.SetColor("script-editor/text-editor/comment-doc/background", c => scintillaControl1.Styles[Style.Cpp.CommentDoc].BackColor = c);
+            t.SetColor("script-editor/text-editor/comment-doc/foreground", c => scintillaControl1.Styles[Style.Cpp.CommentDoc].ForeColor = c);
+            t.SetColor("script-editor/text-editor/comment-line-doc/background", c => scintillaControl1.Styles[Style.Cpp.CommentLineDoc].BackColor = c);
+            t.SetColor("script-editor/text-editor/comment-line-doc/foreground", c => scintillaControl1.Styles[Style.Cpp.CommentLineDoc].ForeColor = c);
+            t.SetColor("script-editor/text-editor/comment-doc-keyword/background", c => scintillaControl1.Styles[Style.Cpp.CommentDocKeyword].BackColor = c);
+            t.SetColor("script-editor/text-editor/comment-doc-keyword/foreground", c => scintillaControl1.Styles[Style.Cpp.CommentDocKeyword].ForeColor = c);
+            t.SetColor("script-editor/text-editor/comment-doc-keyword-error/background", c => scintillaControl1.Styles[Style.Cpp.CommentDocKeywordError].BackColor = c);
+            t.SetColor("script-editor/text-editor/comment-doc-keyword-error/foreground", c => scintillaControl1.Styles[Style.Cpp.CommentDocKeywordError].ForeColor = c);
+            t.SetColor("script-editor/text-editor/number/background", c => scintillaControl1.Styles[Style.Cpp.Number].BackColor = c);
+            t.SetColor("script-editor/text-editor/number/foreground", c => scintillaControl1.Styles[Style.Cpp.Number].ForeColor = c);
+            t.SetColor("script-editor/text-editor/regex/background", c => scintillaControl1.Styles[Style.Cpp.Regex].BackColor = c);
+            t.SetColor("script-editor/text-editor/regex/foreground", c => scintillaControl1.Styles[Style.Cpp.Regex].ForeColor = c);
+            t.SetColor("script-editor/text-editor/string/background", c => scintillaControl1.Styles[Style.Cpp.String].BackColor = c);
+            t.SetColor("script-editor/text-editor/string/foreground", c => scintillaControl1.Styles[Style.Cpp.String].ForeColor = c);
+            t.SetColor("script-editor/text-editor/string-eol/background", c => scintillaControl1.Styles[Style.Cpp.StringEol].BackColor = c);
+            t.SetColor("script-editor/text-editor/string-eol/foreground", c => scintillaControl1.Styles[Style.Cpp.StringEol].ForeColor = c);
+            t.SetColor("script-editor/text-editor/operator/background", c => scintillaControl1.Styles[Style.Cpp.Operator].BackColor = c);
+            t.SetColor("script-editor/text-editor/operator/foreground", c => scintillaControl1.Styles[Style.Cpp.Operator].ForeColor = c);
+            t.SetColor("script-editor/text-editor/preprocessor/background", c => scintillaControl1.Styles[Style.Cpp.Preprocessor].BackColor = c);
+            t.SetColor("script-editor/text-editor/preprocessor/foreground", c => scintillaControl1.Styles[Style.Cpp.Preprocessor].ForeColor = c);
+            t.SetColor("script-editor/text-editor/line-number/background", c => scintillaControl1.Styles[Style.LineNumber].BackColor = c);
+            t.SetColor("script-editor/text-editor/line-number/foreground", c => scintillaControl1.Styles[Style.LineNumber].ForeColor = c);
+            t.SetColor("script-editor/text-editor/indent-guide/background", c => scintillaControl1.Styles[Style.IndentGuide].BackColor = c);
+            t.SetColor("script-editor/text-editor/indent-guide/foreground", c => scintillaControl1.Styles[Style.IndentGuide].ForeColor = c);
+            t.SetColor("script-editor/text-editor/fold-margin", c => scintillaControl1.SetFoldMarginColor(true, c));
+            t.SetColor("script-editor/text-editor/fold-margin-hi", c => scintillaControl1.SetFoldMarginHighlightColor(true, c));
+            t.SetColor("script-editor/text-editor/marknum-folder/background", c => scintillaControl1.Markers[Marker.Folder].SetBackColor(c));
+            t.SetColor("script-editor/text-editor/marknum-folder/foreground", c => scintillaControl1.Markers[Marker.Folder].SetForeColor(c));
+            t.SetColor("script-editor/text-editor/marknum-folder-end/background", c => scintillaControl1.Markers[Marker.FolderEnd].SetBackColor(c));
+            t.SetColor("script-editor/text-editor/marknum-folder-end/foreground", c => scintillaControl1.Markers[Marker.FolderEnd].SetForeColor(c));
+            t.SetColor("script-editor/text-editor/marknum-folder-open/background", c => scintillaControl1.Markers[Marker.FolderOpen].SetBackColor(c));
+            t.SetColor("script-editor/text-editor/marknum-folder-open/foreground", c => scintillaControl1.Markers[Marker.FolderOpen].SetForeColor(c));
+            t.SetColor("script-editor/text-editor/marknum-folder-open-mid/background", c => scintillaControl1.Markers[Marker.FolderOpenMid].SetBackColor(c));
+            t.SetColor("script-editor/text-editor/marknum-folder-open-mid/foreground", c => scintillaControl1.Markers[Marker.FolderOpenMid].SetForeColor(c));
+            t.SetColor("script-editor/text-editor/marknum-folder-mid-tail", c => scintillaControl1.Markers[Marker.FolderMidTail].SetBackColor(c));
+            t.SetColor("script-editor/text-editor/marknum-folder-sub", c => scintillaControl1.Markers[Marker.FolderSub].SetBackColor(c));
+            t.SetColor("script-editor/text-editor/marknum-folder-tail", c => scintillaControl1.Markers[Marker.FolderTail].SetBackColor(c));
+            t.SetColor("script-editor/text-editor/selected", c => scintillaControl1.SetSelectionBackColor(c != Color.Transparent, c)); // compatibility with old theme
+            t.SetColor("script-editor/text-editor/selected/background", c => scintillaControl1.SetSelectionBackColor(c != Color.Transparent, c));
+            t.SetColor("script-editor/text-editor/selected/foreground", c => scintillaControl1.SetSelectionForeColor(c != Color.Transparent, c));
+
+            t.SetColor("script-editor/text-editor/marker-breakpoint/background", c => scintillaControl1.Markers[MARKER_TYPE_BREAKPOINT].SetBackColor(c));
+            t.SetColor("script-editor/text-editor/marker-breakpoint/foreground", c => scintillaControl1.Markers[MARKER_TYPE_BREAKPOINT].SetForeColor(c));
+            t.SetColor("script-editor/text-editor/marker-breakpoint2/background", c => scintillaControl1.Markers[MARKER_TYPE_BREAKPOINT2].SetBackColor(c));
+            t.SetColor("script-editor/text-editor/marker-breakpoint2/foreground", c => scintillaControl1.Markers[MARKER_TYPE_BREAKPOINT2].SetForeColor(c));
+            t.SetColor("script-editor/text-editor/current-statement/background", c => scintillaControl1.Markers[MARKER_TYPE_CURRENT_STATEMENT].SetBackColor(c));
+            t.SetColor("script-editor/text-editor/current-statement/foreground", c => scintillaControl1.Markers[MARKER_TYPE_CURRENT_STATEMENT].SetForeColor(c));
+            t.SetColor("script-editor/text-editor/current-statement2/background", c => scintillaControl1.Markers[MARKER_TYPE_CURRENT_STATEMENT2].SetBackColor(c));
+            t.SetColor("script-editor/text-editor/current-statement2/foreground", c => scintillaControl1.Markers[MARKER_TYPE_CURRENT_STATEMENT2].SetForeColor(c));
+
+            t.SetColor("script-editor/text-editor/caret", c => scintillaControl1.CaretForeColor = c); // compatibility with old theme
+            t.SetColor("script-editor/text-editor/caret/caret-fore", c => scintillaControl1.CaretForeColor = c);
+            t.SetColor("script-editor/text-editor/caret/caret-line-back", c => scintillaControl1.CaretLineBackColor = c);
+            t.SetInt("script-editor/text-editor/caret/caret-line-back-alpha", i => scintillaControl1.CaretLineBackColorAlpha = i);
         }
 
         private void UpdateColors()
@@ -942,28 +959,52 @@ namespace AGS.Editor
             }
         }
 
-        public void ShowMatchingBrace(bool beforeAndAfterCursor)
+        private Tuple<int, int> GetBraceAndMatchingBracePositions()
         {
-            ShowMatchingBrace(beforeAndAfterCursor, false);
+            if (InsideStringOrComment(false))
+                return Tuple.Create(INVALID_POSITION, INVALID_POSITION);
+            if (_isDialogScript && !scintillaControl1.Lines[scintillaControl1.CurrentLine].Text.StartsWith(" "))
+                return Tuple.Create(INVALID_POSITION, INVALID_POSITION);
+
+            int currentPos = scintillaControl1.CurrentPosition;
+            int prevChar = scintillaControl1.GetCharAt(currentPos - 1);
+            int curChar = scintillaControl1.GetCharAt(currentPos);
+            bool isBraceBefore = (prevChar == '{' || prevChar == '}' || prevChar == '(' || prevChar == ')');
+            bool isBraceAfter = (curChar == '{' || curChar == '}' || curChar == '(' || curChar == ')');
+            
+            if (isBraceBefore)
+            {
+                return Tuple.Create(currentPos - 1, scintillaControl1.BraceMatch(currentPos - 1));
+            }
+            if (isBraceAfter)
+            {
+                return Tuple.Create(currentPos, scintillaControl1.BraceMatch(currentPos));
+            }
+            return Tuple.Create(INVALID_POSITION, INVALID_POSITION);
         }
 
-        public void ShowMatchingBrace(bool beforeAndAfterCursor, bool alignIndentation)
+        public void DoIdentationAlignAfterBrace()
         {
-            int currentPos = scintillaControl1.CurrentPosition - 1;
-            int matchPos = scintillaControl1.BraceMatch(currentPos);
-            if ((matchPos < 0) && (beforeAndAfterCursor))
-            {
-                // try the following character instead
-                currentPos++;
-                matchPos = scintillaControl1.BraceMatch(currentPos);
-            }
+            Tuple<int, int> pos = GetBraceAndMatchingBracePositions();
+            int currentPos = pos.Item1;
+            int matchPos = pos.Item2;
             if (matchPos >= 0)
             {
-                if (alignIndentation)
-                {
-                    AlignIndentation(currentPos, matchPos);
-                    currentPos = scintillaControl1.CurrentPosition - 1;
-                }
+                AlignIndentation(currentPos, matchPos);
+            }
+            _doAlignIdentation = false;
+        }
+
+        public void ShowMatchingBraceIfPossible()
+        {
+            Tuple<int, int> pos = GetBraceAndMatchingBracePositions();
+            if (pos.Item1 < 0 && pos.Item2 < 0)
+                return; // no braces found under cursor
+
+            int currentPos = pos.Item1;
+            int matchPos = pos.Item2;
+            if (matchPos >= 0)
+            {
                 scintillaControl1.BraceHighlight(matchPos, currentPos);
             }
             else
@@ -971,7 +1012,6 @@ namespace AGS.Editor
                 scintillaControl1.BraceBadLight(currentPos);
             }
             _braceMatchVisible = true;
-            _doBraceMatch = false;
         }
 
         private void AlignIndentation(int posToAlign, int posToAlignWith)
@@ -990,9 +1030,9 @@ namespace AGS.Editor
                 _braceMatchVisible = false;
             }
 
-            if (_doBraceMatch)
+            if (_doAlignIdentation)
             {
-                ShowMatchingBrace(false, _autoDedentClosingBrace);
+                DoIdentationAlignAfterBrace();
             }
 
             if (_doShowAutocomplete)
@@ -1019,6 +1059,15 @@ namespace AGS.Editor
             }
 
             UpdateStatusText();
+
+            if(_skipBraceMatchOnce)
+            {
+                _skipBraceMatchOnce = false;
+            }
+            else
+            {
+                ShowMatchingBraceIfPossible();
+            }
         }
 
         private void UpdateStatusText()
@@ -1041,6 +1090,11 @@ namespace AGS.Editor
             // Reset to normal fillups
             this.scintillaControl1.AutoCSetFillUps(_fillupKeys);
 
+            if((e.Char == '(') || (e.Char == '{'))
+            {
+                _skipBraceMatchOnce = true;
+            }
+
             if (e.Char == 10) // Enter/Return
             {
                 int lineNumber = scintillaControl1.LineFromPosition(scintillaControl1.CurrentPosition);
@@ -1062,7 +1116,7 @@ namespace AGS.Editor
             {
                 if (!InsideStringOrComment(true))
                 {
-                    _doBraceMatch = true;
+                    if (_autoDedentClosingBrace) _doAlignIdentation = true;
                 }
 
                 if (scintillaControl1.CallTipActive)
@@ -1306,7 +1360,7 @@ namespace AGS.Editor
             return scriptList;
         }
 
-        private ScriptStruct FindGlobalVariableOrType(string type, ref bool staticAccess)
+        private ScriptStruct FindGlobalType(string type)
         {
             foreach (IScript script in GetAutoCompleteScriptList())
             {
@@ -1314,16 +1368,32 @@ namespace AGS.Editor
                 {
                     if ((structDef.Name == type) && (structDef.FullDefinition))
                     {
-                        staticAccess = true;
                         return structDef;
                     }
                 }
+            }
+            return null;
+        }
+
+        private ScriptStruct FindGlobalVariableOrType(string type, ref bool staticAccess)
+        {
+            // First try search for a type that has this name
+            var foundType = FindGlobalType(type);
+            if (foundType != null)
+            {
+                staticAccess = true;
+                return foundType;
+            }
+
+            // Then, search for a variable that has this name, and try retrieving its type
+            foreach (IScript script in GetAutoCompleteScriptList())
+            {
                 foreach (ScriptVariable varDef in script.AutoCompleteData.Variables)
                 {
                     if (varDef.VariableName == type)
                     {
                         staticAccess = false;
-                        return FindGlobalVariableOrType(varDef.Type);
+                        return FindGlobalType(varDef.Type);
                     }
                 }
             }
@@ -2498,8 +2568,84 @@ namespace AGS.Editor
             {
                 char c = (char)scintillaControl1.GetCharAt(i);
 
-                if (!Char.IsLetterOrDigit(c) && (stylingMode != Style.Cpp.Comment ||
-                    stylingMode != Style.Cpp.CommentLine || stylingMode != Style.Cpp.String))
+                // Handle end of line
+                if (c == '\n')
+                {
+                    onNewLine = true;
+                    atNewWord = false;
+                    onScriptLine = false;
+                    // The multiline comments and strings should keep their style;
+                    // everything else is cut of at the end of the line
+                    if (stylingMode != Style.Cpp.Comment && stylingMode != Style.Cpp.String)
+                    {
+                        if (laststyle < i)
+                        {
+                            scintillaControl1.SetStyling(i - laststyle, stylingMode);
+                            laststyle = i;
+                        }
+                        stylingMode = Style.Cpp.Default;
+                    }
+                    continue;
+                }
+
+                // Handle new non-empty line
+                if (onNewLine)
+                {
+                    // first whitespace on a new line triggers normal script
+                    if (Char.IsWhiteSpace(c))
+                    {
+                        onScriptLine = true;
+                        onNewLine = false;
+                        atNewWord = true;
+                        continue;
+                    }
+                    // first non-whitespace on a new line: switch to dialog script style
+                    // (unless we are inside a multiline comment or string)
+                    else if (stylingMode != Style.Cpp.CommentLine &&
+                        stylingMode != Style.Cpp.String)
+                    {
+                        scintillaControl1.SetStyling(i - laststyle, stylingMode);
+                        stylingMode = Style.Cpp.Word2;
+                        laststyle = i;
+                    }
+                    onNewLine = false;
+                    atNewWord = true;
+                }
+
+                // Handle inside comments
+                if (stylingMode == Style.Cpp.CommentLine)
+                {
+                    // if inside a one-line comment, then just skip everything (except EOL)
+                    continue;
+                }
+                else if (stylingMode == Style.Cpp.Comment)
+                {
+                    // if inside a multiline comment, then test for the comment end
+                    if (c == '/' && scintillaControl1.GetCharAt(i - 1) == '*')
+                    {
+                        scintillaControl1.SetStyling(i - laststyle + 1, stylingMode);
+                        stylingMode = Style.Cpp.Default;
+                        laststyle = i + 1;
+                        atNewWord = true;
+                    }
+                    continue;
+                }
+
+                // Handle inside strings
+                if (stylingMode == Style.Cpp.String)
+                {
+                    // test for the string end
+                    if (c == '"')
+                    {
+                        scintillaControl1.SetStyling(i - laststyle + 1, stylingMode);
+                        laststyle = i + 1;
+                        stylingMode = Style.Cpp.Default;
+                        atNewWord = true;
+                    }
+                    continue;
+                }
+
+                if (!Char.IsLetterOrDigit(c))
                 {
                     string lastword = previousWordFrom(i);
                     if (lastword.Length != 0)
@@ -2519,85 +2665,38 @@ namespace AGS.Editor
                     }
                 }
 
-                if (c == '\n')
-                {
-                    onNewLine = true;
-                    atNewWord = false;
-                    onScriptLine = false;
-                    if (stylingMode != Style.Cpp.Comment && stylingMode != Style.Cpp.String)
-                    {
-                        if (laststyle < i)
-                        {
-                            scintillaControl1.SetStyling(i - laststyle, stylingMode);
-                            laststyle = i;
-                        }
-                        stylingMode = Style.Cpp.Default;
-                    }
-                    continue;
-                }
-
-                if (onNewLine)
-                {
-                    if (Char.IsWhiteSpace(c))
-                    {
-                        onScriptLine = true;
-                        onNewLine = false;
-                        atNewWord = true;
-                        continue;
-                    }
-                }
-
+                // Handle regular script
                 if (onScriptLine)
                 {
                     if (isOperator(c))
                     {
-                        if (stylingMode != Style.Cpp.String && stylingMode != Style.Cpp.Comment && stylingMode != Style.Cpp.CommentLine)
-                        {
-                            scintillaControl1.SetStyling(i - laststyle, stylingMode);
-                            scintillaControl1.SetStyling(1, Style.Cpp.Operator);
-                            stylingMode = Style.Cpp.Default;
-                            laststyle = i + 1;
-                        }
+                        scintillaControl1.SetStyling(i - laststyle, stylingMode);
+                        scintillaControl1.SetStyling(1, Style.Cpp.Operator);
+                        stylingMode = Style.Cpp.Default;
+                        laststyle = i + 1;
                     }
                     // Style the numbers only when the digit is the first character in a word
                     else if (atNewWord && Char.IsDigit(c))
                     {
-                        if (stylingMode != Style.Cpp.String && stylingMode != Style.Cpp.Comment && stylingMode != Style.Cpp.CommentLine)
-                        {
-                            scintillaControl1.SetStyling(i - laststyle, stylingMode);
-                            stylingMode = Style.Cpp.Number;
-                            laststyle = i;
-                        }
+                        scintillaControl1.SetStyling(i - laststyle, stylingMode);
+                        stylingMode = Style.Cpp.Number;
+                        laststyle = i;
                     }
                     else if (c == '"')
                     {
-                        if (stylingMode == Style.Cpp.String)
-                        {
-                            scintillaControl1.SetStyling(i - laststyle + 1, stylingMode);
-                            laststyle = i + 1;
-                            stylingMode = Style.Cpp.Default;
-                        }
-                        else stylingMode = Style.Cpp.String;
+                        stylingMode = Style.Cpp.String;
                     }
                     else if (Char.IsWhiteSpace(c) || Char.IsPunctuation(c))
                     {
-                        if (stylingMode != Style.Cpp.String && stylingMode != Style.Cpp.Comment && stylingMode != Style.Cpp.CommentLine)
-                        {
-                            scintillaControl1.SetStyling(i - laststyle, stylingMode);
-                            stylingMode = Style.Cpp.Default;
-                            laststyle = i;
-                        }
-                    }
-                }
-                else
-                {
-                    if (onNewLine && stylingMode != Style.Cpp.Comment)
-                    {
                         scintillaControl1.SetStyling(i - laststyle, stylingMode);
-                        stylingMode = Style.Cpp.Word2;
+                        stylingMode = Style.Cpp.Default;
                         laststyle = i;
                     }
-                    if (c == ':' && stylingMode != Style.Cpp.Comment && stylingMode != Style.Cpp.CommentLine)
+                }
+                // Handle dialog script
+                else
+                {
+                    if (c == ':')
                     {
                         scintillaControl1.SetStyling(i - laststyle + 1, stylingMode);
                         laststyle = i + 1;
@@ -2611,20 +2710,17 @@ namespace AGS.Editor
                     }
                 }
 
+                // Handle comment starts
                 if (c == '/')
                 {
-                    if (stylingMode == Style.Cpp.Comment && scintillaControl1.GetCharAt(i - 1) == '*')
-                    {
-                        scintillaControl1.SetStyling(i - laststyle + 1, stylingMode);
-                        stylingMode = Style.Cpp.Default;
-                        laststyle = i + 1;
-                    }
-                    else if (scintillaControl1.GetCharAt(i + 1) == '*' && onScriptLine)
+                    // multiline comment
+                    if (scintillaControl1.GetCharAt(i + 1) == '*' && onScriptLine)
                     {
                         scintillaControl1.SetStyling(i - laststyle, stylingMode);
                         stylingMode = Style.Cpp.Comment;
                         laststyle = i;
                     }
+                    // single-line comment
                     else if (scintillaControl1.GetCharAt(i + 1) == '/')
                     {
                         scintillaControl1.SetStyling(i - laststyle, stylingMode);

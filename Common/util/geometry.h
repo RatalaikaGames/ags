@@ -18,6 +18,7 @@
 #ifndef __AGS_CN_UTIL__GEOMETRY_H
 #define __AGS_CN_UTIL__GEOMETRY_H
 
+#include <cmath>
 #include "util/math.h"
 
 namespace AGSMath = AGS::Common::Math;
@@ -105,6 +106,11 @@ struct Point
     inline Point operator +(const Point &p) const
     {
         return Point(X + p.X, Y + p.Y);
+    }
+
+    inline Point operator -(const Point &p) const
+    {
+        return Point(X - p.X, Y - p.Y);
     }
 };
 
@@ -386,6 +392,12 @@ struct Circle
 
 };
 
+
+// Calculates a distance between two points
+inline float DistanceBetween(const Point &p1, const Point &p2)
+{
+    return static_cast<float>(std::sqrt(((p2.X - p1.X) ^ 2) + ((p2.Y - p1.Y) ^ 2)));
+}
 
 // Tells if two rectangles intersect (overlap) at least partially
 bool AreRectsIntersecting(const Rect &r1, const Rect &r2);

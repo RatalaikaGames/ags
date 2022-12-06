@@ -630,7 +630,7 @@ namespace AGS.Editor
             }
             else if (command == MATCH_BRACE_COMMAND)
             {
-                scintilla.ShowMatchingBrace(true);
+                scintilla.ShowMatchingBraceIfPossible();
             }
             else if (command == SHOW_MATCHING_SCRIPT_OR_HEADER_COMMAND)
             {
@@ -1114,14 +1114,13 @@ namespace AGS.Editor
 
         private void LoadColorTheme(ColorTheme t)
         {
-            panel1.BackColor = t.GetColor("script-editor/background");
-            panel1.ForeColor = t.GetColor("script-editor/foreground");
-            panel1.Controls.Remove(cmbFunctions);
-            cmbFunctions = t.GetComboBox("script-editor/combo-functions", cmbFunctions);
-            panel1.Controls.Add(cmbFunctions);
-            cmbFunctions.SelectedIndexChanged += cmbFunctions_SelectedIndexChanged;
-            cmbFunctions.MouseEnter += cmbFunctions_MouseEnter;
-            cmbFunctions.MouseLeave += cmbFunctions_MouseLeave;
+            t.ControlHelper(this, "script-editor");
+            if (t.ComboBoxHelper(panel1.Controls, ref cmbFunctions, "script-editor/combo-functions"))
+            {
+                cmbFunctions.SelectedIndexChanged += cmbFunctions_SelectedIndexChanged;
+                cmbFunctions.MouseEnter += cmbFunctions_MouseEnter;
+                cmbFunctions.MouseLeave += cmbFunctions_MouseLeave;
+            }
         }
 
         void ScriptEditor_HandleCreated(object sender, System.EventArgs e)

@@ -125,6 +125,7 @@ bool RegisterPluginStubs(const char* name)
     ccAddExternalStaticFunction("Blur",                         Sc_PluginStub_Int0);
     ccAddExternalStaticFunction("HighPass",                     Sc_PluginStub_Int0);
     ccAddExternalStaticFunction("DrawAdd",                      Sc_PluginStub_Int0);
+    ccAddExternalStaticFunction("DrawSprite",                   Sc_PluginStub_Int0);
     return true;
   }
   else if (ags_stricmp(name, "agsflashlight") == 0)
@@ -174,7 +175,8 @@ bool RegisterPluginStubs(const char* name)
     ccAddExternalStaticFunction("MobileResetAchievements",      Sc_PluginStub_Void);
     return true;
   }
-  else if (ags_stricmp(name, "agsspritefont") == 0)
+  else if (ags_stricmp(name, "agsspritefont") == 0 ||
+           ags_stricmp(name, "agsplugin.spritefont") == 0)
   {
     ccAddExternalStaticFunction("SetSpriteFont",                Sc_PluginStub_Void);
     ccAddExternalStaticFunction("SetVariableSpriteFont",        Sc_PluginStub_Void);

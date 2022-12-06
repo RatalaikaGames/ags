@@ -38,33 +38,36 @@ int sdl_mod_to_ags_mod(const SDL_KeyboardEvent &kbevt);
 KeyInput ags_keycode_from_sdl(const SDL_Event &event, bool old_keyhandle)
 {
     KeyInput ki;
-    // Printable characters are received only from SDL_TEXTINPUT event,
-    // as it has key presses + mods correctly converted using current system locale already,
-    // so no need to do that manually.
-    // NOTE: keycodes such as SDLK_EXCLAIM ('!') could be misleading, as they are NOT
-    // received when user presses for example Shift + 1 on regular keyboard, but only on
-    // systems where single keypress can produce that symbol.
-    if (event.type == SDL_TEXTINPUT)
+    // Normally SDL_TEXTINPUT is meant for handling the printable characters,
+    // and not the actual key presses.
+    // But in the "old key handle" mode we use it also to get the full range
+    // of key codes corresponding to chars, including combos (SHIFT + 3 = #).
+    // TODO: find out if it's feasible to just convert keydown + SHIFT combos
+    // ourselves: then we can utilize SDL_KEYDOWN for both modes and leave
+    // TEXTINPUT for char print only.
+    switch (event.type)
     {
+    case SDL_TEXTINPUT:
         char ascii[sizeof(SDL_TextInputEvent::text)];
         StrUtil::ConvertUtf8ToAscii(event.text.text, "C", &ascii[0], sizeof(ascii));
-        unsigned char textch = ascii[0];
-        if (textch >= 32)
-            ki.Key = ki.CompatKey = static_cast<eAGSKeyCode>(textch);
+        if (old_keyhandle && (ascii[0] >= 32))
+        {
+            ki.Key = static_cast<eAGSKeyCode>(ascii[0]);
+            ki.CompatKey = ki.Key;
+        }
         strncpy(ki.Text, event.text.text, KeyInput::UTF8_ARR_SIZE);
         Utf8::GetChar(event.text.text, sizeof(SDL_TextInputEvent::text), &ki.UChar);
         return ki;
-    }
-
-    if (event.type == SDL_KEYDOWN)
-    {
+    case SDL_KEYDOWN:
         ki.Mod = sdl_mod_to_ags_mod(event.key);
         ki.Key = sdl_key_to_ags_key(event.key, old_keyhandle);
         ki.CompatKey = sdl_key_to_ags_key(event.key, true);
-        if (ki.CompatKey == eAGSKeyCodeNone)
-            ki.CompatKey = ki.Key;
+        if (!old_keyhandle && (ki.CompatKey == eAGSKeyCodeNone))
+            ki.CompatKey = ki.Key; // in the new mode also assign letter-range keys
+        return ki;
+    default:
+        return ki;
     }
-    return ki;
 }
 
 int sdl_mod_to_ags_mod(const SDL_KeyboardEvent &kbevt)
@@ -88,6 +91,10 @@ eAGSKeyCode sdl_key_to_ags_key(const SDL_KeyboardEvent &kbevt, bool old_keyhandl
     const SDL_Keysym key = kbevt.keysym;
     const SDL_Keycode sym = key.sym;
     const Uint16 mod = key.mod;
+
+    // NOTE: keycodes such as SDLK_EXCLAIM ('!') may be misleading, as they are NOT
+    // received when user presses for example Shift + 1 on regular keyboard, but only on
+    // systems where single keypress can produce that symbol.
 
     // Old mode: Ctrl and Alt combinations realign the letter code to certain offset
     if (old_keyhandle && (sym >= SDLK_a && sym <= SDLK_z))
@@ -248,6 +255,9 @@ bool ags_key_to_sdl_scan(eAGSKeyCode key, SDL_Scancode(&scan)[3])
 // key events for our internal use whenever engine have to query key input.
 static std::deque<SDL_Event> g_keyEvtQueue;
 
+int sys_modkeys = 0; // saved accumulated key mods
+bool sys_modkeys_fired = false; // saved mod key combination already fired
+
 bool ags_keyevent_ready()
 {
     return g_keyEvtQueue.size() > 0;
@@ -298,6 +308,12 @@ static void on_sdl_key_down(const SDL_Event &event)
 {
     // Engine is not structured very well yet, and we cannot pass this event where it's needed;
     // instead we save it in the queue where it will be ready whenever any component asks for one.
+    g_keyEvtQueue.push_back(event);
+}
+
+static void on_sdl_key_up(const SDL_Event &event)
+{
+    // Key up events are only used for reacting on mod key combinations at the moment.
     g_keyEvtQueue.push_back(event);
 }
 
@@ -470,6 +486,8 @@ void ags_clear_input_state()
 {
     // clear everything related to the input state
     g_keyEvtQueue.clear();
+    sys_modkeys = 0;
+    sys_modkeys_fired = false;
     mouse_button_state = 0;
     mouse_accum_button_state = 0;
     mouse_clear_at_time = AGS_Clock::now();
@@ -480,6 +498,9 @@ void ags_clear_input_state()
 void ags_clear_input_buffer()
 {
     g_keyEvtQueue.clear();
+    // accumulated mod keys have to be cleared because they depend on key evt queue
+    sys_modkeys = 0;
+    sys_modkeys_fired = false;
     // accumulated state only helps to not miss clicks
     mouse_accum_button_state = 0;
     // forget about recent mouse relative movement too
@@ -559,6 +580,9 @@ void sys_evt_process_one(const SDL_Event &event) {
     // INPUT
     case SDL_KEYDOWN:
         on_sdl_key_down(event);
+        break;
+    case SDL_KEYUP:
+        on_sdl_key_up(event);
         break;
     case SDL_TEXTINPUT:
         on_sdl_textinput(event);

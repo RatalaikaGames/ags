@@ -46,7 +46,7 @@
 #include "gui/guitextbox.h"
 #include "plugin/agsplugin.h"
 #include "plugin/plugin_engine.h"
-#include "script/cc_error.h"
+#include "script/cc_common.h"
 #include "script/script.h"
 #include "util/filestream.h" // TODO: needed only because plugins expect file handle
 #include "media/audio/audio_system.h"
@@ -61,7 +61,6 @@ extern Bitmap *dynamicallyCreatedSurfaces[MAX_DYNAMIC_SURFACES];
 extern RoomStruct thisroom;
 extern RoomStatus troom;
 extern Bitmap *raw_saved_screen;
-extern MoveList *mls;
 
 
 namespace AGS
@@ -540,7 +539,7 @@ HSaveError WriteCharacters(Stream *out)
     for (int i = 0; i < game.numcharacters; ++i)
     {
         game.chars[i].WriteToFile(out);
-        charextra[i].WriteToFile(out);
+        charextra[i].WriteToSavegame(out);
         Properties::WriteValues(play.charProps[i], out);
         if (loaded_game_file_version <= kGameVersion_272)
             WriteTimesRun272(*game.intrChar[i], out);
@@ -558,7 +557,7 @@ HSaveError ReadCharacters(Stream *in, int32_t cmp_ver, const PreservedParams& /*
     for (int i = 0; i < game.numcharacters; ++i)
     {
         game.chars[i].ReadFromFile(in);
-        charextra[i].ReadFromFile(in);
+        charextra[i].ReadFromSavegame(in, cmp_ver);
         Properties::ReadValues(play.charProps[i], in);
         if (loaded_game_file_version <= kGameVersion_272)
             ReadTimesRun272(*game.intrChar[i], in);
@@ -635,7 +634,7 @@ HSaveError WriteGUI(Stream *out)
     size_t num_abuts = GetAnimatingButtonCount();
     out->WriteInt32(num_abuts);
     for (size_t i = 0; i < num_abuts; ++i)
-        GetAnimatingButtonByIndex(i)->WriteToFile(out);
+        GetAnimatingButtonByIndex(i)->WriteToSavegame(out);
     return HSaveError::None();
 }
 
@@ -701,7 +700,7 @@ HSaveError ReadGUI(Stream *in, int32_t cmp_ver, const PreservedParams& /*pp*/, R
     for (int i = 0; i < anim_count; ++i)
     {
         AnimatingGUIButton abut;
-        abut.ReadFromFile(in, cmp_ver);
+        abut.ReadFromSavegame(in, cmp_ver);
         AddButtonAnimation(abut);
     }
     return err;
@@ -851,7 +850,8 @@ HSaveError WriteOverlays(Stream *out)
     for (const auto &over : screenover)
     {
         over.WriteToFile(out);
-        serialize_bitmap(over.pic, out);
+        if (!over.IsSpriteReference())
+            serialize_bitmap(over.GetImage(), out);
     }
     return HSaveError::None();
 }
@@ -862,15 +862,16 @@ HSaveError ReadOverlays(Stream *in, int32_t cmp_ver, const PreservedParams& /*pp
     for (size_t i = 0; i < over_count; ++i)
     {
         ScreenOverlay over;
-        over.ReadFromFile(in, cmp_ver);
-        if (over.hasSerializedBitmap)
-            over.pic = read_serialized_bitmap(in);
+        bool has_bitmap;
+        over.ReadFromFile(in, has_bitmap, cmp_ver);
+        if (has_bitmap)
+            over.SetImage(std::unique_ptr<Bitmap>(read_serialized_bitmap(in)));
         if (over.scaleWidth <= 0 || over.scaleHeight <= 0)
         {
-            over.scaleWidth = over.pic->GetWidth();
-            over.scaleHeight = over.pic->GetHeight();
+            over.scaleWidth = over.GetImage()->GetWidth();
+            over.scaleHeight = over.GetImage()->GetHeight();
         }
-        screenover.push_back(over);
+        screenover.push_back(std::move(over));
     }
     return HSaveError::None();
 }
@@ -1114,7 +1115,8 @@ HSaveError ReadManagedPool(Stream *in, int32_t /*cmp_ver*/, const PreservedParam
     if (ccUnserializeAllObjects(in, &ccUnserializer))
     {
         return new SavegameError(kSvgErr_GameObjectInitFailed,
-            String::FromFormat("Managed pool deserialization failed: %s", ccErrorString.GetCStr()));
+            String::FromFormat("Managed pool deserialization failed: %s",
+                cc_get_error().ErrorString.GetCStr()));
     }
     return HSaveError::None();
 }
@@ -1167,7 +1169,7 @@ ComponentHandler ComponentHandlers[] =
     },
     {
         "Characters",
-        1,
+        2,
         0,
         WriteCharacters,
         ReadCharacters
@@ -1181,7 +1183,7 @@ ComponentHandler ComponentHandlers[] =
     },
     {
         "GUI",
-        kGuiSvgVersion_36023,
+        kGuiSvgVersion_36025,
         kGuiSvgVersion_Initial,
         WriteGUI,
         ReadGUI
@@ -1216,7 +1218,7 @@ ComponentHandler ComponentHandlers[] =
     },
     {
         "Overlays",
-        2,
+        3,
         0,
         WriteOverlays,
         ReadOverlays
@@ -1237,14 +1239,14 @@ ComponentHandler ComponentHandlers[] =
     },
     {
         "Room States",
-        2,
+        3,
         0,
         WriteRoomStates,
         ReadRoomStates
     },
     {
         "Loaded Room State",
-        2, // should correspond to "Room States"
+        3, // must correspond to "Room States"
         0,
         WriteThisRoom,
         ReadThisRoom

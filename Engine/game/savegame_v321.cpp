@@ -18,6 +18,7 @@
 // Perhaps the optimal solution would be to have a savegame converter instead.
 //
 //=============================================================================
+#include <vector>
 #include "core/types.h"
 #include "ac/button.h"
 #include "ac/characterextras.h"
@@ -42,7 +43,7 @@
 #include "plugin/agsplugin.h"
 #include "plugin/plugin_engine.h"
 #include "script/script.h"
-#include "script/cc_error.h"
+#include "script/cc_common.h"
 #include "util/alignedstream.h"
 #include "util/string_utils.h"
 
@@ -52,8 +53,6 @@ using namespace AGS::Engine;
 extern GameSetupStruct game;
 extern GameState play;
 extern std::vector<ViewStruct> views;
-extern CharacterExtras *charextra;
-extern MoveList *mls;
 extern RGB palette[256];
 extern DialogTopic *dialog;
 extern std::vector<AnimatingGUIButton> animbuts;
@@ -212,7 +211,7 @@ static void ReadCharacterExtras_Aligned(Stream *in)
     AlignedStream align_s(in, Common::kAligned_Read);
     for (int i = 0; i < game.numcharacters; ++i)
     {
-        charextra[i].ReadFromFile(&align_s);
+        charextra[i].ReadFromSavegame(&align_s, 0);
         align_s.Reset();
     }
 }
@@ -243,7 +242,7 @@ void ReadAnimatedButtons_Aligned(Stream *in, int num_abuts)
     for (int i = 0; i < num_abuts; ++i)
     {
         AnimatingGUIButton abtn;
-        abtn.ReadFromFile(&align_s, 0);
+        abtn.ReadFromSavegame(&align_s, 0);
         AddButtonAnimation(abtn);
         align_s.Reset();
     }
@@ -306,12 +305,15 @@ static void restore_game_ambientsounds(Stream *in, RestoredData &r_data)
     }
 }
 
-static void ReadOverlays_Aligned(Stream *in, size_t num_overs)
+static void ReadOverlays_Aligned(Stream *in, std::vector<bool> &has_bitmap, size_t num_overs)
 {
     AlignedStream align_s(in, Common::kAligned_Read);
+    has_bitmap.resize(num_overs);
     for (size_t i = 0; i < num_overs; ++i)
     {
-        screenover[i].ReadFromFile(&align_s, 0);
+        bool has_bm;
+        screenover[i].ReadFromFile(&align_s, has_bm, 0);
+        has_bitmap[i] = has_bm;
         align_s.Reset();
     }
 }
@@ -320,10 +322,11 @@ static void restore_game_overlays(Stream *in)
 {
     size_t num_overs = in->ReadInt32();
     screenover.resize(num_overs);
-    ReadOverlays_Aligned(in, num_overs);
+    std::vector<bool> has_bitmap;
+    ReadOverlays_Aligned(in, has_bitmap, num_overs);
     for (size_t i = 0; i < num_overs; ++i) {
-        if (screenover[i].hasSerializedBitmap)
-            screenover[i].pic = read_serialized_bitmap(in);
+        if (has_bitmap[i])
+            screenover[i].SetImage(std::unique_ptr<Bitmap>(read_serialized_bitmap(in)));
     }
 }
 
@@ -559,7 +562,8 @@ HSaveError restore_save_data_v321(Stream *in, const PreservedParams &pp, Restore
     if (ccUnserializeAllObjects(in, &ccUnserializer))
     {
         return new SavegameError(kSvgErr_GameObjectInitFailed,
-            String::FromFormat("Managed pool deserialization failed: %s.", ccErrorString.GetCStr()));
+            String::FromFormat("Managed pool deserialization failed: %s.",
+                cc_get_error().ErrorString.GetCStr()));
     }
 
     // preserve legacy music type setting

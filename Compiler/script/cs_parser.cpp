@@ -5,13 +5,12 @@
 #include <cerrno>
 #include <string>
 #include <vector>
-#include "cs_parser.h"
-#include "cc_internallist.h"    // ccInternalList
-#include "cs_parser_common.h"
-#include "cc_symboltable.h"
-#include "script/cc_options.h"
-#include "script/script_common.h"
-#include "script/cc_error.h"
+#include "script/cs_parser.h"
+#include "script/cc_internallist.h"
+#include "script/cs_parser_common.h"
+#include "script/cc_symboltable.h"
+#include "script/cc_common.h"
+#include "script/cc_internal.h"
 #include "cc_variablesymlist.h"
 #include "fmem.h"
 #include "util/utf8.h"
@@ -639,13 +638,26 @@ int check_not_eof(ccInternalList &targ) {
   return 0;
 }
 
-int check_for_default_value(ccInternalList &targ, int funcsym, int numparams) {
+// return the float as an int32 (but not actually converted to int)
+int float_to_int_raw(float toconv) {
+    union
+    {
+        float   f;
+        int32_t i32;
+    } conv;
+    conv.f = toconv;
+    return conv.i32;
+}
 
+int check_for_default_value(ccInternalList &targ, int funcsym, int numparams) {
     if (sym.get_type(targ.peeknext()) == SYM_ASSIGN) {
+        const char *vartype = sym.get_name(targ.script[targ.pos - 2]);
         // parameter has default value
         targ.getnext();
         int defValSym = targ.getnext();
         bool negateIt = false;
+        bool isFloat = false;
+        bool isPointer = strchr(vartype, '*') != NULL;
 
         if (sym.get_name(defValSym)[0] == '-') {
             // allow negative default value
@@ -654,10 +666,36 @@ int check_for_default_value(ccInternalList &targ, int funcsym, int numparams) {
         }
 
         int defaultValue;
-
+        if (strchr(sym.get_name(defValSym), '.') != NULL) {
+            float fval = atof(sym.get_name(defValSym));
+            isFloat = true;
+            if (negateIt)
+                fval = -fval;
+            defaultValue = float_to_int_raw(fval);
+        }
         // extract the default value
-        if (accept_literal_or_constant_value(defValSym, defaultValue, negateIt, "Parameter default value must be literal") < 0) {
+        else if (accept_literal_or_constant_value(defValSym, defaultValue, negateIt, "Parameter default value must be literal") < 0) {
             return -1;
+        }
+
+        // check validity of value type to parameter type
+        if (defaultValue != 0) {
+            // 0 as value or pointer is always valid, so we only check the other cases
+
+            if (isPointer) {
+                cc_error("Parameter default pointer value can only be 0");
+                return -1;
+            }
+            if (isFloat ^ (strcmp(vartype, "float") == 0)) {
+                // float values allowed only for type float
+                cc_error("Parameter default value must be %s or 0", vartype);
+                return -1;
+            }
+            if (strcmp(vartype, "String") == 0) {
+                // prevent non-zero integers for type String
+                cc_error("Parameter default value for type String must be 0");
+                return -1;
+            }
         }
 
         sym.entries[funcsym].funcParamDefaultValues[numparams % 100] = defaultValue;
@@ -1047,17 +1085,6 @@ int process_function_declaration(ccInternalList &targ, ccCompiledScript*scrip,
   }
 
   return 0;
-}
-
-// return the float as an int32 (but not actually converted to int)
-int float_to_int_raw(float toconv) {
-    union
-    {
-        float   f;
-        int32_t i32;
-    } conv;
-    conv.f = toconv;
-    return conv.i32;
 }
 
 int isPartOfExpression(ccInternalList *targ, int j) {
@@ -3742,7 +3769,7 @@ int __cc_compile_file(const char*inpl,ccCompiledScript*scrip) {
                         }
                         // not found -- a good thing, but find_member_sym will
                         // have errored. Clear the error
-                        ccError = 0;
+                        cc_clear_error();
                     }
 
                     if (isFunction) {
@@ -4309,7 +4336,7 @@ startvarbit:
             if (oldDefinition.stype) {
                 // there was a forward declaration -- check that
                 // the real declaration matches it
-                ccError = 0;
+                cc_clear_error();
                 if (!isglobal)
                     cc_error("Local variable cannot have the same name as an import");
                 else if (oldDefinition.stype != sym.entries[cursym].stype)
@@ -4336,7 +4363,7 @@ startvarbit:
                         }
                     }
                 }
-                if (ccError)
+                if (cc_has_error())
                     return -1;
             }
 

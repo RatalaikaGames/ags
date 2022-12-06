@@ -11,27 +11,76 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
-
-#include "screenoverlay.h"
+#include "ac/screenoverlay.h"
+#include "ac/spritecache.h"
+#include "gfx/bitmap.h"
 #include "util/stream.h"
 
-using AGS::Common::Stream;
+using namespace AGS::Common;
 
-void ScreenOverlay::ReadFromFile(Stream *in, int32_t cmp_ver)
+Bitmap *ScreenOverlay::GetImage() const
 {
-    pic = nullptr;
+    return IsSpriteReference() ?
+        spriteset[_sprnum] :
+        _pic.get();
+}
+
+void ScreenOverlay::SetImage(std::unique_ptr<Common::Bitmap> pic)
+{
+    _flags &= ~kOver_SpriteReference;
+    _pic = std::move(pic);
+    _sprnum = -1;
+    offsetX = offsetY = 0;
+    scaleWidth = scaleHeight = 0;
+    const auto *img = GetImage();
+    if (img)
+    {
+        scaleWidth = img->GetWidth();
+        scaleHeight = img->GetHeight();
+    }
+    MarkChanged();
+}
+
+void ScreenOverlay::SetSpriteNum(int sprnum)
+{
+    _flags |= kOver_SpriteReference;
+    _pic.reset();
+    _sprnum = sprnum;
+    offsetX = offsetY = 0;
+    scaleWidth = scaleHeight = 0;
+    const auto *img = GetImage();
+    if (img)
+    {
+        scaleWidth = img->GetWidth();
+        scaleHeight = img->GetHeight();
+    }
+    MarkChanged();
+}
+
+void ScreenOverlay::ReadFromFile(Stream *in, bool &has_bitmap, int32_t cmp_ver)
+{
+    _pic.reset();
     ddb = nullptr;
-    // Skipping pointers (were saved by old engine)
-    in->ReadInt32(); // ddb
-    hasSerializedBitmap = in->ReadInt32() != 0; // pic
+    in->ReadInt32(); // ddb 32-bit pointer value (nasty legacy format)
+    int pic = in->ReadInt32();
     type = in->ReadInt32();
     x = in->ReadInt32();
     y = in->ReadInt32();
     timeout = in->ReadInt32();
     bgSpeechForChar = in->ReadInt32();
     associatedOverlayHandle = in->ReadInt32();
-    hasAlphaChannel = in->ReadBool();
-    positionRelativeToScreen = in->ReadBool();
+    if (cmp_ver >= 3)
+    {
+        _flags = in->ReadInt16();
+    }
+    else
+    {
+        if (in->ReadBool()) // has alpha
+            _flags |= kOver_AlphaChannel;
+        if (!(in->ReadBool())) // screen relative position
+            _flags |= kOver_PositionAtRoomXY;
+    }
+
     if (cmp_ver >= 1)
     {
         offsetX = in->ReadInt32();
@@ -44,21 +93,33 @@ void ScreenOverlay::ReadFromFile(Stream *in, int32_t cmp_ver)
         scaleWidth = in->ReadInt32();
         scaleHeight = in->ReadInt32();
     }
+
+    if (_flags & kOver_SpriteReference)
+    {
+        _sprnum = pic;
+        has_bitmap = false;
+    }
+    else
+    {
+        _sprnum = -1;
+        has_bitmap = pic != 0;
+    }
 }
 
 void ScreenOverlay::WriteToFile(Stream *out) const
 {
-    // Writing bitmap "pointers" to correspond to full structure writing
-    out->WriteInt32(0); // ddb
-    out->WriteInt32(pic ? 1 : 0); // pic
+    out->WriteInt32(0); // ddb 32-bit pointer value (nasty legacy format)
+    if (_flags & kOver_SpriteReference)
+        out->WriteInt32(_sprnum); // sprite reference
+    else
+        out->WriteInt32(_pic ? 1 : 0); // has bitmap
     out->WriteInt32(type);
     out->WriteInt32(x);
     out->WriteInt32(y);
     out->WriteInt32(timeout);
     out->WriteInt32(bgSpeechForChar);
     out->WriteInt32(associatedOverlayHandle);
-    out->WriteBool(hasAlphaChannel);
-    out->WriteBool(positionRelativeToScreen);
+    out->WriteInt16(_flags);
     // since cmp_ver = 1
     out->WriteInt32(offsetX);
     out->WriteInt32(offsetY);

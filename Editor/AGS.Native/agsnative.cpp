@@ -404,7 +404,7 @@ HAGSError extract_room_template_files(const AGSString &templateFileName, int new
     }
     char outputName[MAX_PATH];
     AGSString extension = AGSPath::GetFileExtension(thisFile);
-    sprintf(outputName, "room%d%s", newRoomNumber, extension.GetCStr());
+    sprintf(outputName, "room%d.%s", newRoomNumber, extension.GetCStr());
     Stream *wrout = AGSFile::CreateFile(outputName);
     if (!wrout) 
     {
@@ -1079,7 +1079,7 @@ static void doDrawViewLoop (int hdc, int numFrames, ViewFrame *frames, int x, in
 int ctx_data_to_game_size(int val, bool hires_ctx)
 {
     if (hires_ctx && !thisgame.IsLegacyHiRes())
-        return AGSMath::Max(1, (val / HIRES_COORD_MULTIPLIER));
+        return max(1, (val / HIRES_COORD_MULTIPLIER));
     if (!hires_ctx && thisgame.IsLegacyHiRes())
         return val * HIRES_COORD_MULTIPLIER;
     return val;
@@ -3967,6 +3967,22 @@ void save_room_file(RoomStruct &rs, const AGSString &path)
         fix_block(rs.BgFrames[i].Graphic.get());
 }
 
+
+// Reimplementation of project-dependent functions from Common
+#include "script/cc_common.h"
+
+AGSString cc_format_error(const AGSString &message)
+{
+    if (currentline > 0)
+        return AGSString::FromFormat("Error (line %d): %s", currentline, message.GetCStr());
+    else
+        return AGSString::FromFormat("Error (line unknown): %s", message.GetCStr());
+}
+
+AGSString cc_get_callstack(int max_lines)
+{
+    return "";
+}
 
 void quit(const char * message) 
 {

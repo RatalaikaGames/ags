@@ -603,9 +603,6 @@
     <ClCompile Include="..\..\Engine\script\script_api.cpp">
       <Filter>Source Files\script</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Engine\script\script_engine.cpp">
-      <Filter>Source Files\script</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Engine\script\script_runtime.cpp">
       <Filter>Source Files\script</Filter>
     </ClCompile>
@@ -833,9 +830,6 @@
     <ClInclude Include="..\..\Engine\ac\character.h">
       <Filter>Header Files\ac</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Engine\ac\charactercache.h">
-      <Filter>Header Files\ac</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Engine\ac\characterextras.h">
       <Filter>Header Files\ac</Filter>
     </ClInclude>
@@ -1017,9 +1011,6 @@
       <Filter>Header Files\ac</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Engine\ac\object.h">
-      <Filter>Header Files\ac</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Engine\ac\objectcache.h">
       <Filter>Header Files\ac</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Engine\ac\overlay.h">

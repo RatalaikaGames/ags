@@ -16,13 +16,11 @@
 #include "ac/draw.h"
 #include "ac/drawingsurface.h"
 #include "ac/common.h"
-#include "ac/charactercache.h"
 #include "ac/display.h"
 #include "ac/game.h"
 #include "ac/gamesetupstruct.h"
 #include "ac/gamestate.h"
 #include "ac/global_translation.h"
-#include "ac/objectcache.h"
 #include "ac/roomobject.h"
 #include "ac/roomstatus.h"
 #include "ac/string.h"
@@ -42,8 +40,6 @@ extern GameSetupStruct game;
 extern GameState play;
 extern RoomStatus*croom;
 extern RoomObject*objs;
-extern CharacterCache *charcache;
-extern ObjectCache objcache[MAX_ROOM_OBJECTS];
 extern SpriteCache spriteset;
 extern Bitmap *dynamicallyCreatedSurfaces[MAX_DYNAMIC_SURFACES];
 

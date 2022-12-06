@@ -30,7 +30,6 @@ target_sources(engine
     ac/cdaudio.h
     ac/character.cpp
     ac/character.h
-    ac/charactercache.h
     ac/characterextras.cpp
     ac/characterextras.h
     ac/characterinfo_engine.cpp
@@ -227,7 +226,6 @@ target_sources(engine
     ac/movelist.h
     ac/object.cpp
     ac/object.h
-    ac/objectcache.h
     ac/overlay.cpp
     ac/overlay.h
     ac/parser.cpp
@@ -423,7 +421,6 @@ target_sources(engine
     plugin/pluginobjectreader.cpp
     plugin/pluginobjectreader.h
     resource/resource.h
-    script/cc_error_engine.cpp
     script/cc_instance.cpp
     script/cc_instance.h
     script/executingscript.cpp
@@ -437,7 +434,6 @@ target_sources(engine
     script/script.h
     script/script_api.cpp
     script/script_api.h
-    script/script_engine.cpp
     script/script_runtime.cpp
     script/script_runtime.h
     script/systemimports.cpp

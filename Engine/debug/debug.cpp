@@ -290,12 +290,12 @@ void apply_debug_config(const ConfigTree &cfg)
           DbgGroupOption(kDbgGroup_SDL, kDbgMsg_Info),
           DbgGroupOption(kDbgGroup_Game, kDbgMsg_Info),
           DbgGroupOption(kDbgGroup_Script, kDbgMsg_All),
-#ifdef DEBUG_SPRITECACHE
+#if DEBUG_SPRITECACHE
           DbgGroupOption(kDbgGroup_SprCache, kDbgMsg_All),
 #else
           DbgGroupOption(kDbgGroup_SprCache, kDbgMsg_Info),
 #endif
-#ifdef DEBUG_MANAGED_OBJECTS
+#if DEBUG_MANAGED_OBJECTS
           DbgGroupOption(kDbgGroup_ManObj, kDbgMsg_All),
 #else
           DbgGroupOption(kDbgGroup_ManObj, kDbgMsg_Info),
@@ -405,8 +405,8 @@ void debug_script_log(const char *msg, ...)
 
 struct Breakpoint
 {
-    char scriptName[80];
-    int lineNumber;
+    char scriptName[80]{};
+    int lineNumber = 0;
 };
 
 std::vector<Breakpoint> breakpoints;
@@ -511,15 +511,15 @@ int check_for_messages_from_editor()
             bool isDelete = (msgPtr[0] == 'D');
             // Format:  SETBREAK $scriptname$lineNumber$
             msgPtr += 10;
-            char scriptNameBuf[100];
-            int i = 0;
+            char scriptNameBuf[sizeof(Breakpoint::scriptName)]{};
+            size_t i = 0;
             while (msgPtr[0] != '$')
             {
-                scriptNameBuf[i] = msgPtr[0];
+                if (i < sizeof(scriptNameBuf) - 1)
+                    scriptNameBuf[i] = msgPtr[0];
                 msgPtr++;
                 i++;
             }
-            scriptNameBuf[i] = 0;
             msgPtr++;
 
             int lineNumber = atoi(msgPtr);

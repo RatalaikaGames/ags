@@ -5,7 +5,7 @@ set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX ${CMAKE_CURRENT_SOURCE_DIR}/CMake/cxx_fla
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.9" CACHE STRING "Minimum OS X deployment version")
 
 project(AGS
-    VERSION 3.6.0.28
+    VERSION 3.6.0.29
     LANGUAGES CXX C)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
@@ -25,6 +25,7 @@ option(AGS_NO_MP3_PLAYER "Disable MP3" OFF)
 option(AGS_NO_VIDEO_PLAYER "Disable Video" OFF)
 option(AGS_BUILTIN_PLUGINS "Built in plugins" ON)
 option(AGS_DEBUG_MANAGED_OBJECTS "Managed Objects Log" OFF)
+option(AGS_DEBUG_SPRITECACHE "Sprite Cache Log" OFF)
 set(AGS_BUILD_STR "" CACHE STRING "Engine Build Information")
 
 

@@ -556,7 +556,11 @@ int engine_check_font_was_loaded()
 void show_preload()
 {
     RGB temppal[256];
-	Bitmap *splashsc = BitmapHelper::CreateRawBitmapOwner( load_pcx("preload.pcx",temppal) );
+
+    std::unique_ptr<Stream> stream (AssetMgr->OpenAsset("preload.pcx"));
+    if(stream == nullptr) return;
+
+    Bitmap *splashsc = BitmapHelper::LoadBitmap("pcx",stream.get(),temppal);
     if (splashsc != nullptr)
     {
         Debug::Printf("Displaying preload image");
@@ -1323,6 +1327,9 @@ void initialize_engine_console(const char* agsPath, const char* cfgPath)
     IniUtil::Read(cfgPath, cfg);
     usetup.main_data_dir = "";
     usetup.main_data_file = agsPath;
+
+    // mouse inout as absolute coordinates, not relative
+    usetup.mouse_ctrl_enabled = false;
 
     // function define_gamedata_location() relies on this
     cmdGameDataPath = "/";

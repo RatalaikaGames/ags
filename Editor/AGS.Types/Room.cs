@@ -13,7 +13,7 @@ namespace AGS.Types
         // These constants are also defined in the native code, if you change
         // them you need to update the Native DLL as well
         public const int MAX_BACKGROUNDS = 5;
-        public const int MAX_OBJECTS = 40;
+        public const int MAX_OBJECTS = 256;
         public const int MAX_HOTSPOTS = 50;
         public const int MAX_WALKABLE_AREAS = 16;
         public const int MAX_WALK_BEHINDS = 16;
@@ -402,5 +402,24 @@ namespace AGS.Types
 		{
 			this.Modified = true;
 		}
-	}
+
+        public bool IsScriptNameAlreadyUsed(string tryName, object ignoreObject)
+        {
+            foreach (RoomHotspot hotspot in Hotspots)
+            {
+                if ((hotspot.Name == tryName) && (hotspot != ignoreObject))
+                {
+                    return true;
+                }
+            }
+            foreach (RoomObject obj in Objects)
+            {
+                if ((obj.Name == tryName) && (obj != ignoreObject))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
 }

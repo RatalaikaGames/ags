@@ -69,7 +69,7 @@ int MyTextBox::processmessage(int mcode, int wParam, void* lParam)
         int key = wParam;
         int uchar = (int)lParam;
         size_t len = strlen(text);
-        if (wParam == eAGSKeyCodeBackspace) {
+        if (key == eAGSKeyCodeBackspace) {
             if (len > 0)
                 text[len - 1] = 0;
             drawandmouse();

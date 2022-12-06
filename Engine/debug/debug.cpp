@@ -410,7 +410,6 @@ struct Breakpoint
 };
 
 std::vector<Breakpoint> breakpoints;
-int numBreakpoints = 0;
 
 bool send_message_to_editor(const char *msg, const char *errorMsg) 
 {
@@ -512,13 +511,10 @@ int check_for_messages_from_editor()
             // Format:  SETBREAK $scriptname$lineNumber$
             msgPtr += 10;
             char scriptNameBuf[sizeof(Breakpoint::scriptName)]{};
-            size_t i = 0;
-            while (msgPtr[0] != '$')
+            for (size_t i = 0; msgPtr[0] != '$'; ++msgPtr, ++i)
             {
                 if (i < sizeof(scriptNameBuf) - 1)
                     scriptNameBuf[i] = msgPtr[0];
-                msgPtr++;
-                i++;
             }
             msgPtr++;
 
@@ -526,12 +522,11 @@ int check_for_messages_from_editor()
 
             if (isDelete) 
             {
-                for (i = 0; i < numBreakpoints; i++)
+                for (size_t i = 0; i < breakpoints.size(); ++i)
                 {
                     if ((breakpoints[i].lineNumber == lineNumber) &&
                         (strcmp(breakpoints[i].scriptName, scriptNameBuf) == 0))
                     {
-                        numBreakpoints--;
                         breakpoints.erase(breakpoints.begin() + i);
                         break;
                     }
@@ -539,10 +534,10 @@ int check_for_messages_from_editor()
             }
             else 
             {
-                breakpoints.push_back(Breakpoint());
-                snprintf(breakpoints[numBreakpoints].scriptName, sizeof(Breakpoint::scriptName), "%s", scriptNameBuf);
-                breakpoints[numBreakpoints].lineNumber = lineNumber;
-                numBreakpoints++;
+                Breakpoint bp;
+                snprintf(bp.scriptName, sizeof(Breakpoint::scriptName), "%s", scriptNameBuf);
+                bp.lineNumber = lineNumber;
+                breakpoints.push_back(bp);
             }
         }
         else if (strncmp(msgPtr, "RESUME", 6) == 0) 
@@ -642,7 +637,7 @@ void scriptDebugHook (ccInstance *ccinst, int linenum) {
 
     const char *scriptName = ccinst->runningInst->instanceof->GetSectionName(ccinst->pc);
 
-    for (int i = 0; i < numBreakpoints; i++)
+    for (size_t i = 0; i < breakpoints.size(); ++i)
     {
         if ((breakpoints[i].lineNumber == linenum) &&
             (strcmp(breakpoints[i].scriptName, scriptName) == 0))

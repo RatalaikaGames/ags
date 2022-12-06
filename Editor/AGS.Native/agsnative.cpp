@@ -214,18 +214,16 @@ int GetMaxSprites() {
 }
 
 int GetSpriteWidth(int slot) {
-	return get_sprite(slot)->GetWidth();
+    return thisgame.SpriteInfos[slot].Width;
 }
 
 int GetSpriteHeight(int slot) {
-	return get_sprite(slot)->GetHeight();
+    return thisgame.SpriteInfos[slot].Height;
 }
 
 void GetSpriteInfo(int slot, ::SpriteInfo &info) {
-    // TODO: find out if we may get width/height from SpriteInfos
-    // or it is necessary to go through get_sprite and check bitmaps in cache?
-    info.Width = GetSpriteWidth(slot);
-    info.Height = GetSpriteHeight(slot);
+    info.Width = thisgame.SpriteInfos[slot].Width;
+    info.Height = thisgame.SpriteInfos[slot].Height;
     info.Flags = thisgame.SpriteInfos[slot].Flags;
 }
 
@@ -2618,8 +2616,8 @@ void ConvertGUIToBinaryFormat(GUI ^guiObj, GUIMain *gui)
           nbut.MouseOverImage = button->MouseoverImage;
           nbut.PushedImage = button->PushedImage;
           nbut.TextAlignment = (::FrameAlignment)button->TextAlignment;
-          nbut.ClickAction[Common::kMouseLeft] = (Common::GUIClickAction)button->ClickAction;
-          nbut.ClickData[Common::kMouseLeft] = button->NewModeNumber;
+          nbut.ClickAction[Common::kGUIClickLeft] = (Common::GUIClickAction)button->ClickAction;
+          nbut.ClickData[Common::kGUIClickLeft] = button->NewModeNumber;
           nbut.SetClipImage(button->ClipImage);
           nbut.SetText(tcv->Convert(button->Text));
           nbut.EventHandlers[0] = TextHelper::ConvertASCII(button->OnClick);
@@ -3426,8 +3424,8 @@ Game^ import_compiled_game_dta(const AGSString &filename)
 					newButton->MouseoverImage = copyFrom->MouseOverImage;
 					newButton->PushedImage = copyFrom->PushedImage;
 					newButton->TextAlignment = (AGS::Types::FrameAlignment)copyFrom->TextAlignment;
-                    newButton->ClickAction = (GUIClickAction)copyFrom->ClickAction[Common::kMouseLeft];
-					newButton->NewModeNumber = copyFrom->ClickData[Common::kMouseLeft];
+                    newButton->ClickAction = (GUIClickAction)copyFrom->ClickAction[Common::kGUIClickLeft];
+					newButton->NewModeNumber = copyFrom->ClickData[Common::kGUIClickLeft];
                     newButton->ClipImage = copyFrom->IsClippingImage();
 					newButton->Text = tcv->Convert(copyFrom->GetText());
 					newButton->OnClick = TextHelper::ConvertASCII(copyFrom->EventHandlers[0]);

@@ -1592,12 +1592,14 @@ import void SetFrameSound (int view, int loop, int frame, int sound);
 enum EventType {
   eEventLeaveRoom = 1,
   eEventEnterRoomBeforeFadein = 2,
+  // 3 is reserved by an obsolete "death" event
   eEventGotScore = 4,
   eEventGUIMouseDown = 5,
   eEventGUIMouseUp = 6,
   eEventAddInventory = 7,
   eEventLoseInventory = 8,
-  eEventRestoreGame = 9
+  eEventRestoreGame = 9,
+  eEventEnterRoomAfterFadein = 10
 };
 
 #ifdef SCRIPT_API_v350
@@ -1706,7 +1708,7 @@ builtin managed struct Label extends GUIControl {
 builtin managed struct Button extends GUIControl {
 #ifdef SCRIPT_API_v360
   /// Animates the button graphic using the specified view loop.
-  import void Animate(int view, int loop, int delay, RepeatStyle=eOnce, BlockingStyle=eNoBlock, Direction=eForwards, int frame=0, int volume=-1);
+  import void Animate(int view, int loop, int delay, RepeatStyle=eOnce, BlockingStyle=eNoBlock, Direction=eForwards, int frame=0, int volume=100);
 #endif
 #ifndef SCRIPT_API_v360
   /// Animates the button graphic using the specified view loop.
@@ -2276,7 +2278,7 @@ builtin managed struct Object {
     , int frame=0
 #endif  
 #ifdef SCRIPT_API_v360
-    , int volume=-1
+    , int volume=100
 #endif
   );
   /// Gets the object that is on the screen at the specified co-ordinates.
@@ -2418,7 +2420,7 @@ builtin managed struct Character {
     , int frame=0
 #endif  
 #ifdef SCRIPT_API_v360
-    , int volume=-1
+    , int volume=100
 #endif
   );
 #ifdef SCRIPT_API_v340
@@ -2802,11 +2804,11 @@ builtin struct Game {
   import static readonly attribute int CameraCount;
 #endif
 #ifdef SCRIPT_API_v360
-  /// Changes the active translation.
+  /// Changes the active voice-over pack.
   import static bool   ChangeSpeechVox(const string newName);
   /// Gets the code which describes how was the last blocking state skipped by a user (or autotimer).
   import static readonly attribute int BlockingWaitSkipped;
-  /// Gets name of the currently active translation.
+  /// Gets name of the currently active voice-over pack.
   readonly import static attribute String SpeechVoxFilename;
 #endif
 };

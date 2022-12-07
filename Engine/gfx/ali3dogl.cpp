@@ -747,7 +747,11 @@ void OGLGraphicsDriver::SetupViewport()
 
 Rect OGLGraphicsDriver::ConvertTopDownRect(const Rect &rect, int surface_height)
 {
+#ifdef CONSOLE_VERSION //DPASCA - UNFLUCKED
+    return rect;
+#else
     return RectWH(rect.Left, surface_height - 1 - rect.Bottom, rect.GetWidth(), rect.GetHeight());
+#endif
 }
 
 bool OGLGraphicsDriver::SetDisplayMode(const DisplayMode &mode)

@@ -1145,6 +1145,7 @@ void OGLGraphicsDriver::_renderSprite(const OGLDrawListEntry *drawListEntry,
   glUseProgram(0);
 }
 
+#ifndef CONSOLE_VERSION
 void OGLGraphicsDriver::_render(bool clearDrawListAfterwards)
 {
 #if 0
@@ -1244,6 +1245,7 @@ void OGLGraphicsDriver::_render(bool clearDrawListAfterwards)
   }
   ResetFxPool();
 }
+#endif
 
 void OGLGraphicsDriver::SetScissor(const Rect &clip)
 {
@@ -1559,6 +1561,7 @@ int OGLGraphicsDriver::GetCompatibleBitmapFormat(int color_depth)
   return 32;
 }
 
+#ifndef CONSOLE_VERSION
 void OGLGraphicsDriver::AdjustSizeToNearestSupportedByCard(int *width, int *height)
 {
   int allocatedWidth = *width, allocatedHeight = *height;
@@ -1585,6 +1588,7 @@ void OGLGraphicsDriver::AdjustSizeToNearestSupportedByCard(int *width, int *heig
   *width = allocatedWidth;
   *height = allocatedHeight;
 }
+#endif
 
 IDriverDependantBitmap* OGLGraphicsDriver::CreateDDB(int width, int height, int color_depth, bool opaque)
 {

@@ -153,8 +153,10 @@ int minstalled()
 
 void Mouse::WindowToGame(int &x, int &y)
 {
+    #ifndef CONSOLE_VERSION
     x = GameScaling.X.UnScalePt(x) - play.GetMainViewport().Left;
     y = GameScaling.Y.UnScalePt(y) - play.GetMainViewport().Top;
+    #endif
 }
 
 void Mouse::UpdateGraphicArea()

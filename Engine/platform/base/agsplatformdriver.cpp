@@ -43,6 +43,14 @@ const auto MaximumDelayBetweenPolling = std::chrono::milliseconds(16);
 std::unique_ptr<AGSPlatformDriver> AGSPlatformDriver::_instance;
 AGSPlatformDriver *platform = nullptr;
 
+#ifdef AGS_RATA
+// DPASCA - 'C' interface for stdio_compat.c
+extern "C" int Platform_DirectoryExists(const char *path)
+{
+    return platform->DirectoryExists(path);
+}
+#endif
+
 // ******** DEFAULT IMPLEMENTATIONS *******
 
 void AGSPlatformDriver::AttachToParentConsole() { }

@@ -24,7 +24,10 @@
 #include "platform/windows/windows.h"
 #include <io.h>
 #include <shlwapi.h>
-#pragma comment(lib,"shlwapi.lib") // DPASCA - for PathFileExistsA()
+#endif
+
+#ifdef AGS_RATA
+extern int Platform_DirectoryExists(const char *path);
 #endif
 
 FILE *ags_fopen(const char *path, const char *mode)
@@ -85,6 +88,9 @@ int  ags_file_exists(const char *path)
 
 int ags_directory_exists(const char *path)
 {
+#ifdef AGS_RATA
+    return Platform_DirectoryExists( path );
+#endif
 #if AGS_PLATFORM_OS_WINDOWS
     WCHAR wstr[MAX_PATH_SZ];
     MultiByteToWideChar(CP_UTF8, 0, path, -1, wstr, MAX_PATH_SZ);

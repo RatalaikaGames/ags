@@ -34,7 +34,7 @@
 AL_FUNC(void, set_uformat, (int type));
 AL_FUNC(int, get_uformat, (void));
 AL_FUNC(void, register_uformat, (int type, AL_METHOD(int, u_getc, (AL_CONST char *s)), AL_METHOD(int, u_getx, (char **s)), AL_METHOD(int, u_setc, (char *s, int c)), AL_METHOD(int, u_width, (AL_CONST char *s)), AL_METHOD(int, u_cwidth, (int c)), AL_METHOD(int, u_isok, (int c)), int u_width_max));
-AL_FUNC(void, set_ucodepage, (AL_CONST unsigned short *table, AL_CONST unsigned short *extras));
+AL_FUNC(void, set_ucodepage, (AL_CONST wchar_t *table, AL_CONST wchar_t *extras));
 
 AL_FUNC(int, need_uconvert, (AL_CONST char *s, int type, int newtype));
 AL_FUNC(int, uconvert_size, (AL_CONST char *s, int type, int newtype));

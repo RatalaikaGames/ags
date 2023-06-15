@@ -65,7 +65,7 @@ int MyTextBox::processmessage(int mcode, int wParam, void* lParam)
     else if (mcode == CTB_KEYPRESS) {
         // NOTE: this deprecated control does not support UTF-8
         int key = wParam;
-        int uchar = (int)lParam;
+        int uchar = (int)(intptr_t)lParam;
         size_t len = strlen(text);
         if (key == eAGSKeyCodeBackspace) {
             if (len > 0)

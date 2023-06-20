@@ -150,11 +150,11 @@ ScriptViewport* Screen_GetAnyViewport(int index)
     return play.GetScriptViewport(index);
 }
 
-ScriptUserObject* Screen_ScreenToRoomPoint(int scrx, int scry, bool restrict)
+ScriptUserObject* Screen_ScreenToRoomPoint(int scrx, int scry, bool clip_viewport)
 {
     data_to_game_coords(&scrx, &scry);
 
-    VpPoint vpt = play.ScreenToRoom(scrx, scry, restrict);
+    VpPoint vpt = play.ScreenToRoom(scrx, scry, clip_viewport);
     if (vpt.second < 0)
         return nullptr;
 

@@ -230,10 +230,10 @@ VpPoint GameState::ScreenToRoomImpl(int scrx, int scry, int view_index, bool cli
     return view->ScreenToRoom(scrx, scry, clip_viewport, convert_cam_to_data);
 }
 
-VpPoint GameState::ScreenToRoom(int scrx, int scry, bool restrict)
+VpPoint GameState::ScreenToRoom(int scrx, int scry, bool clip_viewport)
 {
     if (game.options[OPT_BASESCRIPTAPI] >= kScriptAPI_v3507)
-        return ScreenToRoomImpl(scrx, scry, -1, restrict, false);
+        return ScreenToRoomImpl(scrx, scry, -1, clip_viewport, false);
     return ScreenToRoomImpl(scrx, scry, 0, false, false);
 }
 

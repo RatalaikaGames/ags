@@ -5,10 +5,12 @@
 #include <direct.h>
 #include "platform/windows/windows.h"
 #else
+#ifndef AGS_RATA
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
 #include <unistd.h>
+#endif
 #endif
 #if AGS_PLATFORM_OS_ANDROID
 #include "util/android_file.h"

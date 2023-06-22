@@ -1444,6 +1444,7 @@ void OGLGraphicsDriver::DestroyDDBImpl(IDriverDependantBitmap* ddb)
 }
 
 
+#ifndef CONSOLE_VERSION
 void OGLGraphicsDriver::UpdateTextureRegion(OGLTextureTile *tile, Bitmap *bitmap, bool opaque, bool hasAlpha)
 {
   int textureHeight = tile->height;
@@ -1526,6 +1527,7 @@ void OGLGraphicsDriver::UpdateTextureRegion(OGLTextureTile *tile, Bitmap *bitmap
 
   delete []origPtr;
 }
+#endif
 
 void OGLGraphicsDriver::UpdateDDBFromBitmap(IDriverDependantBitmap* bitmapToUpdate, Bitmap *bitmap, bool hasAlpha)
 {

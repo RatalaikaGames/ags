@@ -60,6 +60,7 @@ struct OGLCUSTOMVERTEX
 struct OGLTextureTile : public TextureTile
 {
     unsigned int texture = 0;
+    bool RBswizzled = false;
 };
 
 // Full OpenGL texture data
@@ -185,6 +186,7 @@ struct ShaderProgram
     GLuint MVPMatrix = 0;
     GLuint TextureId = 0;
     GLuint Alpha = 0;
+    GLuint RBSwizzled = 0;
 
     GLuint TintHSV = 0;
     GLuint TintAmount = 0;

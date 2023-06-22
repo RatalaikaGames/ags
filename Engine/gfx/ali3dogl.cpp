@@ -563,6 +563,7 @@ bool CreateTransparencyShader(ShaderProgram &prg)
   prg.MVPMatrix = glGetUniformLocation(prg.Program, "uMVPMatrix");
   prg.TextureId = glGetUniformLocation(prg.Program, "textID");
   prg.Alpha = glGetUniformLocation(prg.Program, "alpha");
+  prg.RBSwizzled = glGetUniformLocation(prg.Program, "RBSwizzled");
   return true;
 }
 
@@ -576,6 +577,7 @@ bool CreateTintShader(ShaderProgram &prg)
   prg.TintAmount = glGetUniformLocation(prg.Program, "tintAmount");
   prg.TintLuminance = glGetUniformLocation(prg.Program, "tintLuminance");
   prg.Alpha = glGetUniformLocation(prg.Program, "alpha");
+  prg.RBSwizzled = glGetUniformLocation(prg.Program, "RBSwizzled");
   return true;
 }
 
@@ -586,6 +588,7 @@ bool CreateLightShader(ShaderProgram &prg)
   prg.TextureId = glGetUniformLocation(prg.Program, "textID");
   prg.LightingAmount = glGetUniformLocation(prg.Program, "light");
   prg.Alpha = glGetUniformLocation(prg.Program, "alpha");
+  prg.RBSwizzled = glGetUniformLocation(prg.Program, "RBSwizzled");
   return true;
 }
 
@@ -1103,6 +1106,7 @@ void OGLGraphicsDriver::_renderSprite(const OGLDrawListEntry *drawListEntry,
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, txdata->_tiles[ti].texture);
+    glUniform1i(program.RBSwizzled, txdata->_tiles[ti].RBswizzled);
 
     if ((_smoothScaling) && bmpToDraw->_useResampler && (bmpToDraw->_stretchToHeight > 0) &&
         ((bmpToDraw->_stretchToHeight != bmpToDraw->_height) ||

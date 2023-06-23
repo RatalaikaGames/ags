@@ -61,6 +61,7 @@ struct OGLTextureTile : public TextureTile
 {
     unsigned int texture = 0;
     bool RBswizzled = false;
+    bool Opaqueify = false;
 };
 
 // Full OpenGL texture data
@@ -187,6 +188,7 @@ struct ShaderProgram
     GLuint TextureId = 0;
     GLuint Alpha = 0;
     GLuint RBSwizzled = 0;
+    GLuint Opaqueify = 0;
 
     GLuint TintHSV = 0;
     GLuint TintAmount = 0;

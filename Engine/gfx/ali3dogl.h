@@ -62,6 +62,18 @@ struct OGLTextureTile : public TextureTile
     unsigned int texture = 0;
     bool RBswizzled = false;
     bool Opaqueify = false;
+
+    #ifdef CONSOLE_VERSION
+    //uploading once per frame to textures is not safe without precautions (GL makes it safe but some consoles can't handle it)
+    //to help with this, we'll prepare an alternate texture.
+    //whenever we upload a texture, we'll swap them
+    struct
+    {
+        unsigned int texture = 0;
+        bool RBswizzled = false;
+        bool Opaqueify = false;
+    } alternate;
+    #endif
 };
 
 // Full OpenGL texture data

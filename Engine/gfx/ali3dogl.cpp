@@ -74,7 +74,12 @@ OGLTextureData::~OGLTextureData()
     if (_tiles)
     {
         for (size_t i = 0; i < _numTiles; ++i)
+        {
             glDeleteTextures(1, &(_tiles[i].texture));
+            #ifdef CONSOLE_VERSION
+            glDeleteTextures(1, &(_tiles[i].alternate.texture));
+            #endif
+        }
         delete[] _tiles;
     }
     if (_vertex)
@@ -1738,6 +1743,19 @@ TextureData *OGLGraphicsDriver::CreateTextureData(int width, int height, bool /*
       // rather than source bitmap's color depth!
 
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, thisAllocatedWidth, thisAllocatedHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+      #ifdef CONSOLE_VERSION
+      glGenTextures(1, &thisTile->alternate.texture);
+      glBindTexture(GL_TEXTURE_2D, thisTile->alternate.texture);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+      // NOTE: pay attention that the texture format depends on the **display mode**'s format,
+      // rather than source bitmap's color depth!
+
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, thisAllocatedWidth, thisAllocatedHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+      #endif
     }
   }
 

@@ -109,6 +109,8 @@ eAGSKeyCode sdl_key_to_ags_key(const SDL_KeyboardEvent &kbevt, bool old_keyhandl
             return static_cast<eAGSKeyCode>( 0 + (sym - SDLK_a) + 1 );
         else if ((mod & KMOD_ALT) != 0) // align letters to code 301
             return static_cast<eAGSKeyCode>( AGS_EXT_KEY_SHIFT + (sym - SDLK_a) + 1 );
+
+        return static_cast<eAGSKeyCode>(sym);  //David: I think we need this to handle the other keys if no Ctrl or Alt
     }
     // New mode: also handle common key range
     else if (!old_keyhandle && (sym >= SDLK_SPACE && sym <= SDLK_z))

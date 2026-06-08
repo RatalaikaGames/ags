@@ -534,7 +534,14 @@ bool graphics_mode_update_render_frame()
     DisplayMode dm = gfxDriver->GetDisplayMode();
     Size screen_size = Size(dm.Width, dm.Height);
     Size native_size = gfxDriver->GetNativeSize();
+    
+    #ifdef RATA_GAME_LEGENDOFHAND 
+    // This is likely due to us targetting an older version of Kore with LegendOfHand so this hack 
+    // makes the virtual cursor operate correctly on the whole screen area
+    Size frame_size = screen_size;
+    #else
     Size frame_size = get_game_frame_from_screen_size(native_size, screen_size, CurFrameSetup);
+    #endif
     Rect render_frame = CenterInRect(RectWH(screen_size), RectWH(frame_size));
 
     if (!gfxDriver->SetRenderFrame(render_frame))

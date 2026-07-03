@@ -308,6 +308,12 @@ IDriverDependantBitmap* SDLRendererGraphicsDriver::CreateDDBFromBitmap(Bitmap *b
   return new ALSoftwareBitmap(bitmap, opaque, hasAlpha);
 }
 
+IDriverDependantBitmap* SDLRendererGraphicsDriver::CreateRenderTargetDDB(int width, int height, int color_depth, bool opaque)
+{
+    // For software renderer there's no difference between "texture" types.
+    return new ALSoftwareBitmap(width, height, color_depth, opaque);
+}
+
 void SDLRendererGraphicsDriver::UpdateDDBFromBitmap(IDriverDependantBitmap* bitmapToUpdate, Bitmap *bitmap, bool hasAlpha)
 {
   ALSoftwareBitmap* alSwBmp = (ALSoftwareBitmap*)bitmapToUpdate;
@@ -393,6 +399,11 @@ void SDLRendererGraphicsDriver::SetScreenTint(int red, int green, int blue)
     }
 }
 
+void SDLRendererGraphicsDriver::SetStageScreen(const Size & /*sz*/, int /*x*/, int /*y*/)
+{
+    // unsupported, as using _stageVirtualScreen instead
+}
+
 void SDLRendererGraphicsDriver::RenderToBackBuffer()
 {
     // Close unended batches, and issue a warning
@@ -418,6 +429,7 @@ void SDLRendererGraphicsDriver::RenderToBackBuffer()
         const Rect &viewport = batch_desc.Viewport;
         const SpriteTransform &transform = batch_desc.Transform;
 
+        _rendSpriteBatch = batch.ID;
         virtualScreen->SetClip(viewport);
         Bitmap *surface = batch.Surface.get();
         const int view_offx = viewport.Left;
@@ -438,6 +450,7 @@ void SDLRendererGraphicsDriver::RenderToBackBuffer()
         }
         _stageVirtualScreen = virtualScreen;
     }
+    _rendSpriteBatch = UINT32_MAX;
     ClearDrawLists();
 }
 
@@ -448,8 +461,8 @@ size_t SDLRendererGraphicsDriver::RenderSpriteBatch(const ALSpriteBatch &batch, 
     const auto &sprite = _spriteList[from];
     if (sprite.ddb == nullptr)
     {
-      if (_nullSpriteCallback)
-        _nullSpriteCallback(sprite.x, sprite.y);
+      if (_spriteEvtCallback)
+        _spriteEvtCallback(sprite.x, sprite.y);
       else
         throw Ali3DException("Unhandled attempt to draw null sprite");
 

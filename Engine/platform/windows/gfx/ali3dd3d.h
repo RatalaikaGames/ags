@@ -120,6 +120,9 @@ public:
     int GetWidthToRender() { return _stretchToWidth; }
     int GetHeightToRender() { return _stretchToHeight; }
 
+    // Releases internal texture data only, keeping the base struct
+    void ReleaseTextureData();
+
     ~D3DBitmap() override;
 };
 
@@ -165,6 +168,7 @@ struct D3DSpriteBatch : VMSpriteBatch
 {
     // Add anything D3D specific here
     // Optional render target's surface
+    // FIXME: implement a C++ (template) wrapper around IUnknown, handle AddRef/Release auto!!
     IDirect3DSurface9 *RenderSurface = nullptr;
 
     D3DSpriteBatch() = default;
@@ -210,8 +214,8 @@ public:
     void Render() override;
     void Render(int xoff, int yoff, Common::GraphicFlip flip) override;
     bool GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_native_res, GraphicResolution *want_fmt) override;
-    bool DoesSupportVsyncToggle() override { return false; }
-    bool SetVsync(bool /*enabled*/) override { return _mode.Vsync; /* TODO: support toggling */ }
+    bool DoesSupportVsyncToggle() override { return true; }
+    bool SetVsync(bool enabled) override;
     void RenderSpritesAtScreenResolution(bool enabled, int /*supersampling*/) override { _renderSprAtScreenRes = enabled; };
     void FadeOut(int speed, int targetColourRed, int targetColourGreen, int targetColourBlue) override;
     void FadeIn(int speed, PALETTE p, int targetColourRed, int targetColourGreen, int targetColourBlue) override;
@@ -267,6 +271,9 @@ private:
     float _pixelRenderYOffset;
     bool _renderSprAtScreenRes;
 
+    // Render target DDB references, for keeping track of them,
+    // and resetting during device reset.
+    std::vector<D3DBitmap*> _renderTargets;
     // Sprite batches (parent scene nodes)
     D3DSpriteBatches _spriteBatches;
     // List of sprites to render
@@ -291,6 +298,10 @@ private:
     void ResetDeviceIfNecessary();
     void SetupViewport();
     HRESULT ResetD3DDevice();
+    // For tracked render targets, disposes only the internal texture data
+    void ReleaseRenderTargetData();
+    // For tracked render targets, recreates the internal texture data
+    void RecreateRenderTargets();
     // Unset parameters and release resources related to the display mode
     void ReleaseDisplayMode();
     void set_up_default_vertices();

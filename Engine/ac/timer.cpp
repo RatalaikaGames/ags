@@ -101,13 +101,12 @@ void WaitForNextFrame()
     if (frameDuration <= std::chrono::milliseconds::zero()) {
         last_tick_time = next_frame_timestamp;
         next_frame_timestamp = now;
-#if !AGS_PLATFORM_OS_EMSCRIPTEN
+
         // suspend while the game is being switched out
         while (game_update_suspend && (!want_exit) && (!abort_engine)) {
             sys_evt_process_pending();
             platform->YieldCPU();
         }
-#endif
         return;
     }
 
@@ -119,7 +118,8 @@ void WaitForNextFrame()
     auto frame_time_remaining = next_frame_timestamp - now;
     if (frame_time_remaining > std::chrono::milliseconds::zero()) {
 #if AGS_PLATFORM_OS_EMSCRIPTEN
-        SDL_Delay(std::chrono::duration_cast<std::chrono::milliseconds>(frame_time_remaining).count());
+        // pass the time as negative in Emscripten Platform Driver
+        platform->Delay(-std::chrono::duration_cast<std::chrono::milliseconds>(frame_time_remaining).count());
 #else
         std::this_thread::sleep_for(frame_time_remaining);
 #endif
@@ -128,13 +128,11 @@ void WaitForNextFrame()
     last_tick_time = next_frame_timestamp;
     next_frame_timestamp += frameDuration;
 
-#if !AGS_PLATFORM_OS_EMSCRIPTEN
     // suspend while the game is being switched out
     while (game_update_suspend && (!want_exit) && (!abort_engine)) {
         sys_evt_process_pending();
         platform->YieldCPU();
     }
-#endif
 }
 #endif
 

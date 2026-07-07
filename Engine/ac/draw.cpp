@@ -644,6 +644,7 @@ void release_drawobj_rendertargets()
         !gfxDriver->ShouldReleaseRenderTargets())
         return;
 
+    gfxDriver->ClearDrawLists(); // force clear to ensure nothing stays cached
     for (auto &tex : gui_render_tex)
     {
         if (tex)
@@ -894,28 +895,22 @@ void draw_and_invalidate_text(Bitmap *ds, int x1, int y1, int font, color_t text
 
 // Renders black borders for the legacy boxed game mode,
 // where whole game screen changes size between large and small rooms
-void render_black_borders()
+static void render_black_borders()
 {
-    if (gfxDriver->UsesMemoryBackBuffer())
-        return;
+    const Rect &viewport = play.GetMainViewport();
+    if (viewport.Top > 0)
     {
-        gfxDriver->BeginSpriteBatch(RectWH(game.GetGameRes()), SpriteTransform());
-        const Rect &viewport = play.GetMainViewport();
-        if (viewport.Top > 0)
-        {
-            // letterbox borders
-            blankImage->SetStretch(game.GetGameRes().Width, viewport.Top, false);
-            gfxDriver->DrawSprite(0, 0, blankImage);
-            gfxDriver->DrawSprite(0, viewport.Bottom + 1, blankImage);
-        }
-        if (viewport.Left > 0)
-        {
-            // sidebar borders for widescreen
-            blankSidebarImage->SetStretch(viewport.Left, viewport.GetHeight(), false);
-            gfxDriver->DrawSprite(0, 0, blankSidebarImage);
-            gfxDriver->DrawSprite(viewport.Right + 1, 0, blankSidebarImage);
-        }
-        gfxDriver->EndSpriteBatch();
+        // letterbox borders
+        blankImage->SetStretch(game.GetGameRes().Width, viewport.Top, false);
+        gfxDriver->DrawSprite(0, 0, blankImage);
+        gfxDriver->DrawSprite(0, viewport.Bottom + 1, blankImage);
+    }
+    if (viewport.Left > 0)
+    {
+        // sidebar borders for widescreen
+        blankSidebarImage->SetStretch(viewport.Left, viewport.GetHeight(), false);
+        gfxDriver->DrawSprite(0, 0, blankSidebarImage);
+        gfxDriver->DrawSprite(viewport.Right + 1, 0, blankSidebarImage);
     }
 }
 
@@ -925,10 +920,12 @@ extern volatile bool want_exit, abort_engine;
 
 void render_to_screen()
 {
+    const bool full_frame_rend = gfxDriver->RequiresFullRedrawEachFrame();
     // Stage: final plugin callback (still drawn on game screen
     if (pl_any_want_hook(AGSE_FINALSCREENDRAW))
     {
-        gfxDriver->BeginSpriteBatch(play.GetMainViewport(), SpriteTransform(0, play.shake_screen_yoff), (GraphicFlip)play.screen_flipped);
+        gfxDriver->BeginSpriteBatch(play.GetMainViewport(),
+            play.GetGlobalTransform(full_frame_rend), (GraphicFlip)play.screen_flipped);
         gfxDriver->DrawSprite(AGSE_FINALSCREENDRAW, 0, nullptr);
         gfxDriver->EndSpriteBatch();
     }
@@ -943,7 +940,7 @@ void render_to_screen()
     {
         try
         {
-            if (gfxDriver->RequiresFullRedrawEachFrame())
+            if (full_frame_rend)
             {
                 gfxDriver->Render();
             }
@@ -2479,10 +2476,12 @@ static void construct_room_view()
         if (!camera)
             continue;
 
-        const Rect &view_rc = play.GetRoomViewportAbs(viewport->GetID());
+        const Rect &view_rc = viewport->GetRect();
         const Rect &cam_rc = camera->GetRect();
         const float view_sx = (float)view_rc.GetWidth() / (float)cam_rc.GetWidth();
         const float view_sy = (float)view_rc.GetHeight() / (float)cam_rc.GetHeight();
+        const SpriteTransform view_trans(view_rc.Left, view_rc.Top, view_sx, view_sy);
+        const SpriteTransform cam_trans(-cam_rc.Left, -cam_rc.Top);
 
         if (gfxDriver->RequiresFullRedrawEachFrame())
         {
@@ -2490,8 +2489,8 @@ static void construct_room_view()
             // viewport-camera pair is done as 2 nested scene nodes,
             // where first defines how camera's image translates into the viewport on screen,
             // and second - how room's image translates into the camera.
-            gfxDriver->BeginSpriteBatch(view_rc, SpriteTransform(view_rc.Left, view_rc.Top, view_sx, view_sy));
-            gfxDriver->BeginSpriteBatch(Rect(), SpriteTransform(-cam_rc.Left, -cam_rc.Top));
+            gfxDriver->BeginSpriteBatch(view_rc, view_trans);
+            gfxDriver->BeginSpriteBatch(Rect(), cam_trans);
             gfxDriver->SetStageScreen(cam_rc.GetSize(), cam_rc.Left, cam_rc.Top);
             put_sprite_list_on_screen(true);
             gfxDriver->EndSpriteBatch();
@@ -2502,7 +2501,7 @@ static void construct_room_view()
             // For software renderer - combine viewport and camera in one batch,
             // due to how the room drawing is implemented currently in the software mode.
             // TODO: review this later?
-            SpriteTransform room_trans(-cam_rc.Left, -cam_rc.Top, view_sx, view_sy, 0.f);
+            gfxDriver->BeginSpriteBatch(view_rc, view_trans);
 
             if (CameraDrawData[viewport->GetID()].Frame == nullptr && CameraDrawData[viewport->GetID()].IsOverlap)
             { // room background is prepended to the sprite stack
@@ -2514,15 +2513,16 @@ static void construct_room_view()
               // coordinates (cam1 -> screen -> cam2).
               // It's not clear whether this is worth the effort, but if it is,
               // then we'd need to optimise view/cam data first.
-                gfxDriver->BeginSpriteBatch(view_rc, room_trans);
+                gfxDriver->BeginSpriteBatch(Rect(), cam_trans);
                 gfxDriver->DrawSprite(0, 0, roomBackgroundBmp);
             }
             else
             { // room background is drawn by dirty rects system
                 PBitmap bg_surface = draw_room_background(viewport.get());
-                gfxDriver->BeginSpriteBatch(view_rc, room_trans, kFlip_None, bg_surface);
+                gfxDriver->BeginSpriteBatch(Rect(), cam_trans, kFlip_None, bg_surface);
             }
             put_sprite_list_on_screen(true);
+            gfxDriver->EndSpriteBatch();
             gfxDriver->EndSpriteBatch();
         }
     }
@@ -2533,7 +2533,7 @@ static void construct_room_view()
 // Schedule ui rendering
 static void construct_ui_view()
 {
-    gfxDriver->BeginSpriteBatch(play.GetUIViewportAbs());
+    gfxDriver->BeginSpriteBatch(play.GetUIViewport());
     draw_gui_and_overlays();
     gfxDriver->EndSpriteBatch();
     clear_draw_list();
@@ -2622,7 +2622,9 @@ void construct_game_scene(bool full_redraw)
         play.UpdateRoomCameras();
 
     // Begin with the parent scene node, defining global offset and flip
-    gfxDriver->BeginSpriteBatch(play.GetMainViewport(), SpriteTransform(0, play.shake_screen_yoff),
+    bool full_frame_rend = gfxDriver->RequiresFullRedrawEachFrame();
+    gfxDriver->BeginSpriteBatch(play.GetMainViewport(),
+        play.GetGlobalTransform(full_frame_rend),
         (GraphicFlip)play.screen_flipped);
 
     // Stage: room viewports
@@ -2632,7 +2634,7 @@ void construct_game_scene(bool full_redraw)
         {
             construct_room_view();
         }
-        else if (!gfxDriver->RequiresFullRedrawEachFrame())
+        else if (!full_frame_rend)
         {
             // black it out so we don't get cursor trails
             // TODO: this is possible to do with dirty rects system now too (it can paint black rects outside of room viewport)
@@ -2687,11 +2689,12 @@ void update_mouse_cursor()
 
 void construct_game_screen_overlay(bool draw_mouse)
 {
+    const bool full_frame_rend = gfxDriver->RequiresFullRedrawEachFrame();
+    gfxDriver->BeginSpriteBatch(play.GetMainViewport(),
+            play.GetGlobalTransform(full_frame_rend), (GraphicFlip)play.screen_flipped);
     if (pl_any_want_hook(AGSE_POSTSCREENDRAW))
     {
-        gfxDriver->BeginSpriteBatch(play.GetMainViewport(), SpriteTransform(0, play.shake_screen_yoff), (GraphicFlip)play.screen_flipped);
         gfxDriver->DrawSprite(AGSE_POSTSCREENDRAW, 0, nullptr);
-        gfxDriver->EndSpriteBatch();
     }
 
     // TODO: find out if it's okay to move cursor animation and state update
@@ -2702,7 +2705,6 @@ void construct_game_screen_overlay(bool draw_mouse)
     if (play.screen_is_faded_out == 0)
     {
         // Stage: mouse cursor
-        gfxDriver->BeginSpriteBatch(play.GetMainViewport(), SpriteTransform(0, play.shake_screen_yoff), (GraphicFlip)play.screen_flipped);
         if (draw_mouse && !play.mouse_cursor_hidden)
         {
             gfxDriver->DrawSprite(mousex - hotx, mousey - hoty, mouseCursor);
@@ -2711,17 +2713,19 @@ void construct_game_screen_overlay(bool draw_mouse)
         // Stage: screen fx
         if (play.screen_tint >= 1)
             gfxDriver->SetScreenTint(play.screen_tint & 0xff, (play.screen_tint >> 8) & 0xff, (play.screen_tint >> 16) & 0xff);
-        gfxDriver->EndSpriteBatch();
-
-        // Stage: legacy letterbox mode borders (has its own sprite batch)
-        render_black_borders();
     }
+    gfxDriver->EndSpriteBatch();
 
-    // Add global screen fade effect
-    if (play.screen_is_faded_out != 0 && gfxDriver->RequiresFullRedrawEachFrame())
+    // For hardware-accelerated renderers: legacy letterbox and global screen fade effect
+    if (full_frame_rend)
     {
         gfxDriver->BeginSpriteBatch(play.GetMainViewport(), SpriteTransform());
-        gfxDriver->SetScreenFade(play.fade_to_red, play.fade_to_green, play.fade_to_blue);
+        // Stage: legacy letterbox mode borders
+        if (play.screen_is_faded_out == 0)
+            render_black_borders();
+        // Stage: full screen fade fx
+        if (play.screen_is_faded_out != 0)
+            gfxDriver->SetScreenFade(play.fade_to_red, play.fade_to_green, play.fade_to_blue);
         gfxDriver->EndSpriteBatch();
     }
 }
@@ -2884,7 +2888,7 @@ void render_graphics(IDriverDependantBitmap *extraBitmap, int extraX, int extraY
     // on top of the screen. Normally this should be a part of the game UI stage.
     if (extraBitmap != nullptr)
     {
-        gfxDriver->BeginSpriteBatch(play.GetUIViewportAbs(), SpriteTransform(0, play.shake_screen_yoff), (GraphicFlip)play.screen_flipped);
+        gfxDriver->BeginSpriteBatch(play.GetMainViewport(), play.GetGlobalTransform(gfxDriver->RequiresFullRedrawEachFrame()), (GraphicFlip)play.screen_flipped);
         invalidate_sprite(extraX, extraY, extraBitmap, false);
         gfxDriver->DrawSprite(extraX, extraY, extraBitmap);
         gfxDriver->EndSpriteBatch();

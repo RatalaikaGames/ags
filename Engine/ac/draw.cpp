@@ -2214,9 +2214,15 @@ void draw_gui_and_overlays()
     // Draw gui controls on separate textures if:
     // - it is a 3D renderer (software one may require adjustments -- needs testing)
     // - not legacy alpha blending (may we implement specific texture blend?)
+#ifdef AGS_RATA
+    // Disabling this because this caches GUI controls into a render target texture, which
+    // getsa premultiplied-alpha constant-color blend (GL_CONSTANT_COLOR) that our SPIGL/Kore backend doesn't implement.
+    const bool draw_controls_as_textures = false;
+#else
     const bool draw_controls_as_textures =
            gfxDriver->HasAcceleratedTransform()
         && (game.options[OPT_NEWGUIALPHA] == kGuiAlphaRender_Proper);
+#endif
 
     if(pl_any_want_hook(AGSE_PREGUIDRAW))
         gfxDriver->DrawSprite(AGSE_PREGUIDRAW, 0, nullptr); // render stage

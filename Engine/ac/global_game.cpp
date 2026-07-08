@@ -184,8 +184,9 @@ int LoadSaveSlotScreenshot(int slnum, int width, int height) {
         return gotSlot;
 
     // resize the sprite to the requested size
-    Bitmap *newPic = BitmapHelper::CreateBitmap(width, height, spriteset[gotSlot]->GetColorDepth());
-    newPic->StretchBlt(spriteset[gotSlot],
+    Bitmap *sprite = spriteset[gotSlot];
+    Bitmap *newPic = BitmapHelper::CreateBitmap(width, height, sprite->GetColorDepth());
+    newPic->StretchBlt(sprite,
         RectWH(0, 0, game.SpriteInfos[gotSlot].Width, game.SpriteInfos[gotSlot].Height),
         RectWH(0, 0, width, height));
 
@@ -294,7 +295,12 @@ int RunAGSGame(const String &newgame, unsigned int mode, int data) {
         return 0;
     }
 
-    int ee;
+    // Optionally save legacy GlobalInts
+    int savedscriptvars[MAXGSVALUES];
+    if ((mode & RAGMODE_PRESERVEGLOBALINT) != 0)
+    {
+        memcpy(savedscriptvars, play.globalscriptvars, sizeof(play.globalscriptvars));
+    }
 
     unload_old_room();
     displayed_room = -10;
@@ -325,10 +331,10 @@ int RunAGSGame(const String &newgame, unsigned int mode, int data) {
     if (!err)
         quitprintf("!RunAGSGame: error loading new sprites:\n%s", err->FullMessage().GetCStr());
 
-    if ((mode & RAGMODE_PRESERVEGLOBALINT) == 0) {
-        // reset GlobalInts
-        for (ee = 0; ee < MAXGSVALUES; ee++)
-            play.globalscriptvars[ee] = 0;  
+    // Restore saved GlobalInts
+    if ((mode & RAGMODE_PRESERVEGLOBALINT) != 0)
+    {
+        memcpy(play.globalscriptvars, savedscriptvars, sizeof(play.globalscriptvars));
     }
 
     engine_init_game_settings();
@@ -359,15 +365,7 @@ int GetGameParameter (int parm, int data1, int data2, int data3) {
    case GP_FRAMESOUND:
    case GP_ISFRAMEFLIPPED:
        {
-           if ((data1 < 1) || (data1 > game.numviews)) {
-               quitprintf("!GetGameParameter: invalid view specified (v: %d, l: %d, f: %d)", data1, data2, data3);
-           }
-           if ((data2 < 0) || (data2 >= views[data1 - 1].numLoops)) {
-               quitprintf("!GetGameParameter: invalid loop specified (v: %d, l: %d, f: %d)", data1, data2, data3);
-           }
-           if ((data3 < 0) || (data3 >= views[data1 - 1].loops[data2].numFrames)) {
-               quitprintf("!GetGameParameter: invalid frame specified (v: %d, l: %d, f: %d)", data1, data2, data3);
-           }
+           AssertFrame("GetGameParameter", data1 - 1, data2, data3);
 
            ViewFrame *pvf = &views[data1 - 1].loops[data2].frames[data3];
 
@@ -430,50 +428,96 @@ int GetGameSpeed() {
     return ::lround(get_current_fps()) - play.game_speed_modifier;
 }
 
-int SetGameOption (int opt, int setting) {
-    if (((opt < 1) || (opt > OPT_HIGHESTOPTION)) && (opt != OPT_LIPSYNCTEXT))
-        quit("!SetGameOption: invalid option specified");
-
-    if (opt == OPT_ANTIGLIDE)
+int SetGameOption (int opt, int newval) {
+    if (((opt < OPT_DEBUGMODE) || (opt > OPT_HIGHESTOPTION)) && (opt != OPT_LIPSYNCTEXT))
     {
+        debug_script_warn("SetGameOption: invalid option specified: %d", opt);
+        return 0;
+    }
+
+    // Handle forbidden options
+    switch (opt)
+    {
+    case OPT_DEBUGMODE: // we don't support switching OPT_DEBUGMODE from script
+    case OPT_LETTERBOX:
+    case OPT_HIRES_FONTS:
+    case OPT_SPLITRESOURCES:
+    case OPT_STRICTSCRIPTING:
+    case OPT_LEFTTORIGHTEVAL:
+    case OPT_COMPRESSSPRITES:
+    case OPT_STRICTSTRINGS:
+    case OPT_NATIVECOORDINATES:
+    case OPT_SAFEFILEPATHS:
+    case OPT_DIALOGOPTIONSAPI:
+    case OPT_BASESCRIPTAPI:
+    case OPT_SCRIPTCOMPATLEV:
+    case OPT_RELATIVEASSETRES:
+    case OPT_GAMETEXTENCODING:
+    case OPT_KEYHANDLEAPI:
+    case OPT_CUSTOMENGINETAG:
+        debug_script_warn("SetGameOption: option %d cannot be modified at runtime", opt);
+        return game.options[opt];
+    default:
+        break;
+    }
+
+    if (game.options[opt] == newval)
+        return game.options[opt]; // no change necessary
+
+    const int oldval = game.options[opt];
+    game.options[opt] = newval;
+
+    // Update the game in accordance to the new option value
+    switch (opt)
+    {
+    case OPT_ANTIGLIDE:
         for (int i = 0; i < game.numcharacters; i++)
         {
-            if (setting)
+            if (newval)
                 game.chars[i].flags |= CHF_ANTIGLIDE;
             else
                 game.chars[i].flags &= ~CHF_ANTIGLIDE;
         }
-    }
-
-    if ((opt == OPT_CROSSFADEMUSIC) && (game.audioClipTypes.size() > AUDIOTYPE_LEGACY_MUSIC))
-    {
-        // legacy compatibility -- changing crossfade speed here also
-        // updates the new audio clip type style
-        game.audioClipTypes[AUDIOTYPE_LEGACY_MUSIC].crossfadeSpeed = setting;
-    }
-
-    int oldval = game.options[opt];
-    game.options[opt] = setting;
-
-    if (opt == OPT_DUPLICATEINV)
-        update_invorder();
-    else if (opt == OPT_DISABLEOFF) {
+        break;
+    case OPT_DISABLEOFF:
         GUI::Options.DisabledStyle = static_cast<GuiDisableStyle>(game.options[OPT_DISABLEOFF]);
         // If GUI was disabled at this time then also update it, as visual style could've changed
         if (play.disabled_user_interface > 0) { GUI::MarkAllGUIForUpdate(true, false); }
-    } else if (opt == OPT_PORTRAITSIDE) {
-        if (setting == 0)  // set back to Left
+        break;
+    case OPT_CROSSFADEMUSIC:
+        if (game.audioClipTypes.size() > AUDIOTYPE_LEGACY_MUSIC)
+        {
+            // legacy compatibility -- changing crossfade speed here also
+            // updates the new audio clip type style
+            game.audioClipTypes[AUDIOTYPE_LEGACY_MUSIC].crossfadeSpeed = newval;
+        }
+        break;
+    case OPT_ANTIALIASFONTS:
+        adjust_fonts_for_render_mode(newval != 0);
+        break;
+    case OPT_RIGHTLEFTWRITE:
+        GUI::MarkForTranslationUpdate();
+        break;
+    case OPT_DUPLICATEINV:
+        update_invorder();
+        break;
+    case OPT_PORTRAITSIDE:
+        if (newval == 0)  // set back to Left
             play.swap_portrait_side = 0;
-    } else if (opt == OPT_ANTIALIASFONTS) {
-        adjust_fonts_for_render_mode(setting != 0);
+        break;
+    default:
+        break; // do nothing else
     }
 
     return oldval;
 }
 
 int GetGameOption (int opt) {
-    if (((opt < 1) || (opt > OPT_HIGHESTOPTION)) && (opt != OPT_LIPSYNCTEXT))
-        quit("!GetGameOption: invalid option specified");
+    if (((opt < OPT_DEBUGMODE) || (opt > OPT_HIGHESTOPTION)) && (opt != OPT_LIPSYNCTEXT))
+    {
+        debug_script_warn("GetGameOption: invalid option specified: %d", opt);
+        return 0;
+    }
 
     return game.options[opt];
 }

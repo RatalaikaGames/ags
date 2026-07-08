@@ -568,7 +568,6 @@
     <ClCompile Include="..\..\Engine\ac\slider.cpp" />
     <ClCompile Include="..\..\Engine\ac\speech.cpp" />
     <ClCompile Include="..\..\Engine\ac\sprite.cpp" />
-    <ClCompile Include="..\..\Engine\ac\spritecache_engine.cpp" />
     <ClCompile Include="..\..\Engine\ac\string.cpp" />
     <ClCompile Include="..\..\Engine\ac\system.cpp" />
     <ClCompile Include="..\..\Engine\ac\textbox.cpp" />
@@ -655,8 +654,7 @@
     <ClCompile Include="..\..\Engine\platform\windows\minidump.cpp" />
     <ClCompile Include="..\..\Engine\platform\windows\setup\winsetup.cpp" />
     <ClCompile Include="..\..\Engine\plugin\agsplugin.cpp" />
-    <ClCompile Include="..\..\Engine\plugin\global_plugin.cpp" />
-    <ClCompile Include="..\..\Engine\plugin\pluginobjectreader.cpp" />
+    <ClCompile Include="..\..\Engine\plugin\plugin_stubs.cpp" />
     <ClCompile Include="..\..\Engine\script\cc_instance.cpp" />
     <ClCompile Include="..\..\Engine\script\executingscript.cpp" />
     <ClCompile Include="..\..\Engine\script\exports.cpp" />
@@ -788,7 +786,6 @@
     <ClInclude Include="..\..\Engine\ac\global_overlay.h" />
     <ClInclude Include="..\..\Engine\ac\global_palette.h" />
     <ClInclude Include="..\..\Engine\ac\global_parser.h" />
-    <ClInclude Include="..\..\Engine\ac\global_plugin.h" />
     <ClInclude Include="..\..\Engine\ac\global_region.h" />
     <ClInclude Include="..\..\Engine\ac\global_room.h" />
     <ClInclude Include="..\..\Engine\ac\global_screen.h" />
@@ -925,7 +922,7 @@
     <ClInclude Include="..\..\Engine\platform\windows\setup\winsetup.h" />
     <ClInclude Include="..\..\Engine\platform\windows\winapi_exclusive.h" />
     <ClInclude Include="..\..\Engine\plugin\agsplugin.h" />
-    <ClInclude Include="..\..\Engine\plugin\pluginobjectreader.h" />
+    <ClInclude Include="..\..\Engine\plugin\agsplugin_evts.h" />
     <ClInclude Include="..\..\Engine\plugin\plugin_engine.h" />
     <ClInclude Include="..\..\Engine\resource\resource.h" />
     <ClInclude Include="..\..\Engine\script\cc_instance.h" />

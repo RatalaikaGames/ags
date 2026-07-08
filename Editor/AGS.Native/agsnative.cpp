@@ -64,21 +64,10 @@ typedef AGS::Common::PBitmap PBitmap;
 typedef AGS::Common::Error AGSError;
 typedef AGS::Common::HError HAGSError;
 
-// TODO: do something with this later
-// (those are from 'cstretch' unit)
-extern void Cstretch_blit(BITMAP *src, BITMAP *dst, int sx, int sy, int sw, int sh, int dx, int dy, int dw, int dh);
-extern void Cstretch_sprite(BITMAP *dst, BITMAP *src, int x, int y, int w, int h);
-
-inline void Cstretch_blit(Common::Bitmap *src, Common::Bitmap *dst, int sx, int sy, int sw, int sh, int dx, int dy, int dw, int dh)
-{
-	Cstretch_blit(src->GetAllegroBitmap(), dst->GetAllegroBitmap(), sx, sy, sw, sh, dx, dy, dw, dh);
-}
-inline void Cstretch_sprite(Common::Bitmap *dst, Common::Bitmap *src, int x, int y, int w, int h)
-{
-	Cstretch_sprite(dst->GetAllegroBitmap(), src->GetAllegroBitmap(), x, y, w, h);
-}
-
 void save_room_file(RoomStruct &rs, const AGSString &path);
+
+AGSBitmap *initialize_sprite(AGS::Common::sprkey_t, AGSBitmap*, uint32_t &sprite_flags);
+void pre_save_sprite(AGSBitmap*);
 
 int mousex = 0, mousey = 0;
 int antiAliasFonts = 0;
@@ -86,7 +75,13 @@ int dsc_want_hires = 0;
 bool enable_greyed_out_masks = true;
 RGB*palette = NULL;
 GameSetupStruct thisgame;
-AGS::Common::SpriteCache spriteset(thisgame.SpriteInfos);
+AGS::Common::SpriteCache::Callbacks spritecallbacks = {
+    nullptr,
+    initialize_sprite,
+    nullptr,
+    pre_save_sprite
+};
+AGS::Common::SpriteCache spriteset(thisgame.SpriteInfos, spritecallbacks);
 GUIMain tempgui; // for drawing a GUI preview
 const char *sprsetname = "acsprset.spr";
 const char *sprindexname = "sprindex.dat";
@@ -146,7 +141,6 @@ int get_fixed_pixel_size(int coord)
 // the red and blue elements
 // TODO: find out if this is actually needed. I guess this may have something to do
 // with Allegro keeping 16-bit bitmaps in an unusual format internally.
-#define fix_sprite(num) fix_block(spriteset[num])
 void fix_block (Common::Bitmap *todraw) {
   int a,b,pixval;
   if (todraw == NULL)
@@ -170,12 +164,20 @@ void fix_block (Common::Bitmap *todraw) {
   }
 }
 
-void initialize_sprite(int spnum) {
-  fix_sprite(spnum);
+AGSBitmap *initialize_sprite(AGS::Common::sprkey_t /*index*/, AGSBitmap *image, uint32_t &/*sprite_flags*/)
+{
+    fix_block(image);
+    return image;
 }
 
-void pre_save_sprite(Common::Bitmap *image) {
-  fix_block(image);
+void pre_save_sprite(AGSBitmap *image)
+{
+    // NOTE: this is a nasty hack:
+    // because Editor expects slightly different RGB order, it swaps colors
+    // when loading them (call to initialize_sprite), so here we basically
+    // unfix that fix to save the data in a way that engine will expect.
+    // TODO: perhaps adjust the editor to NOT need this?!
+    fix_block(image);
 }
 
 // Safely gets a sprite, if the sprite does not exist then returns a placeholder (sprite 0)
@@ -186,15 +188,12 @@ Common::Bitmap *get_sprite (int spnr) {
 }
 
 void SetNewSprite(int slot, Common::Bitmap *sprit, int flags) {
-  delete spriteset[slot];
-
   spriteset.SetSprite(slot, sprit, flags);
   spritesModified = true;
 }
 
 void deleteSprite (int sprslot) {
-  spriteset.RemoveSprite(sprslot, true);
-  
+  spriteset.DisposeSprite(sprslot);
   spritesModified = true;
 }
 
@@ -262,10 +261,8 @@ void change_sprite_number(int oldNumber, int newNumber) {
   if (!spriteset.DoesSpriteExist(oldNumber))
     return;
 
-  spriteset.RemoveSprite(newNumber, true);
-  spriteset.SetSprite(newNumber, spriteset[oldNumber], thisgame.SpriteInfos[oldNumber].Flags);
-  spriteset.RemoveSprite(oldNumber, false);
-
+  AGSBitmap *bitmap = spriteset.RemoveSprite(oldNumber);
+  spriteset.SetSprite(newNumber, bitmap, thisgame.SpriteInfos[oldNumber].Flags);
   spritesModified = true;
 }
 
@@ -359,7 +356,6 @@ int crop_sprite_edges(int numSprites, int *sprites, bool symmetric) {
     // create a new, smaller sprite and copy across
 	Common::Bitmap *newsprit = Common::BitmapHelper::CreateBitmap(newWidth, newHeight, sprit->GetColorDepth());
     newsprit->Blit(sprit, left, top, 0, 0, newWidth, newHeight);
-    delete sprit;
     // set new image and keep old flags
     spriteset.SetSprite(sprites[aa], newsprit, thisgame.SpriteInfos[aa].Flags);
   }
@@ -804,7 +800,7 @@ void draw_area_mask(RoomStruct *roomptr, Common::Bitmap *ds, RoomAreaMask maskTy
 	}
 	else
 	{
-		Cstretch_sprite(ds, source, 0, 0, dest_width, dest_height);
+        ds->StretchBlt(source, RectWH(0, 0, dest_width, dest_height));
 	}
 }
 
@@ -863,9 +859,9 @@ void draw_room_background(void *roomvoidptr, int hdc, int x, int y, int bgnum, f
         srcHeight = roomBkgBuffer->GetHeight() - srcY;
       }
     }
-
-		Cstretch_blit(roomBkgBuffer.get(), drawBuffer.get(), srcX, srcY, srcWidth, srcHeight,
-            x, y, (int)(srcWidth * scaleFactor), (int)(srcHeight * scaleFactor));
+        drawBuffer->StretchBlt(roomBkgBuffer.get(),
+            RectWH(srcX, srcY, srcWidth, srcHeight),
+            RectWH(x, y, (int)(srcWidth * scaleFactor), (int)(srcHeight * scaleFactor)));
 	}
 	else {
 		drawBlockScaledAt(hdc, srcBlock.get(), x, y, scaleFactor);
@@ -882,14 +878,13 @@ HAGSError import_sci_font(const AGSString &filename, int fslot)
     if (in->ReadByte() != 0x87) // format check
         return new AGSError("Not a valid SCI font file");
     in->Seek(3);
-    size_t char_count = in->ReadInt16(); // number of characters
-    char_count = min(128, char_count);
+    const size_t char_count = in->ReadInt16(); // number of characters
     in->ReadInt16(); // line height (?)
-    int16_t sci_offs[128]; // table of contents
-    in->ReadArrayOfInt16(sci_offs, char_count);
-    soff_t char_data_at = in->GetPosition();
-    std::vector<uint8_t> widths; // char widths
-    std::vector<uint8_t> heights; // char heights
+    std::vector<int16_t> sci_offs(char_count); // table of contents
+    in->ReadArrayOfInt16(&sci_offs.front(), char_count);
+    const soff_t char_data_at = in->GetPosition();
+    std::vector<uint8_t> widths(char_count); // char widths
+    std::vector<uint8_t> heights(char_count); // char heights
     std::vector<uint8_t> pxbuf; // pixel data (stored in one line)
     for (size_t i = 0; i < char_count; ++i)
     {
@@ -900,8 +895,8 @@ HAGSError import_sci_font(const AGSString &filename, int fslot)
         in->Seek(off, Common::kSeekBegin);
         int w = in->ReadByte() - 1; // CHECKME: why has +1 in file?
         int h = in->ReadByte();
-        widths.push_back(w);
-        heights.push_back(h);
+        widths[i] = w;
+        heights[i] = h;
         if ((w < 1) || (h < 1))
             continue; // character has zero size
         size_t row_size = (w / 8) + 1;
@@ -917,7 +912,7 @@ HAGSError import_sci_font(const AGSString &filename, int fslot)
     std::unique_ptr<Stream> out(AGSFile::CreateFile(dst_fn));
     out->Write("WGT Font File  ", 15);
     out->WriteInt16(0);  // will be table address
-    int16_t wfn_offs[128];
+    std::vector<uint16_t> wfn_offs(char_count);
     for (size_t i = 0, buf_off = 0; i < char_count; ++i)
     {
         wfn_offs[i] = out->GetPosition();
@@ -933,8 +928,8 @@ HAGSError import_sci_font(const AGSString &filename, int fslot)
         buf_off += px_size;
     }
     // Seek back to the header, and write table position
-    soff_t tableat = out->GetPosition();
-    out->WriteArrayOfInt16(wfn_offs, char_count);
+    uint16_t tableat = static_cast<uint16_t>(out->GetPosition());
+    out->WriteArrayOfInt16(reinterpret_cast<int16_t*>(&wfn_offs.front()), char_count);
     out->Seek(15, Common::kSeekBegin);
     out->WriteInt16(tableat);
     out.reset();
@@ -988,6 +983,8 @@ int drawFontAt (int hdc, int fontnum, int x, int y, int width) {
   Common::Bitmap *tempblock = Common::BitmapHelper::CreateBitmap(width, height, 8);
   tempblock->Fill(0);
   color_t text_color = tempblock->GetCompatibleColor(15); // fixed white color
+  int old_uformat = get_uformat();
+  set_uformat(U_ASCII); // we won't be able to print 128-255 chars otherwise!
   for (int c = first_char; c < num_chars; ++c)
   {
     wgtprintf(tempblock,
@@ -995,6 +992,7 @@ int drawFontAt (int hdc, int fontnum, int x, int y, int width) {
                 padding + (c / chars_per_row) * grid_size + grid_margin,
                 fontnum, text_color, "%c", c);
   }
+  set_uformat(old_uformat);
 
   if (doubleSize > 1) 
     drawBlockDoubleAt(hdc, tempblock, x, y);
@@ -1057,8 +1055,7 @@ static void doDrawViewLoop (int hdc, int numFrames, ViewFrame *frames, int x, in
       toblt = flipped;
       freeBlock = true;
     }
-    //->StretchBlt(toblt, todraw, 0, 0, toblt->GetWidth(), toblt->GetHeight(), size*i, 0, neww, newh);
-	Cstretch_sprite(todraw, toblt, size*i, 0, neww, newh);
+    todraw->StretchBlt(toblt, RectWH(size*i, 0, neww, newh));
     if (freeBlock)
       delete toblt;
     if (i < numFrames-1) {
@@ -1452,11 +1449,6 @@ void free_script_modules() {
 
 void free_old_game_data()
 {
-  for (auto &dlg : dialog)
-  {
-	  if (dlg.optionscripts != NULL)
-		  free(dlg.optionscripts);
-  }
   newViews.clear();
   guis.clear();
   dialog.clear();
@@ -1737,7 +1729,7 @@ void DrawSpriteToBuffer(int sprNum, int x, int y, float scale) {
 	}
 	else
 	{
-		Cstretch_sprite(drawBuffer.get(), imageToDraw, x, y, drawWidth, drawHeight);
+        drawBuffer->StretchBlt(imageToDraw, RectWH(x, y, drawWidth, drawHeight));
 	}
 
 	if (imageToDraw != todraw)
@@ -1787,7 +1779,7 @@ int RemoveLeftoverSprites(SpriteFolder ^folder)
         if (!spriteset.DoesSpriteExist(i)) continue;
         if (folder->FindSpriteByID(i, true) == nullptr)
         {
-            spriteset.RemoveSprite(i, true);
+            spriteset.DisposeSprite(i);
             removed++;
         }
     }
@@ -2314,7 +2306,9 @@ void import_area_mask(void *roomptr, int maskType, System::Drawing::Bitmap ^bmp)
 	if (mask->GetWidth() != importedImage->GetWidth())
 	{
 		// allow them to import a double-size or half-size mask, adjust it as appropriate
-		Cstretch_blit(importedImage, mask, 0, 0, importedImage->GetWidth(), importedImage->GetHeight(), 0, 0, mask->GetWidth(), mask->GetHeight());
+        mask->StretchBlt(importedImage,
+            RectWH(0, 0, importedImage->GetWidth(), importedImage->GetHeight()),
+            RectWH(0, 0, mask->GetWidth(), mask->GetHeight()));
 	}
 	else
 	{
@@ -2454,7 +2448,9 @@ System::Drawing::Bitmap^ ConvertBlockToBitmap32(Common::Bitmap *todraw, int widt
           delete tempBlock;
           return nullptr; // out of mem?
       }
-	  Cstretch_blit(tempBlock, newBlock, 0, 0, todraw->GetWidth(), todraw->GetHeight(), 0, 0, width, height);
+      newBlock->StretchBlt(tempBlock,
+          RectWH(0, 0, todraw->GetWidth(), todraw->GetHeight()),
+          RectWH(0, 0, width, height));
 	  delete tempBlock;
 	  tempBlock = newBlock;
   }
@@ -3133,8 +3129,8 @@ Game^ import_compiled_game_dta(const AGSString &filename)
 
 	for (i = 0; i < numThisgamePlugins; i++) 
 	{
-		cli::array<System::Byte> ^pluginData = gcnew cli::array<System::Byte>(thisgamePlugins[i].DataLen);
-		for (size_t j = 0; j < thisgamePlugins[i].DataLen; j++) 
+		cli::array<System::Byte> ^pluginData = gcnew cli::array<System::Byte>(thisgamePlugins[i].Data.size());
+		for (size_t j = 0; j < thisgamePlugins[i].Data.size(); j++) 
 		{
 			pluginData[j] = thisgamePlugins[i].Data[j];
 		}

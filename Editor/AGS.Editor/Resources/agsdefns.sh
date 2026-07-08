@@ -2698,7 +2698,7 @@ builtin managed struct Character {
 #ifndef STRICT
   int   defview;
   int   talkview;
-  readonly int view;
+  int   view;
   int   room;
   int   prevroom;
   int   x;
@@ -2720,7 +2720,7 @@ builtin managed struct Character {
   readonly short blinktimer;
   readonly short blinkframe;
   short walkspeed_y;
-  readonly short pic_yoffs;
+  short pic_yoffs;
   int   z;
   readonly int walkwait;
   readonly short speech_anim_speed;
@@ -2728,10 +2728,10 @@ builtin managed struct Character {
   short blocking_width;
   short blocking_height;
   readonly int index_id;
-  readonly short pic_xoffs;
+  short pic_xoffs;
   readonly short walkwaitcounter;
-  readonly short loop;
-  readonly short frame;
+  short loop;
+  short frame;
   readonly short walking;
   readonly short animating;
   readonly short walkspeed;
@@ -2855,6 +2855,10 @@ builtin struct Game {
   import static readonly attribute int BlockingWaitSkipped;
   /// Gets name of the currently active voice-over pack.
   readonly import static attribute String SpeechVoxFilename;
+#endif
+#ifdef SCRIPT_API_v361
+  /// Resets all of the "DoOnceOnly" token states
+  import static bool   ResetDoOnceOnly();
 #endif
 };
 

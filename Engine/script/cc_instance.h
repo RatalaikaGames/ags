@@ -112,6 +112,7 @@ struct ScriptPosition
     int32_t         Line;
 };
 
+
 // Running instance of the script
 struct ccInstance
 {

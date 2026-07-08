@@ -41,7 +41,6 @@
 #include "gui/animatingguibutton.h"
 #include "gui/guimain.h"
 #include "media/audio/audio.h"
-#include "plugin/agsplugin.h"
 #include "plugin/plugin_engine.h"
 #include "script/script.h"
 #include "script/cc_common.h"
@@ -165,18 +164,6 @@ static void ReadGameState_Aligned(Stream *in, RestoredData &r_data)
     play.ReadFromSavegame(&align_s, kGSSvgVersion_OldFormat, r_data);
 }
 
-static void restore_game_play_ex_data(Stream *in)
-{
-    char rbuffer[200];
-    for (size_t i = 0; i < play.do_once_tokens.size(); ++i)
-    {
-        StrUtil::ReadCStr(rbuffer, in, sizeof(rbuffer));
-        play.do_once_tokens[i] = rbuffer;
-    }
-
-    in->Seek(game.numgui * sizeof(int32_t)); // gui_draw_order
-}
-
 static void restore_game_play(Stream *in, RestoredData &r_data)
 {
     int screenfadedout_was = play.screen_is_faded_out;
@@ -188,7 +175,15 @@ static void restore_game_play(Stream *in, RestoredData &r_data)
     play.screen_is_faded_out = screenfadedout_was;
     play.room_changes = roomchanges_was;
 
-    restore_game_play_ex_data(in);
+    char rbuffer[200]; // old doonceonly token length
+    for (size_t i = 0; i < r_data.DoOnceCount; ++i)
+    {
+        StrUtil::ReadCStr(rbuffer, in, sizeof(rbuffer));
+        play.do_once_tokens.insert(rbuffer);
+    }
+
+    // Skip gui_draw_order (no longer applied from saves)
+    in->Seek(game.numgui * sizeof(int32_t));
 }
 
 static void ReadMoveList_Aligned(Stream *in)
@@ -310,25 +305,39 @@ static void ReadOverlays_Aligned(Stream *in, std::vector<bool> &has_bitmap, size
 {
     AlignedStream align_s(in, Common::kAligned_Read);
     has_bitmap.resize(num_overs);
+    // Remember that overlay indexes may be non-sequential
+    auto &overs = get_overlays();
     for (size_t i = 0; i < num_overs; ++i)
     {
         bool has_bm;
-        screenover[i].ReadFromFile(&align_s, has_bm, 0);
-        has_bitmap[i] = has_bm;
+        ScreenOverlay over;
+        over.ReadFromFile(&align_s, has_bm, 0);
         align_s.Reset();
+        if (over.type < 0)
+            continue; // safety abort
+        if (overs.size() <= static_cast<uint32_t>(over.type))
+        {
+            overs.resize(over.type + 1);
+            has_bitmap.resize(over.type + 1);
+        }
+        overs[over.type] = std::move(over);
+        has_bitmap[over.type] = has_bm;
     }
 }
 
 static void restore_game_overlays(Stream *in)
 {
     size_t num_overs = in->ReadInt32();
-    screenover.resize(num_overs);
-    std::vector<bool> has_bitmap;
+    // Remember that overlay indexes may be not sequential,
+    // the vector may be resized during read
+    auto &overs = get_overlays();
+    overs.resize(num_overs);
+    std::vector<bool> has_bitmap(num_overs);
     ReadOverlays_Aligned(in, has_bitmap, num_overs);
-    for (size_t i = 0; i < num_overs; ++i) {
+    for (size_t i = 0; i < overs.size(); ++i) {
         if (has_bitmap[i])
-            screenover[i].SetImage(std::unique_ptr<Bitmap>(read_serialized_bitmap(in)),
-                screenover[i].offsetX, screenover[i].offsetY);
+            overs[i].SetImage(std::unique_ptr<Bitmap>(read_serialized_bitmap(in)),
+                overs[i].offsetX, overs[i].offsetY);
     }
 }
 
@@ -530,10 +539,7 @@ HSaveError restore_save_data_v321(Stream *in, const PreservedParams &pp, Restore
     if (!err)
         return err;
 
-    auto pluginFileHandle = AGSE_RESTOREGAME;
-    pl_set_file_handle(pluginFileHandle, in);
-    pl_run_plugin_hooks(AGSE_RESTOREGAME, pluginFileHandle);
-    pl_clear_file_handle();
+    ReadPluginSaveData(in);
     if (static_cast<uint32_t>(in->ReadInt32()) != MAGICNUMBER)
         return new SavegameError(kSvgErr_InconsistentPlugin);
 

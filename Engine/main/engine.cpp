@@ -315,7 +315,6 @@ void engine_locate_speech_pak()
 
 void engine_locate_audio_pak()
 {
-    play.separate_music_lib = false;
     String music_file = game.GetAudioVOXName();
     String music_filepath = find_assetlib(music_file);
     if (!music_filepath.IsEmpty())
@@ -323,7 +322,6 @@ void engine_locate_audio_pak()
         if (AssetMgr->AddLibrary(music_filepath) == kAssetNoError)
         {
             Debug::Printf(kDbgMsg_Info, "%s found and initialized.", music_file.GetCStr());
-            play.separate_music_lib = true;
             ResPaths.AudioPak.Name = music_file;
             ResPaths.AudioPak.Path = music_filepath;
         }
@@ -370,13 +368,6 @@ void engine_init_keyboard()
     /* do nothing */
 }
 
-void engine_init_timer()
-{
-    Debug::Printf(kDbgMsg_Info, "Install timer");
-
-    skipMissedTicks();
-}
-
 void engine_init_audio()
 {
     if (usetup.audio_enabled)
@@ -403,8 +394,6 @@ void engine_init_audio()
     else
     {
         // all audio is disabled
-        play.voice_avail = false;
-        play.separate_music_lib = false;
         Debug::Printf(kDbgMsg_Info, "Audio is disabled");
     }
 }
@@ -438,12 +427,6 @@ void engine_init_exit_handler()
     Debug::Printf(kDbgMsg_Info, "Install exit handler");
 
     atexit(atexit_handler);
-}
-
-void engine_init_rand()
-{
-    play.randseed = time(nullptr);
-    srand (play.randseed);
 }
 
 void engine_init_pathfinder()
@@ -611,10 +594,27 @@ int engine_init_sprites()
     return 0;
 }
 
+// TODO: this should not be a part of "engine_" function group,
+// move this elsewhere (InitGameState?).
 void engine_init_game_settings()
 {
     our_eip=-7;
     Debug::Printf("Initialize game settings");
+
+    // Initialize randomizer
+    play.randseed = time(nullptr);
+    srand(play.randseed);
+
+    if (usetup.audio_enabled)
+    {
+        play.separate_music_lib = !ResPaths.AudioPak.Name.IsEmpty();
+        play.voice_avail = ResPaths.VoiceAvail;
+    }
+    else
+    {
+        play.voice_avail = false;
+        play.separate_music_lib = false;
+    }
 
     // Setup a text encoding mode depending on the game data hint
     if (game.options[OPT_GAMETEXTENCODING] == 65001) // utf-8 codepage number
@@ -685,6 +685,9 @@ void engine_init_game_settings()
         if (game.invinfo[ee].flags & IFLG_STARTWITH) playerchar->inv[ee]=1;
         else playerchar->inv[ee]=0;
     }
+
+    //
+    // TODO: following big initialization sequence could be in GameState ctor
     play.score=0;
     play.sierra_inv_color=7;
     // copy the value set by the editor
@@ -728,6 +731,7 @@ void engine_init_game_settings()
     play.bg_frame_locked=0;
     play.bg_anim_delay=0;
     play.anim_background_speed = 0;
+    play.mouse_cursor_hidden = 0;
     play.silent_midi = 0;
     play.current_music_repeating = 0;
     play.skip_until_char_stops = -1;
@@ -740,7 +744,6 @@ void engine_init_game_settings()
     play.temporarily_turned_off_character = -1;
     play.inv_backwards_compatibility = 0;
     play.gamma_adjustment = 100;
-    play.do_once_tokens.resize(0);
     play.music_queue_size = 0;
     play.shakesc_length = 0;
     play.wait_counter=0;
@@ -807,6 +810,7 @@ void engine_init_game_settings()
     play.show_single_dialog_option = 0;
     play.keep_screen_during_instant_transition = 0;
     play.read_dialog_option_colour = -1;
+    play.stop_dialog_at_end = DIALOG_NONE;
     play.speech_portrait_placement = 0;
     play.speech_portrait_x = 0;
     play.speech_portrait_y = 0;
@@ -840,14 +844,6 @@ void engine_init_game_settings()
     memset(&play.walkable_areas_on[0],1,MAX_WALK_AREAS+1);
     memset(&play.script_timers[0],0,MAX_TIMERS * sizeof(int));
     memset(&play.default_audio_type_volumes[0], -1, MAX_AUDIO_TYPES * sizeof(int));
-
-    // reset graphical script vars (they're still used by some games)
-    for (ee = 0; ee < MAXGLOBALVARS; ee++) 
-        play.globalvars[ee] = 0;
-    for (ee = 0; ee < MAXGSVALUES; ee++)
-        play.globalscriptvars[ee] = 0;
-    for (ee = 0; ee < MAXGLOBALSTRINGS; ee++)
-        play.globalstrings[ee][0] = 0;
 
     if (!usetup.translation.IsEmpty())
         Game_ChangeTranslation(usetup.translation.GetCStr());
@@ -892,16 +888,6 @@ void engine_prepare_to_start_game()
         if (slot >= 0)
             loadSaveGameOnStartup = get_save_game_path(slot);
     }
-}
-
-// TODO: move to test unit
-Bitmap *test_allegro_bitmap;
-IDriverDependantBitmap *test_allegro_ddb;
-void allegro_bitmap_test_init()
-{
-	test_allegro_bitmap = nullptr;
-	// Switched the test off for now
-	//test_allegro_bitmap = AllegroBitmap::CreateBitmap(320,200,32);
 }
 
 // Define location of the game data either using direct settings or searching
@@ -1241,10 +1227,6 @@ int initialize_engine(const ConfigTree &startup_opts)
 
     engine_init_mouse();
 
-    our_eip = -197;
-
-    engine_init_timer();
-
     our_eip = -198;
 
     engine_init_audio();
@@ -1256,8 +1238,6 @@ int initialize_engine(const ConfigTree &startup_opts)
     our_eip = -10;
 
     engine_init_exit_handler();
-
-    engine_init_rand();
 
     engine_init_pathfinder();
 
@@ -1285,8 +1265,6 @@ int initialize_engine(const ConfigTree &startup_opts)
 
     our_eip = -179;
 
-    engine_init_resolution_settings(game.GetGameRes());
-
     engine_adjust_for_rotation_settings();
 
     // Attempt to initialize graphics mode
@@ -1309,8 +1287,6 @@ int initialize_engine(const ConfigTree &startup_opts)
     engine_init_game_settings();
 
     engine_prepare_to_start_game();
-
-	allegro_bitmap_test_init();
 
     initialize_start_and_play_game(override_start_room, loadSaveGameOnStartup);
 

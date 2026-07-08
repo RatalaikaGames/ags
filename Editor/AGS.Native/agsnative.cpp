@@ -470,7 +470,7 @@ HAGSError extract_template_files(const AGSString &templateFileName)
   return HAGSError::None();
 }
 
-void extract_icon_from_template(AssetManager *templateMgr, char *iconName, char **iconDataBuffer, long *bufferSize)
+void extract_icon_from_template(AssetManager *templateMgr, char *iconName, char **iconDataBuffer, size_t *bufferSize)
 {
   // make sure we get the icon from the file
   templateMgr->SetSearchPriority(Common::kAssetPriorityLib);
@@ -487,11 +487,11 @@ void extract_icon_from_template(AssetManager *templateMgr, char *iconName, char 
   else
   {
     *iconDataBuffer = NULL;
-    *bufferSize = 0;
+    *bufferSize = 0u;
   }
 }
 
-int load_template_file(const AGSString &fileName, char **iconDataBuffer, long *iconDataSize, bool isRoomTemplate)
+int load_template_file(const AGSString &fileName, char **iconDataBuffer, size_t *iconDataSize, bool isRoomTemplate)
 {
   const AssetLibInfo *lib = nullptr;
   std::unique_ptr<AssetManager> templateMgr(new AssetManager());
@@ -2319,37 +2319,12 @@ SysBitmap ^export_area_mask(void *roomptr, int maskType)
     return ConvertBlockToBitmap(mask, false);
 }
 
-void set_rgb_mask_from_alpha_channel(Common::Bitmap *image)
-{
-	for (int y = 0; y < image->GetHeight(); y++)
-	{
-		unsigned long* thisLine = (unsigned long*)image->GetScanLine(y);
-		for (int x = 0; x < image->GetWidth(); x++)
-		{
-			if ((thisLine[x] & 0xff000000) == 0)
-			{
-				thisLine[x] = MASK_COLOR_32;
-			}
-		}
-	}
-}
-
-void set_opaque_alpha_channel(Common::Bitmap *image)
-{
-	for (int y = 0; y < image->GetHeight(); y++)
-	{
-		unsigned long* thisLine = (unsigned long*)image->GetScanLine(y);
-		for (int x = 0; x < image->GetWidth(); x++)
-		{
-			if (thisLine[x] != MASK_COLOR_32)
-			  thisLine[x] |= 0xff000000;
-		}
-	}
-}
-
 Common::Bitmap *CreateNativeBitmap(System::Drawing::Bitmap^ bmp, int spriteImportMethod, bool remapColours,
     bool useRoomBackgroundColours, bool alphaChannel, int *out_flags)
 {
+    // If the input format does not have alpha - disable alpha channel flag
+    alphaChannel &= System::Drawing::Bitmap::IsAlphaPixelFormat(bmp->PixelFormat);
+
     RGB imgPalBuf[256];
     int importedColourDepth;
     Common::Bitmap *tempsprite = CreateBlockFromBitmap(bmp, imgPalBuf, true, (spriteImportMethod != SIMP_NONE), &importedColourDepth);
@@ -2372,12 +2347,12 @@ Common::Bitmap *CreateNativeBitmap(System::Drawing::Bitmap^ bmp, int spriteImpor
         flags |= SPF_ALPHACHANNEL;
         if (tempsprite->GetColorDepth() == 32)
         {
-            set_rgb_mask_from_alpha_channel(tempsprite);
+            BitmapHelper::ReplaceAlphaWithRGBMask(tempsprite);
         }
     }
     else if (tempsprite->GetColorDepth() == 32)
     {
-        set_opaque_alpha_channel(tempsprite);
+        BitmapHelper::MakeOpaqueSkipMask(tempsprite);
     }
 
     if (out_flags)
@@ -3559,7 +3534,7 @@ void convert_room_from_native(const RoomStruct &rs, Room ^room, System::Text::En
     room->GameID = rs.GameID;
     room->BottomEdgeY = rs.Edges.Bottom;
     room->LeftEdgeX = rs.Edges.Left;
-    room->MusicVolumeAdjustment = (AGS::Types::RoomVolumeAdjustment)rs.Options.StartupMusic;
+    room->MusicVolumeAdjustment = (AGS::Types::RoomVolumeAdjustment)rs.Options.MusicVolume;
     room->PlayerCharacterView = rs.Options.PlayerView;
     room->PlayMusicOnRoomLoad = rs.Options.StartupMusic;
     room->RightEdgeX = rs.Edges.Right;
@@ -3751,7 +3726,7 @@ void convert_room_to_native(Room ^room, RoomStruct &rs)
 	rs.GameID = room->GameID;
 	rs.Edges.Bottom = room->BottomEdgeY;
 	rs.Edges.Left = room->LeftEdgeX;
-	rs.Options.StartupMusic = (int)room->MusicVolumeAdjustment;
+	rs.Options.MusicVolume = (RoomVolumeMod)room->MusicVolumeAdjustment;
 	rs.Options.PlayerView = room->PlayerCharacterView;
 	rs.Options.StartupMusic = room->PlayMusicOnRoomLoad;
 	rs.Edges.Right = room->RightEdgeX;

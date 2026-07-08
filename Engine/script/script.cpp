@@ -779,7 +779,7 @@ int run_interaction_commandlist (InteractionCommandList *nicl, int *timesrun, in
           SetObjectView (IPARAM1, IPARAM2);
           break;
       case 18: // Animate Object
-          AnimateObject (IPARAM1, IPARAM2, IPARAM3, IPARAM4);
+          AnimateObject4(IPARAM1, IPARAM2, IPARAM3, IPARAM4);
           break;
       case 19: // Move Character
           if (IPARAM4)
@@ -845,12 +845,12 @@ int run_interaction_commandlist (InteractionCommandList *nicl, int *timesrun, in
           get_interaction_variable(nicl->Cmds[i].Data[0].Value)->Value = IPARAM2;
           break;
       case 34: // Run animation
-          scAnimateCharacter(IPARAM1, IPARAM2, IPARAM3, 0);
+          AnimateCharacter4(IPARAM1, IPARAM2, IPARAM3, 0);
           GameLoopUntilValueIsZero(&game.chars[IPARAM1].animating);
           break;
       case 35: // Quick animation
           SetCharacterView (IPARAM1, IPARAM2);
-          scAnimateCharacter(IPARAM1, IPARAM3, IPARAM4, 0);
+          AnimateCharacter4(IPARAM1, IPARAM3, IPARAM4, 0);
           GameLoopUntilValueIsZero(&game.chars[IPARAM1].animating);
           ReleaseCharacterView (IPARAM1);
           break;

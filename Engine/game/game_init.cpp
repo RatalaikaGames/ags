@@ -12,6 +12,7 @@
 //
 //=============================================================================
 #include <numeric>
+#include <vector>
 #include "ac/character.h"
 #include "ac/dialog.h"
 #include "ac/display.h"
@@ -27,8 +28,7 @@
 #include "ac/view.h"
 #include "ac/dynobj/all_dynamicclasses.h"
 #include "ac/dynobj/all_scriptclasses.h"
-#include "ac/statobj/agsstaticobject.h"
-#include "ac/statobj/staticarray.h"
+#include "ac/dynobj/dynobj_manager.h"
 #include "core/assetmanager.h"
 #include "debug/debug_log.h"
 #include "debug/out.h"
@@ -65,7 +65,7 @@ extern CCAudioChannel ccDynamicAudio;
 extern CCAudioClip ccDynamicAudioClip;
 extern ScriptString myScriptStringImpl;
 extern ScriptObject scrObj[MAX_ROOM_OBJECTS];
-extern ScriptGUI    *scrGui;
+extern std::vector<ScriptGUI> scrGui;
 extern ScriptHotspot scrHotspot[MAX_ROOM_HOTSPOTS];
 extern ScriptRegion scrRegion[MAX_ROOM_REGIONS];
 extern ScriptInvItem scrInv[MAX_INV];
@@ -73,16 +73,6 @@ extern ScriptAudioChannel scrAudioChannel[MAX_GAME_CHANNELS];
 
 extern ScriptDialogOptionsRendering ccDialogOptionsRendering;
 extern ScriptDrawingSurface* dialogOptionsRenderingSurface;
-
-extern AGSStaticObject GlobalStaticManager;
-
-extern StaticArray StaticCharacterArray;
-extern StaticArray StaticObjectArray;
-extern StaticArray StaticGUIArray;
-extern StaticArray StaticHotspotArray;
-extern StaticArray StaticRegionArray;
-extern StaticArray StaticInventoryArray;
-extern StaticArray StaticDialogArray;
 
 extern std::vector<ccInstance *> moduleInst;
 extern std::vector<ccInstance *> moduleInstFork;
@@ -93,16 +83,17 @@ extern std::vector<std::vector<uint8_t>> old_dialog_scripts;
 extern std::vector<String> old_speech_lines;
 
 // Lipsync
-extern SpeechLipSyncLine *splipsync;
+extern std::vector<SpeechLipSyncLine> splipsync;
 extern int numLipLines, curLipLine, curLipLinePhoneme;
 
-StaticArray StaticCharacterArray;
-StaticArray StaticObjectArray;
-StaticArray StaticGUIArray;
-StaticArray StaticHotspotArray;
-StaticArray StaticRegionArray;
-StaticArray StaticInventoryArray;
-StaticArray StaticDialogArray;
+extern AGSCCStaticObject GlobalStaticManager;
+CCStaticArray StaticCharacterArray;
+CCStaticArray StaticObjectArray;
+CCStaticArray StaticGUIArray;
+CCStaticArray StaticHotspotArray;
+CCStaticArray StaticRegionArray;
+CCStaticArray StaticInventoryArray;
+CCStaticArray StaticDialogArray;
 
 
 namespace AGS
@@ -150,7 +141,7 @@ void InitAndRegisterAudioObjects(GameSetupStruct &game)
         // between game versions, for now.
         game.audioClips[i].id = i;
         ccRegisterManagedObject(&game.audioClips[i], &ccDynamicAudioClip);
-        ccAddExternalDynamicObject(game.audioClips[i].scriptName, &game.audioClips[i], &ccDynamicAudioClip);
+        ccAddExternalScriptObject(game.audioClips[i].scriptName, &game.audioClips[i], &ccDynamicAudioClip);
     }
 }
 
@@ -175,14 +166,14 @@ void InitAndRegisterCharacters(GameSetupStruct &game)
         ccRegisterManagedObject(&game.chars[i], &ccDynamicCharacter);
 
         // export the character's script object
-        ccAddExternalDynamicObject(game.chars[i].scrname, &game.chars[i], &ccDynamicCharacter);
+        ccAddExternalScriptObject(game.chars[i].scrname, &game.chars[i], &ccDynamicCharacter);
     }
 }
 
 // Initializes dialog and registers them in the script system
 void InitAndRegisterDialogs(GameSetupStruct &game)
 {
-    scrDialog = new ScriptDialog[game.numdialog];
+    scrDialog.resize(std::max(1, game.numdialog)); // ensure at least 1 element, we must register buffer
     for (int i = 0; i < game.numdialog; ++i)
     {
         scrDialog[i].id = i;
@@ -190,7 +181,7 @@ void InitAndRegisterDialogs(GameSetupStruct &game)
         ccRegisterManagedObject(&scrDialog[i], &ccDynamicDialog);
 
         if (!game.dialogScriptNames[i].IsEmpty())
-            ccAddExternalDynamicObject(game.dialogScriptNames[i], &scrDialog[i], &ccDynamicDialog);
+            ccAddExternalScriptObject(game.dialogScriptNames[i], &scrDialog[i], &ccDynamicDialog);
     }
 }
 
@@ -208,7 +199,7 @@ void InitAndRegisterDialogOptions()
 // Initializes gui and registers them in the script system
 HError InitAndRegisterGUI(GameSetupStruct &game)
 {
-    scrGui = (ScriptGUI*)malloc(sizeof(ScriptGUI) * game.numgui);
+    scrGui.resize(std::max(1, game.numgui)); // ensure at least 1 element, we must register buffer
     for (int i = 0; i < game.numgui; ++i)
     {
         scrGui[i].id = -1;
@@ -223,7 +214,7 @@ HError InitAndRegisterGUI(GameSetupStruct &game)
         // export all the GUI's controls
         export_gui_controls(i);
         scrGui[i].id = i;
-        ccAddExternalDynamicObject(guis[i].Name, &scrGui[i], &ccDynamicGUI);
+        ccAddExternalScriptObject(guis[i].Name, &scrGui[i], &ccDynamicGUI);
         ccRegisterManagedObject(&scrGui[i], &ccDynamicGUI);
     }
     return HError::None();
@@ -239,7 +230,7 @@ void InitAndRegisterInvItems(GameSetupStruct &game)
         ccRegisterManagedObject(&scrInv[i], &ccDynamicInv);
 
         if (!game.invScriptNames[i].IsEmpty())
-            ccAddExternalDynamicObject(game.invScriptNames[i], &scrInv[i], &ccDynamicInv);
+            ccAddExternalScriptObject(game.invScriptNames[i], &scrInv[i], &ccDynamicInv);
     }
 }
 
@@ -315,7 +306,7 @@ HError InitAndRegisterGameEntities(GameSetupStruct &game)
 
     setup_player_character(game.playercharacter);
     if (loaded_game_file_version >= kGameVersion_270)
-        ccAddExternalStaticObject("player", &_sc_PlayerCharPtr, &GlobalStaticManager);
+        ccAddExternalScriptObject("player", &_sc_PlayerCharPtr, &GlobalStaticManager);
     return HError::None();
 }
 
@@ -371,15 +362,15 @@ void LoadLipsyncData()
     }
     else {
         numLipLines = speechsync->ReadInt32();
-        splipsync = (SpeechLipSyncLine*)malloc(sizeof(SpeechLipSyncLine) * numLipLines);
+        splipsync.resize(numLipLines);
         for (int ee = 0; ee < numLipLines; ee++)
         {
             splipsync[ee].numPhonemes = speechsync->ReadInt16();
             speechsync->Read(splipsync[ee].filename, 14);
-            splipsync[ee].endtimeoffs = (int*)malloc(splipsync[ee].numPhonemes * sizeof(int));
-            speechsync->ReadArrayOfInt32(splipsync[ee].endtimeoffs, splipsync[ee].numPhonemes);
-            splipsync[ee].frame = (short*)malloc(splipsync[ee].numPhonemes * sizeof(short));
-            speechsync->ReadArrayOfInt16(splipsync[ee].frame, splipsync[ee].numPhonemes);
+            splipsync[ee].endtimeoffs.resize(splipsync[ee].numPhonemes);
+            speechsync->ReadArrayOfInt32(&splipsync[ee].endtimeoffs.front(), splipsync[ee].numPhonemes);
+            splipsync[ee].frame.resize(splipsync[ee].numPhonemes);
+            speechsync->ReadArrayOfInt16(&splipsync[ee].frame.front(), splipsync[ee].numPhonemes);
         }
     }
     Debug::Printf(kDbgMsg_Info, "Lipsync data found and loaded");
@@ -493,7 +484,7 @@ HGameInitError InitGameState(const LoadedGameEntities &ents, GameDataVersion dat
     // NOTE: we must do this before plugin start, because some plugins may
     // require access to script API at initialization time.
     //
-    ccSetScriptAliveTimer(10u, 1000u, 150000u);
+    ccSetScriptAliveTimer(1000 / 60u, 1000u, 150000u);
     ccSetStringClassImpl(&myScriptStringImpl);
     setup_script_exports(base_api, compat_api);
 

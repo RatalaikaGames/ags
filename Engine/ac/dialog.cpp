@@ -409,7 +409,7 @@ bool get_custom_dialog_options_dimensions(int dlgnum)
   ccDialogOptionsRendering.Reset();
   ccDialogOptionsRendering.dialogID = dlgnum;
 
-  getDialogOptionsDimensionsFunc.params[0].SetDynamicObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
+  getDialogOptionsDimensionsFunc.params[0].SetScriptObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
   run_function_on_non_blocking_thread(&getDialogOptionsDimensionsFunc);
 
   if ((ccDialogOptionsRendering.width > 0) &&
@@ -643,7 +643,7 @@ void DialogOptions::Show()
     // Close custom dialog options
     if (usingCustomRendering)
     {
-        runDialogOptionCloseFunc.params[0].SetDynamicObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
+        runDialogOptionCloseFunc.params[0].SetScriptObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
         run_function_on_non_blocking_thread(&runDialogOptionCloseFunc);
     }
 }
@@ -676,7 +676,7 @@ void DialogOptions::Redraw()
       dialogOptionsRenderingSurface->hasAlphaChannel = ccDialogOptionsRendering.hasAlphaChannel;
       options_surface_has_alpha = dialogOptionsRenderingSurface->hasAlphaChannel != 0;
 
-      renderDialogOptionsFunc.params[0].SetDynamicObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
+      renderDialogOptionsFunc.params[0].SetScriptObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
       run_function_on_non_blocking_thread(&renderDialogOptionsFunc);
 
       if (!ccDialogOptionsRendering.surfaceAccessed)
@@ -866,13 +866,13 @@ bool DialogOptions::Run()
       else
       {
         update_audio_system_on_game_loop();
-        update_cursor_and_dependent();
+        UpdateCursorAndDrawables();
         render_graphics(ddb, dirtyx, dirtyy);
       }
 
       if (new_custom_render)
       {
-        runDialogOptionRepExecFunc.params[0].SetDynamicObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
+        runDialogOptionRepExecFunc.params[0].SetScriptObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
         run_function_on_non_blocking_thread(&runDialogOptionRepExecFunc);
       }
 
@@ -895,7 +895,7 @@ bool DialogOptions::Run()
             (mousex < dirtyx + tempScrn->GetWidth()) &&
             (mousey < dirtyy + tempScrn->GetHeight()))
         {
-          getDialogOptionUnderCursorFunc.params[0].SetDynamicObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
+          getDialogOptionUnderCursorFunc.params[0].SetScriptObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
           run_function_on_non_blocking_thread(&getDialogOptionUnderCursorFunc);
 
           if (!getDialogOptionUnderCursorFunc.atLeastOneImplementationExists)
@@ -940,7 +940,7 @@ bool DialogOptions::Run()
         {
           if (usingCustomRendering)
           {
-            runDialogOptionMouseClickHandlerFunc.params[0].SetDynamicObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
+            runDialogOptionMouseClickHandlerFunc.params[0].SetScriptObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
             runDialogOptionMouseClickHandlerFunc.params[1].SetInt32(mbut);
             run_function_on_non_blocking_thread(&runDialogOptionMouseClickHandlerFunc);
 
@@ -958,7 +958,7 @@ bool DialogOptions::Run()
         }
         else if (new_custom_render)
         {
-            runDialogOptionMouseClickHandlerFunc.params[0].SetDynamicObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
+            runDialogOptionMouseClickHandlerFunc.params[0].SetScriptObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
             runDialogOptionMouseClickHandlerFunc.params[1].SetInt32(mbut);
             run_function_on_non_blocking_thread(&runDialogOptionMouseClickHandlerFunc);
         }
@@ -977,7 +977,7 @@ bool DialogOptions::Run()
       {
         if (mwheelz != 0)
         {
-            runDialogOptionMouseClickHandlerFunc.params[0].SetDynamicObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
+            runDialogOptionMouseClickHandlerFunc.params[0].SetScriptObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
             runDialogOptionMouseClickHandlerFunc.params[1].SetInt32((mwheelz < 0) ? 9 : 8);
             run_function_on_non_blocking_thread(&runDialogOptionMouseClickHandlerFunc);
 
@@ -1091,14 +1091,14 @@ bool DialogOptions::RunKey(const KeyInput &ki)
     {
         if (old_keyhandle || (ki.UChar == 0))
         { // "dialog_options_key_press"
-            runDialogOptionKeyPressHandlerFunc.params[0].SetDynamicObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
+            runDialogOptionKeyPressHandlerFunc.params[0].SetScriptObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
             runDialogOptionKeyPressHandlerFunc.params[1].SetInt32(AGSKeyToScriptKey(ki.Key));
             runDialogOptionKeyPressHandlerFunc.params[2].SetInt32(ki.Mod);
             run_function_on_non_blocking_thread(&runDialogOptionKeyPressHandlerFunc);
         }
         if (!old_keyhandle && (ki.UChar > 0))
         { // "dialog_options_text_input"
-            runDialogOptionTextInputHandlerFunc.params[0].SetDynamicObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
+            runDialogOptionTextInputHandlerFunc.params[0].SetScriptObject(&ccDialogOptionsRendering, &ccDialogOptionsRendering);
             runDialogOptionTextInputHandlerFunc.params[1].SetInt32(ki.UChar);
             run_function_on_non_blocking_thread(&runDialogOptionKeyPressHandlerFunc);
         }
@@ -1367,26 +1367,18 @@ RuntimeScriptValue Sc_Dialog_Start(void *self, const RuntimeScriptValue *params,
 
 void RegisterDialogAPI()
 {
-    ccAddExternalObjectFunction("Dialog::get_ID",               Sc_Dialog_GetID);
-    ccAddExternalObjectFunction("Dialog::get_OptionCount",      Sc_Dialog_GetOptionCount);
-    ccAddExternalObjectFunction("Dialog::get_ShowTextParser",   Sc_Dialog_GetShowTextParser);
-    ccAddExternalObjectFunction("Dialog::DisplayOptions^1",     Sc_Dialog_DisplayOptions);
-    ccAddExternalObjectFunction("Dialog::GetOptionState^1",     Sc_Dialog_GetOptionState);
-    ccAddExternalObjectFunction("Dialog::GetOptionText^1",      Sc_Dialog_GetOptionText);
-    ccAddExternalObjectFunction("Dialog::HasOptionBeenChosen^1", Sc_Dialog_HasOptionBeenChosen);
-    ccAddExternalObjectFunction("Dialog::SetHasOptionBeenChosen^2", Sc_Dialog_SetHasOptionBeenChosen);
-    ccAddExternalObjectFunction("Dialog::SetOptionState^2",     Sc_Dialog_SetOptionState);
-    ccAddExternalObjectFunction("Dialog::Start^0",              Sc_Dialog_Start);
+    ScFnRegister dialog_api[] = {
+        { "Dialog::get_ID",               API_FN_PAIR(Dialog_GetID) },
+        { "Dialog::get_OptionCount",      API_FN_PAIR(Dialog_GetOptionCount) },
+        { "Dialog::get_ShowTextParser",   API_FN_PAIR(Dialog_GetShowTextParser) },
+        { "Dialog::DisplayOptions^1",     API_FN_PAIR(Dialog_DisplayOptions) },
+        { "Dialog::GetOptionState^1",     API_FN_PAIR(Dialog_GetOptionState) },
+        { "Dialog::GetOptionText^1",      API_FN_PAIR(Dialog_GetOptionText) },
+        { "Dialog::HasOptionBeenChosen^1", API_FN_PAIR(Dialog_HasOptionBeenChosen) },
+        { "Dialog::SetHasOptionBeenChosen^2", API_FN_PAIR(Dialog_SetHasOptionBeenChosen) },
+        { "Dialog::SetOptionState^2",     API_FN_PAIR(Dialog_SetOptionState) },
+        { "Dialog::Start^0",              API_FN_PAIR(Dialog_Start) },
+    };
 
-    /* ----------------------- Registering unsafe exports for plugins -----------------------*/
-
-    ccAddExternalFunctionForPlugin("Dialog::get_ID",               (void*)Dialog_GetID);
-    ccAddExternalFunctionForPlugin("Dialog::get_OptionCount",      (void*)Dialog_GetOptionCount);
-    ccAddExternalFunctionForPlugin("Dialog::get_ShowTextParser",   (void*)Dialog_GetShowTextParser);
-    ccAddExternalFunctionForPlugin("Dialog::DisplayOptions^1",     (void*)Dialog_DisplayOptions);
-    ccAddExternalFunctionForPlugin("Dialog::GetOptionState^1",     (void*)Dialog_GetOptionState);
-    ccAddExternalFunctionForPlugin("Dialog::GetOptionText^1",      (void*)Dialog_GetOptionText);
-    ccAddExternalFunctionForPlugin("Dialog::HasOptionBeenChosen^1", (void*)Dialog_HasOptionBeenChosen);
-    ccAddExternalFunctionForPlugin("Dialog::SetOptionState^2",     (void*)Dialog_SetOptionState);
-    ccAddExternalFunctionForPlugin("Dialog::Start^0",              (void*)Dialog_Start);
+    ccAddExternalFunctions(dialog_api);
 }

@@ -34,6 +34,7 @@
 #include "ac/roomstatus.h"
 #include "ac/view.h"
 #include "ac/dynobj/cc_serializer.h"
+#include "ac/dynobj/dynobj_manager.h"
 #include "game/savegame.h"
 #include "game/savegame_components.h"
 #include "game/savegame_internal.h"
@@ -200,10 +201,10 @@ static void ReadMoveList_Aligned(Stream *in)
     }
 }
 
-static void ReadGameSetupStructBase_Aligned(Stream *in)
+static void ReadGameSetupStructBase_Aligned(Stream *in, GameSetupStruct::SerializeInfo &info)
 {
     AlignedStream align_s(in, Common::kAligned_Read);
-    game.GameSetupStructBase::ReadFromFile(&align_s);
+    game.GameSetupStructBase::ReadFromFile(&align_s, info);
 }
 
 static void ReadCharacterExtras_Aligned(Stream *in)
@@ -467,26 +468,14 @@ HSaveError restore_save_data_v321(Stream *in, const PreservedParams &pp, Restore
     restore_game_play(in, r_data);
     ReadMoveList_Aligned(in);
 
-    // save pointer members before reading
-    char* gswas=game.globalscript;
-    ccScript* compsc=game.compiled_script;
-    CharacterInfo* chwas=game.chars;
-    WordsDictionary *olddict = game.dict;
-    std::array<String, MAXGLOBALMES> mesbk;
-    int numchwas = game.numcharacters;
-    for (size_t i = 0; i < MAXGLOBALMES; ++i)
-        mesbk[i] = game.messages[i];
-    int numdiwas = game.numdialog;
-    int numinvwas = game.numinvitems;
-    int numviewswas = game.numviews;
-    int numGuisWas = game.numgui;
+    const int numchwas = game.numcharacters;
+    const int numdiwas = game.numdialog;
+    const int numinvwas = game.numinvitems;
+    const int numviewswas = game.numviews;
+    const int numGuisWas = game.numgui;
 
-    ReadGameSetupStructBase_Aligned(in);
-
-    // Delete unneeded data
-    // TODO: reorganize this (may be solved by optimizing safe format too)
-    delete [] game.load_messages;
-    game.load_messages = nullptr;
+    GameSetupStruct::SerializeInfo info;
+    ReadGameSetupStructBase_Aligned(in, info);
 
     if (game.numdialog!=numdiwas)
     {
@@ -505,7 +494,7 @@ HSaveError restore_save_data_v321(Stream *in, const PreservedParams &pp, Restore
         return new SavegameError(kSvgErr_GameContentAssertion, "Mismatching number of Views.");
     }
 
-    game.ReadFromSaveGame_v321(in, gswas, compsc, chwas, olddict, mesbk);
+    game.ReadFromSaveGame_v321(in);
 
     // Modified custom properties are read separately to keep existing save format
     play.ReadCustomProperties_v340(in);

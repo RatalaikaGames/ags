@@ -39,20 +39,23 @@ extern unsigned int loopcounter;
 
 #define Random __Rand
 
-int CharacterInfo::get_effective_y() {
+int CharacterInfo::get_effective_y() const {
     return y - z;
 }
-int CharacterInfo::get_baseline() {
+
+int CharacterInfo::get_baseline() const {
     if (baseline < 1)
         return y;
     return baseline;
 }
-int CharacterInfo::get_blocking_top() {
+
+int CharacterInfo::get_blocking_top() const {
     if (blocking_height > 0)
         return y - blocking_height / 2;
     return y - 2;
 }
-int CharacterInfo::get_blocking_bottom() {
+
+int CharacterInfo::get_blocking_bottom() const {
     // the blocking_bottom should be 1 less than the top + height
     // since the code does <= checks on it rather than < checks
     if (blocking_height > 0)
@@ -313,8 +316,7 @@ int CharacterInfo::update_character_animating(int &aa, int &doing_nothing)
             done_anim = true;
             frame = 0;
         } else {
-            if (!CycleViewAnim(view, loop, frame, (animating & CHANIM_BACKWARDS) == 0,
-                    (animating & CHANIM_REPEAT) ? ANIM_REPEAT : ANIM_ONCE)) {
+            if (!CycleViewAnim(view, loop, frame, get_anim_forwards(), get_anim_repeat())) {
                 done_anim = true; // finished animating
                 // end of idle anim
                 if (idleleft < 0) {
@@ -335,7 +337,7 @@ int CharacterInfo::update_character_animating(int &aa, int &doing_nothing)
         if (idleleft < 0)
           wait += idle_anim_speed;
         else 
-          wait += (animating >> 8) & 0x00ff;
+          wait += get_anim_delay();
 
         if (frame != oldframe)
           CheckViewFrameForCharacter(this);

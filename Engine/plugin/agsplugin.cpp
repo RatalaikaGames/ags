@@ -39,8 +39,8 @@
 #include "ac/string.h"
 #include "ac/spritecache.h"
 #include "ac/sys_events.h"
-#include "ac/dynobj/cc_dynamicobject_addr_and_manager.h"
 #include "ac/dynobj/scriptstring.h"
+#include "ac/dynobj/dynobj_manager.h"
 #include "font/fonts.h"
 #include "debug/debug_log.h"
 #include "debug/debugger.h"
@@ -702,9 +702,9 @@ void IAGSEngine::QueueGameScriptFunction(const char *name, int32 globalScript, i
     curscript->run_another(name, globalScript ? kScInstGame : kScInstRoom, numArgs, params);
 }
 
-int IAGSEngine::RegisterManagedObject(const void *object, IAGSScriptManagedObject *callback) {
-    GlobalReturnValue.SetPluginObject((void*)object, (ICCDynamicObject*)callback);
-    return ccRegisterManagedObject(object, (ICCDynamicObject*)callback, true);
+int IAGSEngine::RegisterManagedObject(void *object, IAGSScriptManagedObject *callback) {
+    GlobalReturnValue.SetScriptObjectBuf(object, (IScriptObject*)callback);
+    return ccRegisterManagedObject(object, (IScriptObject*)callback, kScValScriptObjectBuf);
 }
 
 void IAGSEngine::AddManagedObjectReader(const char *typeName, IAGSManagedObjectReader *reader) {
@@ -724,42 +724,35 @@ void IAGSEngine::AddManagedObjectReader(const char *typeName, IAGSManagedObjectR
     numPluginReaders++;
 }
 
-void IAGSEngine::RegisterUnserializedObject(int key, const void *object, IAGSScriptManagedObject *callback) {
-    GlobalReturnValue.SetPluginObject((void*)object, (ICCDynamicObject*)callback);
-    ccRegisterUnserializedObject(key, object, (ICCDynamicObject*)callback, true);
+void IAGSEngine::RegisterUnserializedObject(int key, void *object, IAGSScriptManagedObject *callback) {
+    GlobalReturnValue.SetScriptObjectBuf((void*)object, (IScriptObject*)callback);
+    ccRegisterUnserializedObject(key, object, (IScriptObject*)callback, kScValScriptObjectBuf);
 }
 
-int IAGSEngine::GetManagedObjectKeyByAddress(const char *address) {
+int IAGSEngine::GetManagedObjectKeyByAddress(void *address) {
     return ccGetObjectHandleFromAddress(address);
 }
 
 void* IAGSEngine::GetManagedObjectAddressByKey(int key) {
     void *object;
-    ICCDynamicObject *manager;
+    IScriptObject *manager;
     ScriptValueType obj_type = ccGetObjectAddressAndManagerFromHandle(key, object, manager);
-    if (obj_type == kScValPluginObject)
-    {
-        GlobalReturnValue.SetPluginObject(object, manager);
-    }
-    else
-    {
-        GlobalReturnValue.SetDynamicObject(object, manager);
-    }
+    GlobalReturnValue.SetScriptObject(obj_type, object, manager);
     return object;
 }
 
 const char* IAGSEngine::CreateScriptString(const char *fromText) {
     const char *string = CreateNewScriptString(fromText);
     // Should be still standard dynamic object, because not managed by plugin
-    GlobalReturnValue.SetDynamicObject((void*)string, &myScriptStringImpl);
+    GlobalReturnValue.SetScriptObject((void*)string, &myScriptStringImpl);
     return string;
 }
 
-int IAGSEngine::IncrementManagedObjectRefCount(const char *address) {
+int IAGSEngine::IncrementManagedObjectRefCount(void *address) {
     return ccAddObjectReference(GetManagedObjectKeyByAddress(address));
 }
 
-int IAGSEngine::DecrementManagedObjectRefCount(const char *address) {
+int IAGSEngine::DecrementManagedObjectRefCount(void *address) {
     return ccReleaseObjectReference(GetManagedObjectKeyByAddress(address));
 }
 

@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ac/string.h"
+#include "ac/dynobj/dynobj_manager.h"
 #include "util/stream.h"
 
 using namespace AGS::Common;
@@ -24,7 +25,7 @@ DynObjectRef ScriptString::CreateString(const char *fromText) {
     return CreateNewScriptStringObj(fromText);
 }
 
-int ScriptString::Dispose(const char* /*address*/, bool /*force*/) {
+int ScriptString::Dispose(void* /*address*/, bool /*force*/) {
     // always dispose
     if (_text) {
         free(_text);
@@ -38,12 +39,12 @@ const char *ScriptString::GetType() {
     return "String";
 }
 
-size_t ScriptString::CalcSerializeSize()
+size_t ScriptString::CalcSerializeSize(void* /*address*/)
 {
     return _len + 1 + sizeof(int32_t);
 }
 
-void ScriptString::Serialize(const char* /*address*/, Stream *out) {
+void ScriptString::Serialize(void* /*address*/, Stream *out) {
     const auto *cstr = _text ? _text : "";
     out->WriteInt32(_len);
     out->Write(cstr, _len + 1);

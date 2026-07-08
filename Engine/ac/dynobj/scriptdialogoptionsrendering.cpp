@@ -12,6 +12,7 @@
 //
 //=============================================================================
 #include "ac/dynobj/scriptdialogoptionsrendering.h"
+#include "ac/dynobj/dynobj_manager.h"
 #include "util/stream.h"
 
 using namespace AGS::Common;
@@ -21,12 +22,12 @@ const char *ScriptDialogOptionsRendering::GetType() {
     return "DialogOptionsRendering";
 }
 
-size_t ScriptDialogOptionsRendering::CalcSerializeSize()
+size_t ScriptDialogOptionsRendering::CalcSerializeSize(void* /*address*/)
 {
     return 0;
 }
 
-void ScriptDialogOptionsRendering::Serialize(const char* /*address*/, Stream* /*out*/) {
+void ScriptDialogOptionsRendering::Serialize(void* /*address*/, Stream* /*out*/) {
 }
 
 void ScriptDialogOptionsRendering::Unserialize(int index, Stream* /*in*/, size_t /*data_sz*/) {

@@ -19,8 +19,8 @@
 #define __AGS_EE_AC__STRING_H
 
 #include <stdarg.h>
-#include "ac/common.h"
-#include "ac/dynobj/cc_dynamicobject.h"
+#include "ac/common.h" // quit
+#include "dynobj/cc_scriptobject.h"
 #include "util/string.h"
 
 // Check that a supplied buffer from a text script function was not null

@@ -13,6 +13,7 @@
 //=============================================================================
 #include "ac/dynobj/cc_object.h"
 #include "ac/dynobj/scriptobject.h"
+#include "ac/dynobj/dynobj_manager.h"
 #include "ac/common_defines.h"
 #include "game/roomstruct.h"
 #include "util/stream.h"
@@ -26,12 +27,12 @@ const char *CCObject::GetType() {
     return "Object";
 }
 
-size_t CCObject::CalcSerializeSize()
+size_t CCObject::CalcSerializeSize(void* /*address*/)
 {
     return sizeof(int32_t);
 }
 
-void CCObject::Serialize(const char *address, Stream *out) {
+void CCObject::Serialize(void *address, Stream *out) {
     ScriptObject *shh = (ScriptObject*)address;
     out->WriteInt32(shh->id);
 }

@@ -12,6 +12,7 @@
 //
 //=============================================================================
 #include "ac/dynobj/scriptviewport.h"
+#include "ac/dynobj/dynobj_manager.h"
 #include "ac/gamestate.h"
 #include "util/stream.h"
 
@@ -24,7 +25,7 @@ const char *ScriptViewport::GetType()
     return "Viewport2";
 }
 
-int ScriptViewport::Dispose(const char* /*address*/, bool /*force*/)
+int ScriptViewport::Dispose(void* /*address*/, bool /*force*/)
 {
     // Note that ScriptViewport is a reference to actual Viewport object,
     // and this deletes the reference, while viewport may remain in GameState.
@@ -32,12 +33,12 @@ int ScriptViewport::Dispose(const char* /*address*/, bool /*force*/)
     return 1;
 }
 
-size_t ScriptViewport::CalcSerializeSize()
+size_t ScriptViewport::CalcSerializeSize(void* /*address*/)
 {
     return sizeof(int32_t);
 }
 
-void ScriptViewport::Serialize(const char* /*address*/, Stream *out)
+void ScriptViewport::Serialize(void* /*address*/, Stream *out)
 {
     out->WriteInt32(_id);
 }

@@ -13,6 +13,7 @@
 //=============================================================================
 #include "ac/dynobj/cc_audiochannel.h"
 #include "ac/dynobj/scriptaudiochannel.h"
+#include "ac/dynobj/dynobj_manager.h"
 #include "media/audio/audio_system.h"
 #include "util/stream.h"
 
@@ -24,12 +25,12 @@ const char *CCAudioChannel::GetType() {
     return "AudioChannel";
 }
 
-size_t CCAudioChannel::CalcSerializeSize()
+size_t CCAudioChannel::CalcSerializeSize(void* /*address*/)
 {
     return sizeof(int32_t);
 }
 
-void CCAudioChannel::Serialize(const char *address, Stream *out) {
+void CCAudioChannel::Serialize(void *address, Stream *out) {
     ScriptAudioChannel *ach = (ScriptAudioChannel*)address;
     out->WriteInt32(ach->id);
 }

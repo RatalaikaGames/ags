@@ -63,9 +63,7 @@ target_sources(engine
     ac/dynobj/cc_dialog.h
     ac/dynobj/cc_dynamicarray.cpp
     ac/dynobj/cc_dynamicarray.h
-    ac/dynobj/cc_dynamicobject_addr_and_manager.h
-    ac/dynobj/cc_dynamicobject.cpp
-    ac/dynobj/cc_dynamicobject.h
+    ac/dynobj/cc_scriptobject.h
     ac/dynobj/cc_gui.cpp
     ac/dynobj/cc_gui.h
     ac/dynobj/cc_guiobject.cpp
@@ -80,6 +78,8 @@ target_sources(engine
     ac/dynobj/cc_region.h
     ac/dynobj/cc_serializer.cpp
     ac/dynobj/cc_serializer.h
+    ac/dynobj/dynobj_manager.cpp
+    ac/dynobj/dynobj_manager.h
     ac/dynobj/managedobjectpool.cpp
     ac/dynobj/managedobjectpool.h
     ac/dynobj/scriptaudiochannel.h
@@ -103,6 +103,7 @@ target_sources(engine
     ac/dynobj/scripthotspot.h
     ac/dynobj/scriptinvitem.h
     ac/dynobj/scriptmouse.h
+    ac/dynobj/scriptmouse.cpp
     ac/dynobj/scriptobject.h
     ac/dynobj/scriptoverlay.cpp
     ac/dynobj/scriptoverlay.h
@@ -112,6 +113,7 @@ target_sources(engine
     ac/dynobj/scriptstring.cpp
     ac/dynobj/scriptstring.h
     ac/dynobj/scriptsystem.h
+    ac/dynobj/scriptsystem.cpp
     ac/dynobj/scriptuserobject.cpp
     ac/dynobj/scriptuserobject.h
     ac/dynobj/scriptviewframe.cpp
@@ -261,11 +263,10 @@ target_sources(engine
     ac/sprite.cpp
     ac/sprite.h
     ac/spritecache_engine.cpp
-    ac/statobj/agsstaticobject.cpp
-    ac/statobj/agsstaticobject.h
-    ac/statobj/staticarray.cpp
-    ac/statobj/staticarray.h
-    ac/statobj/staticobject.h
+    ac/dynobj/scriptgame.cpp
+    ac/dynobj/scriptgame.h
+    ac/dynobj/cc_staticarray.cpp
+    ac/dynobj/cc_staticarray.h
     ac/string.cpp
     ac/string.h
     ac/sys_events.cpp

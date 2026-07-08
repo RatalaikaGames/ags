@@ -44,7 +44,6 @@ void GameSetupStruct::Free()
 
     intrChar.clear();
     charScripts.clear();
-    numcharacters = 0;
 
     // TODO: find out if it really needs to begin with 1 here?
     for (size_t i = 1; i < (size_t)MAX_INV; i++)
@@ -163,6 +162,7 @@ void GameSetupStruct::WriteInvInfo_Aligned(Stream *out)
 
 HGameFileError GameSetupStruct::read_cursors(Common::Stream *in)
 {
+    mcurs.resize(numcursors);
     ReadMouseCursors_Aligned(in);
     return HGameFileError::None();
 }
@@ -197,15 +197,12 @@ void GameSetupStruct::read_interaction_scripts(Common::Stream *in, GameDataVersi
 
 void GameSetupStruct::read_words_dictionary(Common::Stream *in)
 {
-    if (load_dictionary) {
-        dict = new WordsDictionary();
-        read_dictionary (dict, in);
-    }
+    dict.reset(new WordsDictionary());
+    read_dictionary(dict.get(), in);
 }
 
 void GameSetupStruct::ReadMouseCursors_Aligned(Stream *in)
 {
-    mcurs.resize(numcursors);
     AlignedStream align_s(in, Common::kAligned_Read);
     for (int iteratorCount = 0; iteratorCount < numcursors; ++iteratorCount)
     {
@@ -229,8 +226,7 @@ void GameSetupStruct::WriteMouseCursors_Aligned(Stream *out)
 
 void GameSetupStruct::read_characters(Common::Stream *in)
 {
-    chars = new CharacterInfo[numcharacters];
-
+    chars.resize(numcharacters);
     ReadCharacters_Aligned(in, false);
 }
 
@@ -240,12 +236,14 @@ void GameSetupStruct::read_lipsync(Common::Stream *in, GameDataVersion data_ver)
         in->ReadArray(&lipSyncFrameLetters[0][0], MAXLIPSYNCFRAMES, 50);
 }
 
-void GameSetupStruct::read_messages(Common::Stream *in, GameDataVersion data_ver)
+void GameSetupStruct::read_messages(Common::Stream *in,
+    const std::array<int, MAXGLOBALMES> &load_messages, GameDataVersion data_ver)
 {
     char mbuf[GLOBALMESLENGTH];
-    for (int i=0; i < MAXGLOBALMES; ++i)
+    for (int i = 0; i < MAXGLOBALMES; ++i)
     {
-        if (!load_messages[i]) continue;
+        if (!load_messages[i])
+            continue;
         if (data_ver < kGameVersion_261) // Global messages are not encrypted on < 2.61
         {
             char* nextchar = mbuf;
@@ -264,8 +262,6 @@ void GameSetupStruct::read_messages(Common::Stream *in, GameDataVersion data_ver
         }
         messages[i] = mbuf;
     }
-    delete [] load_messages;
-    load_messages = nullptr;
 }
 
 void GameSetupStruct::ReadCharacters_Aligned(Stream *in, bool is_save)
@@ -388,8 +384,7 @@ void GameSetupStruct::ReadAudioClips_Aligned(Common::Stream *in, size_t count)
     }
 }
 
-void GameSetupStruct::ReadFromSaveGame_v321(Stream *in, char* gswas, ccScript* compsc, CharacterInfo* chwas,
-                                       WordsDictionary *olddict, const std::array<Common::String, MAXGLOBALMES> &mesbk)
+void GameSetupStruct::ReadFromSaveGame_v321(Stream *in)
 {
     ReadInvInfo_Aligned(in);
     ReadMouseCursors_Aligned(in);
@@ -401,14 +396,6 @@ void GameSetupStruct::ReadFromSaveGame_v321(Stream *in, char* gswas, ccScript* c
         for (int i = 0; i < numcharacters; ++i)
             intrChar[i]->ReadTimesRunFromSave_v321(in);
     }
-
-    // restore pointer members
-    globalscript=gswas;
-    compiled_script=compsc;
-    chars=chwas;
-    dict = olddict;
-    for (size_t i = 0; i < MAXGLOBALMES; ++i)
-        messages[i] = mesbk[i];
 
     in->ReadArrayOfInt32(&options[0], OPT_HIGHESTOPTION_321 + 1);
     options[OPT_LIPSYNCTEXT] = in->ReadByte();

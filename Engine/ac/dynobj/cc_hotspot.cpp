@@ -13,6 +13,7 @@
 //=============================================================================
 #include "ac/dynobj/cc_hotspot.h"
 #include "ac/dynobj/scripthotspot.h"
+#include "ac/dynobj/dynobj_manager.h"
 #include "ac/common_defines.h"
 #include "game/roomstruct.h"
 #include "util/stream.h"
@@ -26,12 +27,12 @@ const char *CCHotspot::GetType() {
     return "Hotspot";
 }
 
-size_t CCHotspot::CalcSerializeSize()
+size_t CCHotspot::CalcSerializeSize(void* /*address*/)
 {
     return sizeof(int32_t);
 }
 
-void CCHotspot::Serialize(const char *address, Stream *out) {
+void CCHotspot::Serialize(void *address, Stream *out) {
     ScriptHotspot *shh = (ScriptHotspot*)address;
     out->WriteInt32(shh->id);
 }

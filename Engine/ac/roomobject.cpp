@@ -50,17 +50,19 @@ RoomObject::RoomObject()
     blocking_width = blocking_height = 0;
 }
 
-int RoomObject::get_width() {
+int RoomObject::get_width() const {
     if (last_width == 0)
         return game.SpriteInfos[num].Width;
     return last_width;
 }
-int RoomObject::get_height() {
+
+int RoomObject::get_height() const {
     if (last_height == 0)
         return game.SpriteInfos[num].Height;
     return last_height;
 }
-int RoomObject::get_baseline() {
+
+int RoomObject::get_baseline() const {
     if (baseline < 1)
         return y;
     return baseline;
@@ -76,7 +78,7 @@ void RoomObject::UpdateCyclingView(int ref_id)
     if (view == RoomObject::NoView) return;
     if (wait>0) { wait--; return; }
 
-    if (!CycleViewAnim(view, loop, frame, cycling < ANIM_BACKWARDS, cycling % ANIM_BACKWARDS))
+    if (!CycleViewAnim(view, loop, frame, get_anim_forwards(), get_anim_repeat()))
         cycling = 0; // finished animating
 
     ViewFrame*vfptr=&views[view].loops[loop].frames[frame];

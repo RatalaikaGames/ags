@@ -11,14 +11,13 @@
 // http://www.opensource.org/licenses/artistic-license-2.0.php
 //
 //=============================================================================
-
 #ifndef __AC_SCRIPTDRAWINGSURFACE_H
 #define __AC_SCRIPTDRAWINGSURFACE_H
 
 #include "ac/dynobj/cc_agsdynamicobject.h"
 #include "game/roomstruct.h"
-
-namespace AGS { namespace Common { class Bitmap; }}
+#include "gfx/bitmap.h"
+#include "util/stream.h"
 
 struct ScriptDrawingSurface final : AGSCCDynamicObject {
     // These numbers and types are used to determine the source of this drawing surface;
@@ -28,7 +27,7 @@ struct ScriptDrawingSurface final : AGSCCDynamicObject {
     int dynamicSpriteNumber;
     int dynamicSurfaceNumber;
     bool isLinkedBitmapOnly;
-    Common::Bitmap *linkedBitmapOnly;
+    AGS::Common::Bitmap *linkedBitmapOnly;
     int currentColour;
     int currentColourScript;
     int highResCoordinates;
@@ -36,11 +35,11 @@ struct ScriptDrawingSurface final : AGSCCDynamicObject {
     int hasAlphaChannel;
     //Common::Bitmap* abufBackup;
 
-    int Dispose(const char *address, bool force) override;
+    int Dispose(void *address, bool force) override;
     const char *GetType() override;
     void Unserialize(int index, AGS::Common::Stream *in, size_t data_sz) override;
-    Common::Bitmap* GetBitmapSurface();
-    Common::Bitmap *StartDrawing();
+    AGS::Common::Bitmap* GetBitmapSurface();
+    AGS::Common::Bitmap *StartDrawing();
     void PointToGameResolution(int *xcoord, int *ycoord);
     void SizeToGameResolution(int *width, int *height);
     void SizeToGameResolution(int *adjustValue);
@@ -52,9 +51,9 @@ struct ScriptDrawingSurface final : AGSCCDynamicObject {
 
 protected:
     // Calculate and return required space for serialization, in bytes
-    size_t CalcSerializeSize() override;
+    size_t CalcSerializeSize(void *address) override;
     // Write object data into the provided stream
-    void Serialize(const char *address, AGS::Common::Stream *out) override;
+    void Serialize(void *address, AGS::Common::Stream *out) override;
 };
 
 #endif // __AC_SCRIPTDRAWINGSURFACE_H

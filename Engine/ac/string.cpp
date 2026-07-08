@@ -21,11 +21,11 @@
 #include "ac/global_translation.h"
 #include "ac/runtime_defines.h"
 #include "ac/dynobj/scriptstring.h"
+#include "ac/dynobj/dynobj_manager.h"
 #include "font/fonts.h"
 #include "debug/debug_log.h"
 #include "script/runtimescriptvalue.h"
 #include "util/string_compat.h"
-#include "util/utf8.h"
 
 using namespace AGS::Common;
 
@@ -54,12 +54,8 @@ const char* String_Append(const char *thisString, const char *extrabit) {
 }
 
 const char* String_AppendChar(const char *thisString, int extraOne) {
-    size_t chw = 1;
-    char chr[Utf8::UtfSz + 1]{};
-    if (get_uformat() == U_UTF8)
-        chw = Utf8::SetChar(extraOne, chr, sizeof(chr));
-    else
-        chr[0] = extraOne;
+    char chr[5]{};
+    size_t chw = usetc(chr, extraOne);
     char *buffer = (char*)malloc(strlen(thisString) + chw + 1);
     sprintf(buffer, "%s%s", thisString, chr);
     return CreateNewScriptString(buffer, false);
@@ -74,12 +70,8 @@ const char* String_ReplaceCharAt(const char *thisString, int index, int newChar)
     int uchar = ugetc(thisString + off);
     size_t remain_sz = strlen(thisString + off);
     size_t old_sz = ucwidth(uchar);
-    size_t new_chw = 1;
-    char new_chr[Utf8::UtfSz + 1]{};
-    if (get_uformat() == U_UTF8)
-        new_chw = Utf8::SetChar(newChar, new_chr, sizeof(new_chr));
-    else
-        new_chr[0] = newChar;
+    char new_chr[5]{};
+    size_t new_chw = usetc(new_chr, newChar);
     size_t total_sz = off + remain_sz + new_chw - old_sz + 1;
     char *buffer = (char*)malloc(total_sz);
     memcpy(buffer, thisString, off);
@@ -253,11 +245,11 @@ int StrContains (const char *s1, const char *s2) {
 //=============================================================================
 
 const char *CreateNewScriptString(const String &fromText) {
-    return (const char*)CreateNewScriptStringObj(fromText.GetCStr(), true).second;
+    return (const char*)CreateNewScriptStringObj(fromText.GetCStr(), true).Obj;
 }
 
 const char *CreateNewScriptString(const char *fromText, bool reAllocate) {
-    return (const char*)CreateNewScriptStringObj(fromText, reAllocate).second;
+    return (const char*)CreateNewScriptStringObj(fromText, reAllocate).Obj;
 }
 
 DynObjectRef CreateNewScriptStringObj(const String &fromText) {
@@ -278,9 +270,9 @@ DynObjectRef CreateNewScriptStringObj(const char *fromText, bool reAllocate)
     if (handle == 0)
     {
         delete str;
-        return DynObjectRef(0, nullptr);
+        return DynObjectRef();
     }
-    return DynObjectRef(handle, obj_ptr);
+    return DynObjectRef(handle, obj_ptr, str);
 }
 
 size_t break_up_text_into_lines(const char *todis, SplitLines &lines, int wii, int fonnt, size_t max_lines) {
@@ -412,7 +404,7 @@ RuntimeScriptValue Sc_String_EndsWith(void *self, const RuntimeScriptValue *para
 RuntimeScriptValue Sc_String_Format(const RuntimeScriptValue *params, int32_t param_count)
 {
     API_SCALL_SCRIPT_SPRINTF(String_Format, 1);
-    return RuntimeScriptValue().SetDynamicObject((void*)CreateNewScriptString(scsf_buffer), &myScriptStringImpl);
+    return RuntimeScriptValue().SetScriptObject((void*)CreateNewScriptString(scsf_buffer), &myScriptStringImpl);
 }
 
 // const char* (const char *thisString)
@@ -483,7 +475,7 @@ RuntimeScriptValue Sc_strlen(void *self, const RuntimeScriptValue *params, int32
 
 //=============================================================================
 //
-// Exclusive API for Plugins
+// Exclusive variadic API implementation for Plugins
 //
 //=============================================================================
 
@@ -497,47 +489,29 @@ const char *ScPl_String_Format(const char *texx, ...)
 
 void RegisterStringAPI()
 {
-    ccAddExternalStaticFunction("String::IsNullOrEmpty^1",  Sc_String_IsNullOrEmpty);
-    ccAddExternalObjectFunction("String::Append^1",         Sc_String_Append);
-    ccAddExternalObjectFunction("String::AppendChar^1",     Sc_String_AppendChar);
-    ccAddExternalObjectFunction("String::CompareTo^2",      Sc_String_CompareTo);
-    ccAddExternalObjectFunction("String::Contains^1",       Sc_StrContains);
-    ccAddExternalObjectFunction("String::Copy^0",           Sc_String_Copy);
-    ccAddExternalObjectFunction("String::EndsWith^2",       Sc_String_EndsWith);
-    ccAddExternalStaticFunction("String::Format^101",       Sc_String_Format);
-    ccAddExternalObjectFunction("String::IndexOf^1",        Sc_StrContains);
-    ccAddExternalObjectFunction("String::LowerCase^0",      Sc_String_LowerCase);
-    ccAddExternalObjectFunction("String::Replace^3",        Sc_String_Replace);
-    ccAddExternalObjectFunction("String::ReplaceCharAt^2",  Sc_String_ReplaceCharAt);
-    ccAddExternalObjectFunction("String::StartsWith^2",     Sc_String_StartsWith);
-    ccAddExternalObjectFunction("String::Substring^2",      Sc_String_Substring);
-    ccAddExternalObjectFunction("String::Truncate^1",       Sc_String_Truncate);
-    ccAddExternalObjectFunction("String::UpperCase^0",      Sc_String_UpperCase);
-    ccAddExternalObjectFunction("String::get_AsFloat",      Sc_StringToFloat);
-    ccAddExternalObjectFunction("String::get_AsInt",        Sc_StringToInt);
-    ccAddExternalObjectFunction("String::geti_Chars",       Sc_String_GetChars);
-    ccAddExternalObjectFunction("String::get_Length",       Sc_strlen);
+    ScFnRegister string_api[] = {
+        { "String::IsNullOrEmpty^1",  API_FN_PAIR(String_IsNullOrEmpty) },
+        { "String::Format^101",       Sc_String_Format, ScPl_String_Format },
 
-    /* ----------------------- Registering unsafe exports for plugins -----------------------*/
+        { "String::Append^1",         API_FN_PAIR(String_Append) },
+        { "String::AppendChar^1",     API_FN_PAIR(String_AppendChar) },
+        { "String::CompareTo^2",      API_FN_PAIR(String_CompareTo) },
+        { "String::Contains^1",       API_FN_PAIR(StrContains) },
+        { "String::Copy^0",           API_FN_PAIR(String_Copy) },
+        { "String::EndsWith^2",       API_FN_PAIR(String_EndsWith) },
+        { "String::IndexOf^1",        API_FN_PAIR(StrContains) },
+        { "String::LowerCase^0",      API_FN_PAIR(String_LowerCase) },
+        { "String::Replace^3",        API_FN_PAIR(String_Replace) },
+        { "String::ReplaceCharAt^2",  API_FN_PAIR(String_ReplaceCharAt) },
+        { "String::StartsWith^2",     API_FN_PAIR(String_StartsWith) },
+        { "String::Substring^2",      API_FN_PAIR(String_Substring) },
+        { "String::Truncate^1",       API_FN_PAIR(String_Truncate) },
+        { "String::UpperCase^0",      API_FN_PAIR(String_UpperCase) },
+        { "String::get_AsFloat",      API_FN_PAIR(StringToFloat) },
+        { "String::get_AsInt",        API_FN_PAIR(StringToInt) },
+        { "String::geti_Chars",       API_FN_PAIR(String_GetChars) },
+        { "String::get_Length",       API_FN_PAIR(strlen) },
+    };
 
-    ccAddExternalFunctionForPlugin("String::IsNullOrEmpty^1",  (void*)String_IsNullOrEmpty);
-    ccAddExternalFunctionForPlugin("String::Append^1",         (void*)String_Append);
-    ccAddExternalFunctionForPlugin("String::AppendChar^1",     (void*)String_AppendChar);
-    ccAddExternalFunctionForPlugin("String::CompareTo^2",      (void*)String_CompareTo);
-    ccAddExternalFunctionForPlugin("String::Contains^1",       (void*)StrContains);
-    ccAddExternalFunctionForPlugin("String::Copy^0",           (void*)String_Copy);
-    ccAddExternalFunctionForPlugin("String::EndsWith^2",       (void*)String_EndsWith);
-    ccAddExternalFunctionForPlugin("String::Format^101",       (void*)ScPl_String_Format);
-    ccAddExternalFunctionForPlugin("String::IndexOf^1",        (void*)StrContains);
-    ccAddExternalFunctionForPlugin("String::LowerCase^0",      (void*)String_LowerCase);
-    ccAddExternalFunctionForPlugin("String::Replace^3",        (void*)String_Replace);
-    ccAddExternalFunctionForPlugin("String::ReplaceCharAt^2",  (void*)String_ReplaceCharAt);
-    ccAddExternalFunctionForPlugin("String::StartsWith^2",     (void*)String_StartsWith);
-    ccAddExternalFunctionForPlugin("String::Substring^2",      (void*)String_Substring);
-    ccAddExternalFunctionForPlugin("String::Truncate^1",       (void*)String_Truncate);
-    ccAddExternalFunctionForPlugin("String::UpperCase^0",      (void*)String_UpperCase);
-    ccAddExternalFunctionForPlugin("String::get_AsFloat",      (void*)StringToFloat);
-    ccAddExternalFunctionForPlugin("String::get_AsInt",        (void*)StringToInt);
-    ccAddExternalFunctionForPlugin("String::geti_Chars",       (void*)String_GetChars);
-    ccAddExternalFunctionForPlugin("String::get_Length",       (void*)strlen);
+    ccAddExternalFunctions(string_api);
 }

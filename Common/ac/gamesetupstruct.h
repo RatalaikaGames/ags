@@ -12,13 +12,12 @@
 //
 //=============================================================================
 //
-//
+// GameSetupStruct is a contemporary main game data. 
 //
 //=============================================================================
 #ifndef __AGS_CN_AC__GAMESETUPSTRUCT_H
 #define __AGS_CN_AC__GAMESETUPSTRUCT_H
 
-#include <array>
 #include <vector>
 #include "ac/audiocliptype.h"
 #include "ac/characterinfo.h" // TODO: constants to separate header
@@ -47,7 +46,8 @@ using AGS::Common::HGameFileError;
 
 
 // TODO: split GameSetupStruct into struct used to hold loaded game data, and actual runtime object
-struct GameSetupStruct: public GameSetupStructBase {
+struct GameSetupStruct : public GameSetupStructBase
+{
     // This array is used only to read data into;
     // font parameters are then put and queried in the fonts module
     // TODO: split into installation params (used only when reading) and runtime params
@@ -140,7 +140,7 @@ struct GameSetupStruct: public GameSetupStructBase {
     // Part 2
     void read_characters(Common::Stream *in);
     void read_lipsync(Common::Stream *in, GameDataVersion data_ver);
-    void read_messages(Common::Stream *in, GameDataVersion data_ver);
+    void read_messages(Common::Stream *in, const std::array<int, MAXGLOBALMES> &load_messages, GameDataVersion data_ver);
 
     void ReadCharacters_Aligned(Common::Stream *in, bool is_save);
     void WriteCharacters_Aligned(Common::Stream *out);
@@ -154,8 +154,7 @@ struct GameSetupStruct: public GameSetupStructBase {
     //--------------------------------------------------------------------
 
     // Functions for reading and writing appropriate data from/to save game
-    void ReadFromSaveGame_v321(Common::Stream *in, char* gswas, ccScript* compsc, CharacterInfo* chwas,
-                                   WordsDictionary *olddict, const std::array<Common::String, MAXGLOBALMES> &mesbk);
+    void ReadFromSaveGame_v321(Common::Stream *in);
 
     void ReadFromSavegame(Common::Stream *in);
     void WriteForSavegame(Common::Stream *out);

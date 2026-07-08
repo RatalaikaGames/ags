@@ -12,6 +12,7 @@
 //
 //=============================================================================
 #include "ac/dynobj/scriptdrawingsurface.h"
+#include "ac/dynobj/dynobj_manager.h"
 #include "ac/spritecache.h"
 #include "ac/runtime_defines.h"
 #include "ac/common.h"
@@ -61,7 +62,7 @@ void ScriptDrawingSurface::FinishedDrawing()
     modified = 1;
 }
 
-int ScriptDrawingSurface::Dispose(const char* /*address*/, bool /*force*/) {
+int ScriptDrawingSurface::Dispose(void* /*address*/, bool /*force*/) {
 
     // dispose the drawing surface
     DrawingSurface_Release(this);
@@ -73,12 +74,12 @@ const char *ScriptDrawingSurface::GetType() {
     return "DrawingSurface";
 }
 
-size_t ScriptDrawingSurface::CalcSerializeSize()
+size_t ScriptDrawingSurface::CalcSerializeSize(void* /*address*/)
 {
     return sizeof(int32_t) * 9;
 }
 
-void ScriptDrawingSurface::Serialize(const char* /*address*/, Stream *out) {
+void ScriptDrawingSurface::Serialize(void* /*address*/, Stream *out) {
     // pack mask type in the last byte of a negative integer
     // note: (-1) is reserved for "unused", for backward compatibility
     if (roomMaskType > 0)

@@ -202,7 +202,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\..\Common;..\..\Common\libinclude;..\..\Common\libsrc\alfont-2.0.9;..\..\Engine;..\..\Engine\libsrc\apeg-1.2.1;..\..\Engine\libsrc\glad\include;..\..\libsrc\glm;..\..\Engine\libsrc\libcda-0.5;..\..\Plugins;..\..\libsrc\allegro\include;..\..\libsrc\mojoAL;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;ALLEGRO_STATICLINK;DISABLE_MPEG_AUDIO;AGS_HAS_CD_AUDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;AL_LIBTYPE_STATIC;ALLEGRO_STATICLINK;DISABLE_MPEG_AUDIO;AGS_HAS_CD_AUDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -230,7 +230,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\..\Common;..\..\Common\libinclude;..\..\Common\libsrc\alfont-2.0.9;..\..\Engine;..\..\Engine\libsrc\apeg-1.2.1;..\..\Engine\libsrc\glad\include;..\..\libsrc\glm;..\..\Engine\libsrc\libcda-0.5;..\..\Plugins;..\..\libsrc\allegro\include;..\..\libsrc\mojoAL;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;ALLEGRO_STATICLINK;DISABLE_MPEG_AUDIO;AGS_HAS_CD_AUDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;AL_LIBTYPE_STATIC;ALLEGRO_STATICLINK;DISABLE_MPEG_AUDIO;AGS_HAS_CD_AUDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PrecompiledHeader>
@@ -257,7 +257,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\..\Common;..\..\Common\libinclude;..\..\Common\libsrc\alfont-2.0.9;..\..\Engine;..\..\Engine\libsrc\apeg-1.2.1;..\..\Engine\libsrc\glad\include;..\..\libsrc\glm;..\..\Engine\libsrc\libcda-0.5;..\..\Plugins;..\..\libsrc\allegro\include;..\..\libsrc\mojoAL;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;ALLEGRO_STATICLINK;DISABLE_MPEG_AUDIO;AGS_HAS_CD_AUDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;AL_LIBTYPE_STATIC;ALLEGRO_STATICLINK;DISABLE_MPEG_AUDIO;AGS_HAS_CD_AUDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -286,7 +286,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\..\Common;..\..\Common\libinclude;..\..\Common\libsrc\alfont-2.0.9;..\..\Engine;..\..\Engine\libsrc\apeg-1.2.1;..\..\Engine\libsrc\glad\include;..\..\libsrc\glm;..\..\Engine\libsrc\libcda-0.5;..\..\Plugins;..\..\libsrc\allegro\include;..\..\libsrc\mojoAL;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;ALLEGRO_STATICLINK;DISABLE_MPEG_AUDIO;AGS_HAS_CD_AUDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;AL_LIBTYPE_STATIC;ALLEGRO_STATICLINK;DISABLE_MPEG_AUDIO;AGS_HAS_CD_AUDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PrecompiledHeader>
@@ -314,7 +314,7 @@
       <Optimization>MaxSpeed</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <AdditionalIncludeDirectories>..\..\Common;..\..\Common\libinclude;..\..\Common\libsrc\alfont-2.0.9;..\..\Engine;..\..\Engine\libsrc\apeg-1.2.1;..\..\Engine\libsrc\glad\include;..\..\libsrc\glm;..\..\Engine\libsrc\libcda-0.5;..\..\Plugins;..\..\libsrc\allegro\include;..\..\libsrc\mojoAL;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;ALLEGRO_STATICLINK;DISABLE_MPEG_AUDIO;AGS_HAS_CD_AUDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;AL_LIBTYPE_STATIC;ALLEGRO_STATICLINK;DISABLE_MPEG_AUDIO;AGS_HAS_CD_AUDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeader />
@@ -347,7 +347,7 @@
       <Optimization>MaxSpeed</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <AdditionalIncludeDirectories>..\..\Common;..\..\Common\libinclude;..\..\Common\libsrc\alfont-2.0.9;..\..\Engine;..\..\Engine\libsrc\apeg-1.2.1;..\..\Engine\libsrc\glad\include;..\..\libsrc\glm;..\..\Engine\libsrc\libcda-0.5;..\..\Plugins;..\..\libsrc\allegro\include;..\..\libsrc\mojoAL;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;ALLEGRO_STATICLINK;DISABLE_MPEG_AUDIO;AGS_HAS_CD_AUDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;AL_LIBTYPE_STATIC;ALLEGRO_STATICLINK;DISABLE_MPEG_AUDIO;AGS_HAS_CD_AUDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeader>
@@ -382,7 +382,7 @@
       <Optimization>MaxSpeed</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <AdditionalIncludeDirectories>..\..\Common;..\..\Common\libinclude;..\..\Common\libsrc\alfont-2.0.9;..\..\Engine;..\..\Engine\libsrc\apeg-1.2.1;..\..\Engine\libsrc\glad\include;..\..\libsrc\glm;..\..\Engine\libsrc\libcda-0.5;..\..\Plugins;..\..\libsrc\allegro\include;..\..\libsrc\mojoAL;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;ALLEGRO_STATICLINK;DISABLE_MPEG_AUDIO;AGS_HAS_CD_AUDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;AL_LIBTYPE_STATIC;ALLEGRO_STATICLINK;DISABLE_MPEG_AUDIO;AGS_HAS_CD_AUDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeader>
@@ -418,7 +418,7 @@
       <Optimization>MaxSpeed</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <AdditionalIncludeDirectories>..\..\Common;..\..\Common\libinclude;..\..\Common\libsrc\alfont-2.0.9;..\..\Engine;..\..\Engine\libsrc\apeg-1.2.1;..\..\Engine\libsrc\glad\include;..\..\libsrc\glm;..\..\Engine\libsrc\libcda-0.5;..\..\Plugins;..\..\libsrc\allegro\include;..\..\libsrc\mojoAL;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;ALLEGRO_STATICLINK;DISABLE_MPEG_AUDIO;AGS_HAS_CD_AUDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;AL_LIBTYPE_STATIC;ALLEGRO_STATICLINK;DISABLE_MPEG_AUDIO;AGS_HAS_CD_AUDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeader>
@@ -470,7 +470,8 @@
     <ClCompile Include="..\..\Engine\ac\dynobj\cc_character.cpp" />
     <ClCompile Include="..\..\Engine\ac\dynobj\cc_dialog.cpp" />
     <ClCompile Include="..\..\Engine\ac\dynobj\cc_dynamicarray.cpp" />
-    <ClCompile Include="..\..\Engine\ac\dynobj\cc_dynamicobject.cpp" />
+    <ClCompile Include="..\..\Engine\ac\dynobj\cc_staticarray.cpp" />
+    <ClCompile Include="..\..\Engine\ac\dynobj\dynobj_manager.cpp" />
     <ClCompile Include="..\..\Engine\ac\dynobj\cc_gui.cpp" />
     <ClCompile Include="..\..\Engine\ac\dynobj\cc_guiobject.cpp" />
     <ClCompile Include="..\..\Engine\ac\dynobj\cc_hotspot.cpp" />
@@ -486,8 +487,11 @@
     <ClCompile Include="..\..\Engine\ac\dynobj\scriptdrawingsurface.cpp" />
     <ClCompile Include="..\..\Engine\ac\dynobj\scriptdynamicsprite.cpp" />
     <ClCompile Include="..\..\Engine\ac\dynobj\scriptfile.cpp" />
+    <ClCompile Include="..\..\Engine\ac\dynobj\scriptgame.cpp" />
+    <ClCompile Include="..\..\Engine\ac\dynobj\scriptmouse.cpp" />
     <ClCompile Include="..\..\Engine\ac\dynobj\scriptoverlay.cpp" />
     <ClCompile Include="..\..\Engine\ac\dynobj\scriptstring.cpp" />
+    <ClCompile Include="..\..\Engine\ac\dynobj\scriptsystem.cpp" />
     <ClCompile Include="..\..\Engine\ac\dynobj\scriptuserobject.cpp" />
     <ClCompile Include="..\..\Engine\ac\dynobj\scriptviewframe.cpp" />
     <ClCompile Include="..\..\Engine\ac\dynobj\scriptviewport.cpp" />
@@ -565,8 +569,6 @@
     <ClCompile Include="..\..\Engine\ac\speech.cpp" />
     <ClCompile Include="..\..\Engine\ac\sprite.cpp" />
     <ClCompile Include="..\..\Engine\ac\spritecache_engine.cpp" />
-    <ClCompile Include="..\..\Engine\ac\statobj\agsstaticobject.cpp" />
-    <ClCompile Include="..\..\Engine\ac\statobj\staticarray.cpp" />
     <ClCompile Include="..\..\Engine\ac\string.cpp" />
     <ClCompile Include="..\..\Engine\ac\system.cpp" />
     <ClCompile Include="..\..\Engine\ac\textbox.cpp" />
@@ -724,7 +726,7 @@
     <ClInclude Include="..\..\Engine\ac\dynobj\cc_character.h" />
     <ClInclude Include="..\..\Engine\ac\dynobj\cc_dialog.h" />
     <ClInclude Include="..\..\Engine\ac\dynobj\cc_dynamicarray.h" />
-    <ClInclude Include="..\..\Engine\ac\dynobj\cc_dynamicobject.h" />
+    <ClInclude Include="..\..\Engine\ac\dynobj\cc_scriptobject.h" />
     <ClInclude Include="..\..\Engine\ac\dynobj\cc_gui.h" />
     <ClInclude Include="..\..\Engine\ac\dynobj\cc_guiobject.h" />
     <ClInclude Include="..\..\Engine\ac\dynobj\cc_hotspot.h" />
@@ -732,6 +734,8 @@
     <ClInclude Include="..\..\Engine\ac\dynobj\cc_object.h" />
     <ClInclude Include="..\..\Engine\ac\dynobj\cc_region.h" />
     <ClInclude Include="..\..\Engine\ac\dynobj\cc_serializer.h" />
+    <ClInclude Include="..\..\Engine\ac\dynobj\cc_staticarray.h" />
+    <ClInclude Include="..\..\Engine\ac\dynobj\dynobj_manager.h" />
     <ClInclude Include="..\..\Engine\ac\dynobj\managedobjectpool.h" />
     <ClInclude Include="..\..\Engine\ac\dynobj\scriptaudiochannel.h" />
     <ClInclude Include="..\..\Engine\ac\dynobj\scriptcamera.h" />
@@ -743,6 +747,7 @@
     <ClInclude Include="..\..\Engine\ac\dynobj\scriptdrawingsurface.h" />
     <ClInclude Include="..\..\Engine\ac\dynobj\scriptdynamicsprite.h" />
     <ClInclude Include="..\..\Engine\ac\dynobj\scriptfile.h" />
+    <ClInclude Include="..\..\Engine\ac\dynobj\scriptgame.h" />
     <ClInclude Include="..\..\Engine\ac\dynobj\scriptgui.h" />
     <ClInclude Include="..\..\Engine\ac\dynobj\scripthotspot.h" />
     <ClInclude Include="..\..\Engine\ac\dynobj\scriptinvitem.h" />
@@ -827,9 +832,6 @@
     <ClInclude Include="..\..\Engine\ac\slider.h" />
     <ClInclude Include="..\..\Engine\ac\speech.h" />
     <ClInclude Include="..\..\Engine\ac\sprite.h" />
-    <ClInclude Include="..\..\Engine\ac\statobj\agsstaticobject.h" />
-    <ClInclude Include="..\..\Engine\ac\statobj\staticarray.h" />
-    <ClInclude Include="..\..\Engine\ac\statobj\staticobject.h" />
     <ClInclude Include="..\..\Engine\ac\string.h" />
     <ClInclude Include="..\..\Engine\ac\system.h" />
     <ClInclude Include="..\..\Engine\ac\textbox.h" />

@@ -46,6 +46,7 @@
 #include "ac/walkbehind.h"
 #include "ac/dynobj/scriptobject.h"
 #include "ac/dynobj/scripthotspot.h"
+#include "ac/dynobj/dynobj_manager.h"
 #include "gui/guimain.h"
 #include "script/cc_instance.h"
 #include "debug/debug_log.h"
@@ -206,6 +207,26 @@ bool Room_Exists(int room)
     return AssetMgr->DoesAssetExist(room_filename);
 }
 
+ScriptDrawingSurface *GetDrawingSurfaceForWalkableArea()
+{
+    return Room_GetDrawingSurfaceForMask(kRoomAreaWalkable);
+}
+
+ScriptDrawingSurface *GetDrawingSurfaceForWalkbehind()
+{
+    return Room_GetDrawingSurfaceForMask(kRoomAreaWalkBehind);
+}
+
+ScriptDrawingSurface *Hotspot_GetDrawingSurface()
+{
+    return Room_GetDrawingSurfaceForMask(kRoomAreaHotspot);
+}
+
+ScriptDrawingSurface *Region_GetDrawingSurface()
+{
+    return Room_GetDrawingSurfaceForMask(kRoomAreaRegion);
+}
+
 //=============================================================================
 
 // Makes sure that room background and walk-behind mask are matching room size
@@ -216,9 +237,8 @@ void convert_room_background_to_game_res()
     if (!game.AllowRelativeRes() || !thisroom.IsRelativeRes())
         return;
 
-    int bkg_width = thisroom.Width;
-    int bkg_height = thisroom.Height;
-    data_to_game_coords(&bkg_width, &bkg_height);
+    const int bkg_width = data_to_game_coord(thisroom.Width);
+    const int bkg_height = data_to_game_coord(thisroom.Height);
 
     for (size_t i = 0; i < thisroom.BgFrameCount; ++i)
         thisroom.BgFrames[i].Graphic = FixBitmap(thisroom.BgFrames[i].Graphic, bkg_width, bkg_height);
@@ -226,17 +246,9 @@ void convert_room_background_to_game_res()
     // Fix masks to match resized room background
     // Walk-behind is always 1:1 with room background size
     thisroom.WalkBehindMask = FixBitmap(thisroom.WalkBehindMask, bkg_width, bkg_height);
-    int mask_width = bkg_width / thisroom.MaskResolution;
-    int mask_height = bkg_height / thisroom.MaskResolution;
-    thisroom.HotspotMask = FixBitmap(thisroom.HotspotMask, mask_width, mask_height);
-    thisroom.RegionMask = FixBitmap(thisroom.RegionMask, mask_width, mask_height);
-    thisroom.WalkAreaMask = FixBitmap(thisroom.WalkAreaMask, mask_width, mask_height);
-
-    for (size_t i = 0; i < thisroom.WalkAreaCount; ++i)
-    {
-        thisroom.WalkAreas[i].Top = room_to_mask_coord(thisroom.WalkAreas[i].Top);
-        thisroom.WalkAreas[i].Bottom = room_to_mask_coord(thisroom.WalkAreas[i].Bottom);
-    }
+    // For the rest we keep the masks at original res, but update the MaskResolution,
+    // as it must correspond to the runtime data->game coordinate conversion
+    thisroom.MaskResolution = data_to_game_coord(thisroom.MaskResolution);
 }
 
 
@@ -666,14 +678,14 @@ void load_new_room(int newnum, CharacterInfo*forchar) {
         // export the object's script object
         if (thisroom.Objects[cc].ScriptName.IsEmpty())
             continue;
-        ccAddExternalDynamicObject(thisroom.Objects[cc].ScriptName, &scrObj[cc], &ccDynamicObject);
+        ccAddExternalScriptObject(thisroom.Objects[cc].ScriptName, &scrObj[cc], &ccDynamicObject);
     }
 
     for (int cc = 0; cc < MAX_ROOM_HOTSPOTS; cc++) {
         if (thisroom.Hotspots[cc].ScriptName.IsEmpty())
             continue;
 
-        ccAddExternalDynamicObject(thisroom.Hotspots[cc].ScriptName, &scrHotspot[cc], &ccDynamicHotspot);
+        ccAddExternalScriptObject(thisroom.Hotspots[cc].ScriptName, &scrHotspot[cc], &ccDynamicHotspot);
     }
 
     our_eip = 210;
@@ -1047,12 +1059,14 @@ void croom_ptr_clear()
 }
 
 
-AGS_INLINE int room_to_mask_coord(int coord)
+// coordinate conversion (data) ---> game ---> (room mask)
+int room_to_mask_coord(int coord)
 {
     return coord * game.GetDataUpscaleMult() / thisroom.MaskResolution;
 }
 
-AGS_INLINE int mask_to_room_coord(int coord)
+// coordinate conversion (room mask) ---> game ---> (data)
+int mask_to_room_coord(int coord)
 {
     return coord * thisroom.MaskResolution / game.GetDataUpscaleMult();
 }
@@ -1062,9 +1076,9 @@ void convert_move_path_to_room_resolution(MoveList *ml)
     if ((game.options[OPT_WALKSPEEDABSOLUTE] != 0) && game.GetDataUpscaleMult() > 1)
     { // Speeds are independent from MaskResolution
         for (int i = 0; i < ml->numstage; i++)
-        { // ...so they are not multiplied by MaskResolution factor when converted to room coords
-            ml->xpermove[i] = ml->xpermove[i] / game.GetDataUpscaleMult();
-            ml->ypermove[i] = ml->ypermove[i] / game.GetDataUpscaleMult();
+        { // ...we still need to convert from game to data coords
+            ml->xpermove[i] = game_to_data_coord(ml->xpermove[i]);
+            ml->ypermove[i] = game_to_data_coord(ml->ypermove[i]);
         }
     }
 
@@ -1078,9 +1092,9 @@ void convert_move_path_to_room_resolution(MoveList *ml)
 
     for (int i = 0; i < ml->numstage; i++)
     {
-        uint16_t lowPart = mask_to_room_coord(ml->pos[i] & 0x0000ffff);
-        uint16_t highPart = mask_to_room_coord((ml->pos[i] >> 16) & 0x0000ffff);
-        ml->pos[i] = ((int)highPart << 16) | (lowPart & 0x0000ffff);
+        uint16_t low = mask_to_room_coord(ml->pos[i] & 0x0000ffff);
+        uint16_t high = mask_to_room_coord((ml->pos[i] >> 16) & 0x0000ffff);
+        ml->pos[i] = ((int)high << 16) | (low & 0x0000ffff);
     }
 
     if (game.options[OPT_WALKSPEEDABSOLUTE] == 0)
@@ -1208,41 +1222,26 @@ RuntimeScriptValue Sc_Room_Exists(const RuntimeScriptValue *params, int32_t para
 
 void RegisterRoomAPI()
 {
-    ccAddExternalStaticFunction("Room::GetDrawingSurfaceForBackground^1",   Sc_Room_GetDrawingSurfaceForBackground);
-    ccAddExternalStaticFunction("Room::GetProperty^1",                      Sc_Room_GetProperty);
-    ccAddExternalStaticFunction("Room::GetTextProperty^1",                  Sc_Room_GetTextProperty);
-    ccAddExternalStaticFunction("Room::SetProperty^2",                      Sc_Room_SetProperty);
-    ccAddExternalStaticFunction("Room::SetTextProperty^2",                  Sc_Room_SetTextProperty);
-    ccAddExternalStaticFunction("Room::ProcessClick^3",                     Sc_RoomProcessClick);
-    ccAddExternalStaticFunction("ProcessClick",                             Sc_RoomProcessClick);
-    ccAddExternalStaticFunction("Room::get_BottomEdge",                     Sc_Room_GetBottomEdge);
-    ccAddExternalStaticFunction("Room::get_ColorDepth",                     Sc_Room_GetColorDepth);
-    ccAddExternalStaticFunction("Room::get_Height",                         Sc_Room_GetHeight);
-    ccAddExternalStaticFunction("Room::get_LeftEdge",                       Sc_Room_GetLeftEdge);
-    ccAddExternalStaticFunction("Room::geti_Messages",                      Sc_Room_GetMessages);
-    ccAddExternalStaticFunction("Room::get_MusicOnLoad",                    Sc_Room_GetMusicOnLoad);
-    ccAddExternalStaticFunction("Room::get_ObjectCount",                    Sc_Room_GetObjectCount);
-    ccAddExternalStaticFunction("Room::get_RightEdge",                      Sc_Room_GetRightEdge);
-    ccAddExternalStaticFunction("Room::get_TopEdge",                        Sc_Room_GetTopEdge);
-    ccAddExternalStaticFunction("Room::get_Width",                          Sc_Room_GetWidth);
-    ccAddExternalStaticFunction("Room::Exists",                             Sc_Room_Exists);
+    ScFnRegister room_api[] = {
+        { "Room::GetDrawingSurfaceForBackground^1",   API_FN_PAIR(Room_GetDrawingSurfaceForBackground) },
+        { "Room::GetProperty^1",                      API_FN_PAIR(Room_GetProperty) },
+        { "Room::GetTextProperty^1",                  API_FN_PAIR(Room_GetTextProperty) },
+        { "Room::SetProperty^2",                      API_FN_PAIR(Room_SetProperty) },
+        { "Room::SetTextProperty^2",                  API_FN_PAIR(Room_SetTextProperty) },
+        { "Room::ProcessClick^3",                     API_FN_PAIR(RoomProcessClick) },
+        { "ProcessClick",                             API_FN_PAIR(RoomProcessClick) },
+        { "Room::get_BottomEdge",                     API_FN_PAIR(Room_GetBottomEdge) },
+        { "Room::get_ColorDepth",                     API_FN_PAIR(Room_GetColorDepth) },
+        { "Room::get_Height",                         API_FN_PAIR(Room_GetHeight) },
+        { "Room::get_LeftEdge",                       API_FN_PAIR(Room_GetLeftEdge) },
+        { "Room::geti_Messages",                      API_FN_PAIR(Room_GetMessages) },
+        { "Room::get_MusicOnLoad",                    API_FN_PAIR(Room_GetMusicOnLoad) },
+        { "Room::get_ObjectCount",                    API_FN_PAIR(Room_GetObjectCount) },
+        { "Room::get_RightEdge",                      API_FN_PAIR(Room_GetRightEdge) },
+        { "Room::get_TopEdge",                        API_FN_PAIR(Room_GetTopEdge) },
+        { "Room::get_Width",                          API_FN_PAIR(Room_GetWidth) },
+        { "Room::Exists",                             API_FN_PAIR(Room_Exists) },
+    };
 
-    /* ----------------------- Registering unsafe exports for plugins -----------------------*/
-
-    ccAddExternalFunctionForPlugin("Room::GetDrawingSurfaceForBackground^1",   (void*)Room_GetDrawingSurfaceForBackground);
-    ccAddExternalFunctionForPlugin("Room::GetProperty^1",                      (void*)Room_GetProperty);
-    ccAddExternalFunctionForPlugin("Room::GetTextProperty^1",                  (void*)Room_GetTextProperty);
-    ccAddExternalFunctionForPlugin("Room::SetProperty^2",                      (void*)Room_SetProperty);
-    ccAddExternalFunctionForPlugin("Room::SetTextProperty^2",                  (void*)Room_SetTextProperty);
-    ccAddExternalFunctionForPlugin("Room::get_BottomEdge",                     (void*)Room_GetBottomEdge);
-    ccAddExternalFunctionForPlugin("Room::get_ColorDepth",                     (void*)Room_GetColorDepth);
-    ccAddExternalFunctionForPlugin("Room::get_Height",                         (void*)Room_GetHeight);
-    ccAddExternalFunctionForPlugin("Room::get_LeftEdge",                       (void*)Room_GetLeftEdge);
-    ccAddExternalFunctionForPlugin("Room::geti_Messages",                      (void*)Room_GetMessages);
-    ccAddExternalFunctionForPlugin("Room::get_MusicOnLoad",                    (void*)Room_GetMusicOnLoad);
-    ccAddExternalFunctionForPlugin("Room::get_ObjectCount",                    (void*)Room_GetObjectCount);
-    ccAddExternalFunctionForPlugin("Room::get_RightEdge",                      (void*)Room_GetRightEdge);
-    ccAddExternalFunctionForPlugin("Room::get_TopEdge",                        (void*)Room_GetTopEdge);
-    ccAddExternalFunctionForPlugin("Room::get_Width",                          (void*)Room_GetWidth);
-    ccAddExternalFunctionForPlugin("Room::Exists",                             (void*)Room_Exists);
+    ccAddExternalFunctions(room_api);
 }

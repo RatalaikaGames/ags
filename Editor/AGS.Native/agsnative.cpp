@@ -1566,14 +1566,14 @@ void validate_mask(Common::Bitmap *toValidate, const char *name, int maxColour) 
   }
 
   if (errFound) {
-	char errorBuf[1000];
-    sprintf(errorBuf, "Invalid colours were found in the %s mask. They have now been removed."
-       "\n\nWhen drawing a mask in an external paint package, you need to make "
+	AGSString err = AGSString::FromFormat(
+       "Invalid colours were found in the %s mask. They have now been removed."
+       "\n\nWhen drawing a mask in an external image editor, you need to make "
        "sure that the image is set as 256-colour (Indexed Palette), and that "
-       "you use the first 16 colours in the palette for drawing your areas. Palette "
+       "you use the first %d colours in the palette for drawing %s. Palette "
        "entry 0 corresponds to No Area, palette index 1 corresponds to area 1, and "
-       "so forth.", name);
-	MessageBox(NULL, errorBuf, "Mask Error", MB_OK);
+       "so forth.", name, maxColour, name);
+	MessageBox(NULL, err.GetCStr(), "Mask Error", MB_OK | MB_ICONWARNING);
     RoomTools->roomModified = true;
   }
 }
@@ -1599,6 +1599,18 @@ void copy_global_palette_to_room_palette(RoomStruct &rs)
       rs.BgFrames[0].Palette[ww] = palette[ww];
     }
   }
+}
+
+const char *get_mask_name(RoomAreaMask mask)
+{
+    switch (mask)
+    {
+    case kRoomAreaHotspot: return "Hotspots";
+    case kRoomAreaWalkBehind: return "Walk-behinds";
+    case kRoomAreaWalkable: return "Walkable areas";
+    case kRoomAreaRegion: return "Regions";
+    default: return "unknown";
+    }
 }
 
 AGSString load_room_file(RoomStruct &rs, const AGSString &filename) {
@@ -1633,10 +1645,10 @@ AGSString load_room_file(RoomStruct &rs, const AGSString &filename) {
 
   RoomTools->roomModified = false;
 
-  validate_mask(rs.HotspotMask.get(), "hotspot", MAX_ROOM_HOTSPOTS);
-  validate_mask(rs.WalkBehindMask.get(), "walk-behind", MAX_WALK_AREAS + 1);
-  validate_mask(rs.WalkAreaMask.get(), "walkable area", MAX_WALK_AREAS + 1);
-  validate_mask(rs.RegionMask.get(), "regions", MAX_ROOM_REGIONS);
+  validate_mask(rs.HotspotMask.get(), get_mask_name(kRoomAreaHotspot), MAX_ROOM_HOTSPOTS);
+  validate_mask(rs.WalkBehindMask.get(), get_mask_name(kRoomAreaWalkBehind), MAX_WALK_AREAS + 1);
+  validate_mask(rs.WalkAreaMask.get(), get_mask_name(kRoomAreaWalkable), MAX_WALK_AREAS + 1);
+  validate_mask(rs.RegionMask.get(), get_mask_name(kRoomAreaRegion), MAX_ROOM_REGIONS);
   return AGSString();
 }
 
@@ -2310,7 +2322,7 @@ void import_area_mask(void *roomptr, int maskType, System::Drawing::Bitmap ^bmp)
 	}
 	delete importedImage;
 
-	validate_mask(mask, "imported", (maskType == kRoomAreaHotspot) ? MAX_ROOM_HOTSPOTS : (MAX_WALK_AREAS + 1));
+	validate_mask(mask, get_mask_name((RoomAreaMask)maskType), (maskType == kRoomAreaHotspot) ? MAX_ROOM_HOTSPOTS : (MAX_WALK_AREAS + 1));
 }
 
 SysBitmap ^export_area_mask(void *roomptr, int maskType)
@@ -2990,12 +3002,10 @@ void ConvertInteractionCommandList(System::Text::StringBuilder^ sb, InteractionC
 
 void CopyInteractions(AGS::Types::Interactions ^destination, AGS::Common::InteractionScripts *source)
 {
-    if (source->ScriptFuncNames.size() > (size_t)destination->ScriptFunctionNames->Length) 
-	{
-		throw gcnew AGS::Types::AGSEditorException("Invalid interaction funcs: too many interaction events");
-	}
+    size_t evt_count = min(source->ScriptFuncNames.size(), (size_t)destination->ScriptFunctionNames->Length);
+    // TODO: add a warning? if warning list would be passed in here
 
-	for (size_t i = 0; i < source->ScriptFuncNames.size(); i++) 
+	for (size_t i = 0; i < evt_count; i++) 
 	{
 		destination->ScriptFunctionNames[i] = TextHelper::ConvertASCII(source->ScriptFuncNames[i]);
 	}
@@ -3003,12 +3013,10 @@ void CopyInteractions(AGS::Types::Interactions ^destination, AGS::Common::Intera
 
 void ConvertInteractions(AGS::Types::Interactions ^interactions, Interaction *intr, String^ scriptFuncPrefix, AGS::Types::Game ^game, int targetTypeForUnhandledEvent)
 {
-	if (intr->Events.size() > (size_t)interactions->ScriptFunctionNames->Length) 
-	{
-		throw gcnew AGS::Types::AGSEditorException("Invalid interaction data: too many interaction events");
-	}
+    size_t evt_count = min(intr->Events.size(), (size_t)interactions->ScriptFunctionNames->Length);
+    // TODO: add a warning? if warning list would be passed in here
 
-	for (size_t i = 0; i < intr->Events.size(); i++) 
+	for (size_t i = 0; i < evt_count; i++) 
 	{
         if (intr->Events[i].Response.get() != NULL) 
 		{

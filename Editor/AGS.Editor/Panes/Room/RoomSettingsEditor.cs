@@ -33,14 +33,14 @@ namespace AGS.Editor
         private List<IRoomEditorFilter> _layers = new List<IRoomEditorFilter>();
         private CharactersEditorFilter _characterLayer; // need to store the reference for special processing
         private bool _editorConstructed = false;
-        private int _lastX, _lastY;
         private bool _mouseIsDown = false;
         private int _menuClickX;
         private int _menuClickY;
         private object _startNode; // track breadcrumbs path so that it can be compared when saving
 
-        private int ZOOM_STEP_VALUE = 25;
-        private int ZOOM_MAX_VALUE = 600;
+        private const int ZOOM_STEP_VALUE = 25;
+        private const int ZOOM_MAX_VALUE = 600;
+        private bool _isChangingZoom = false;
         private RoomEditorState _state = new RoomEditorState();
 
         /// <summary>
@@ -91,10 +91,6 @@ namespace AGS.Editor
 
             InitializeComponent();
             _room = room;
-            sldZoomLevel.Maximum = ZOOM_MAX_VALUE / ZOOM_STEP_VALUE;
-            sldZoomLevel.Value = 100 / ZOOM_STEP_VALUE;
-            // TODO: choose default zoom based on the room size vs window size?
-            SetZoomSliderToMultiplier(_room.Width <= 320 ? 2 : 1);
 
             _emptyLayer = new EmptyEditorFilter(bufferedPanel1, _room);
             _layers.Add(new EdgesEditorFilter(bufferedPanel1, _room));
@@ -108,6 +104,7 @@ namespace AGS.Editor
 
             foreach (IRoomEditorFilter layer in _layers)
             {
+                layer.OnContextMenu += layer_OnContextMenu;
                 layer.OnItemsChanged += layer_OnItemsChanged;
                 layer.OnSelectedItemChanged += layer_OnSelectedItemChanged;
             }
@@ -118,9 +115,16 @@ namespace AGS.Editor
 
             RepopulateBackgroundList(0);
             UpdateScrollableWindowSize();
-			this.MouseWheel += new MouseEventHandler(RoomSettingsEditor_MouseWheel);
-			this.bufferedPanel1.MouseWheel += new MouseEventHandler(RoomSettingsEditor_MouseWheel);
-            this.sldZoomLevel.MouseWheel += new MouseEventHandler(RoomSettingsEditor_MouseWheel);
+            sldZoomLevel.Maximum = ZOOM_MAX_VALUE / ZOOM_STEP_VALUE;
+            sldZoomLevel.Value = 100 / ZOOM_STEP_VALUE;
+            // TODO: choose default zoom based on the room size vs window size?
+            SetZoomSliderToMultiplier(_room.Width <= 320 ? 2 : 1);
+
+            MouseWheel += new MouseEventHandler(RoomSettingsEditor_MouseWheel);
+            bufferedPanel1.MouseWheel += new MouseEventHandler(RoomSettingsEditor_MouseWheel);
+            sldZoomLevel.MouseWheel += new MouseEventHandler(RoomSettingsEditor_MouseWheel);
+            cmbBackgrounds.MouseWheel += new MouseEventHandler(RoomSettingsEditor_MouseWheel);
+            bufferedPanel1.PanButtons = MouseButtons.Middle;
 
             _editorConstructed = true;
         }
@@ -266,6 +270,15 @@ namespace AGS.Editor
             //selecting hotspot from designer Panel, then cant Draw more hotspots...
         }
 
+        /// <summary>
+        /// Room layer wants to display context menu, we shall add our items too.
+        /// </summary>
+        private void layer_OnContextMenu(object sender, RoomFilterContextMenuArgs e)
+        {
+            e.Menu.Items.Add(new ToolStripSeparator());
+            PrepareContextMenu(e.Menu, e.X, e.Y);
+        }
+
         private string GetLayerItemUniqueID(IRoomEditorFilter layer, string itemName)
         {
             return layer.DisplayName + itemName;
@@ -273,22 +286,37 @@ namespace AGS.Editor
                 
         private void RoomSettingsEditor_MouseWheel(object sender, MouseEventArgs e)
 		{
-			int movement = e.Delta;
-			if (movement > 0)
-			{
-				if (sldZoomLevel.Value < sldZoomLevel.Maximum)
-				{
-					sldZoomLevel.Value++;
-				}
-			}
-			else
-			{
-				if (sldZoomLevel.Value > sldZoomLevel.Minimum)
-				{
-					sldZoomLevel.Value--;
-				}
-			}
-			sldZoomLevel_Scroll(null, null);
+            // Ctrl + Wheel = zoom
+            if (ModifierKeys == Keys.Control)
+            {
+                // For zooming with mouse wheel we use current mouse position as anchor
+                // (ofcourse we need to translate it to the panel position)
+                Point anchor = bufferedPanel1.PointToClient(Cursor.Position);
+                if (e.Delta > 0)
+                {
+                    if (sldZoomLevel.Value < sldZoomLevel.Maximum)
+                    {
+                        ChangeZoom(sldZoomLevel.Value + 1, anchor);
+                    }
+                }
+                else
+                {
+                    if (sldZoomLevel.Value > sldZoomLevel.Minimum)
+                    {
+                        ChangeZoom(sldZoomLevel.Value - 1, anchor);
+                    }
+                }
+            }
+            // Shift + Wheel = scroll horizontal
+            else if (ModifierKeys == Keys.Shift)
+            {
+                bufferedPanel1.AutoScrollPosition = new Point(Math.Abs(bufferedPanel1.AutoScrollPosition.X) - e.Delta, Math.Abs(bufferedPanel1.AutoScrollPosition.Y));
+            }
+            // Wheel without modifiers = scroll vertical
+            else if(ModifierKeys == Keys.None)
+            {
+                bufferedPanel1.AutoScrollPosition = new Point(Math.Abs(bufferedPanel1.AutoScrollPosition.X), Math.Abs(bufferedPanel1.AutoScrollPosition.Y) - e.Delta);
+            }
             // Ridiculous solution, found on stackoverflow.com
             // TODO: check again later, how reliable this is?!
             HandledMouseEventArgs ee = (HandledMouseEventArgs)e;
@@ -298,7 +326,7 @@ namespace AGS.Editor
         private void SetZoomSliderToMultiplier(int factor)
         {
             sldZoomLevel.Value = (100 * factor) / ZOOM_STEP_VALUE;
-            sldZoomLevel_Scroll(null, null);
+            ChangeZoom(sldZoomLevel.Value, Point.Empty);
         }
 
         private void UpdateScrollableWindowSize()
@@ -329,7 +357,7 @@ namespace AGS.Editor
 
         private void bufferedPanel1_Paint(object sender, PaintEventArgs e)
         {
-            _state.UpdateScroll(bufferedPanel1.AutoScrollPosition);
+            _state.Offset = new Point(-bufferedPanel1.AutoScrollPosition.X, -bufferedPanel1.AutoScrollPosition.Y);
 
             int scaleFactor = 1;
             if ((_room.Resolution == RoomResolution.LowRes) &&
@@ -563,8 +591,6 @@ namespace AGS.Editor
 
                         // TODO: choose default zoom based on the room size vs window size?
                         SetZoomSliderToMultiplier(_room.Width <= 320 ? 2 : 1);
-						sldZoomLevel_Scroll(null, null);
-						UpdateScrollableWindowSize();
                     }
                 }
                 catch (Exception ex)
@@ -611,8 +637,20 @@ namespace AGS.Editor
 
         private void bufferedPanel1_MouseDown(object sender, MouseEventArgs e)
         {
+            if (bufferedPanel1.IsPanning) return;
+            bool handled = false;
             if (_layer != null && !IsLocked(_layer))
-                _layer.MouseDown(e, _state);
+            {
+                handled = _layer.MouseDown(e, _state);
+            }
+            if (!handled)
+            {
+                if (e.Button == MouseButtons.Right &&
+                    (ModifierKeys == Keys.None || ModifierKeys == Keys.Shift))
+                {
+                    ShowContextMenu(e.X, e.Y);
+                }
+            }
             _mouseIsDown = true;
 		}
 
@@ -624,13 +662,6 @@ namespace AGS.Editor
                 if (_layer != null && !IsLocked(_layer))
                 {
                     handled = _layer.MouseUp(e, _state);
-                }
-                if (!handled)
-                {
-                    if (e.Button == MouseButtons.Middle)
-                    {
-                        ShowCoordMenu(e);
-                    }
                 }
                 Factory.GUIController.RefreshPropertyGrid();
                 bufferedPanel1.Invalidate();
@@ -654,14 +685,7 @@ namespace AGS.Editor
 
 		private void bufferedPanel1_MouseMove(object sender, MouseEventArgs e)
         {
-            if ((e.X == _lastX) && (e.Y == _lastY))
-            {
-                return;
-            }
-
-            _lastX = e.X;
-            _lastY = e.Y;            
-
+            if (bufferedPanel1.IsPanning) return;
             int mouseXPos = _state.WindowXToRoom(e.X);
             int mouseYPos = _state.WindowYToRoom(e.Y);
             string xPosText = mouseXPos.ToString();
@@ -785,74 +809,79 @@ namespace AGS.Editor
 			return (focused == this.ActiveControl);*/
 		}
 
-		private bool ProcessZoomAndPanKeyPresses(Keys keyData)
-		{
-			if (keyData == Keys.Down)
-			{
-				bufferedPanel1.AutoScrollPosition = new Point(Math.Abs(bufferedPanel1.AutoScrollPosition.X), Math.Abs(bufferedPanel1.AutoScrollPosition.Y) + 50);
-			}
-			else if (keyData == Keys.Up)
-			{
-				bufferedPanel1.AutoScrollPosition = new Point(Math.Abs(bufferedPanel1.AutoScrollPosition.X), Math.Abs(bufferedPanel1.AutoScrollPosition.Y) - 50);
-			}
-			else if (keyData == Keys.Right)
-			{
-				bufferedPanel1.AutoScrollPosition = new Point(Math.Abs(bufferedPanel1.AutoScrollPosition.X) + 50, Math.Abs(bufferedPanel1.AutoScrollPosition.Y));
-			}
-			else if (keyData == Keys.Left)
-			{
-				bufferedPanel1.AutoScrollPosition = new Point(Math.Abs(bufferedPanel1.AutoScrollPosition.X) - 50, Math.Abs(bufferedPanel1.AutoScrollPosition.Y));
-			}
-			else if (keyData == Keys.Space)
-			{
-				if (sldZoomLevel.Value < sldZoomLevel.Maximum)
-				{
-					sldZoomLevel.Value++;
-				}
-				else
-				{
-					sldZoomLevel.Value = sldZoomLevel.Minimum;
-				}
-				sldZoomLevel_Scroll(null, null);
-			}
-			else
-			{
-				return false;
-			}
-
-			return true;
+		private bool ProcessPanKeyPress(Keys keyData)
+        {
+            switch (keyData)
+            {
+            case Keys.Down:
+	            bufferedPanel1.AutoScrollPosition = new Point(Math.Abs(bufferedPanel1.AutoScrollPosition.X), Math.Abs(bufferedPanel1.AutoScrollPosition.Y) + 50);
+                return true;
+            case Keys.Up:
+	            bufferedPanel1.AutoScrollPosition = new Point(Math.Abs(bufferedPanel1.AutoScrollPosition.X), Math.Abs(bufferedPanel1.AutoScrollPosition.Y) - 50);
+                return true;
+            case Keys.Right:
+	            bufferedPanel1.AutoScrollPosition = new Point(Math.Abs(bufferedPanel1.AutoScrollPosition.X) + 50, Math.Abs(bufferedPanel1.AutoScrollPosition.Y));
+                return true;
+            case Keys.Left:
+	            bufferedPanel1.AutoScrollPosition = new Point(Math.Abs(bufferedPanel1.AutoScrollPosition.X) - 50, Math.Abs(bufferedPanel1.AutoScrollPosition.Y));
+                return true;
+            case Keys.Space:
+                bufferedPanel1.PanButtons |= MouseButtons.Left;
+                return true;
+            }
+			return false;
 		}
+
+        private bool ProcessPanKeyRelease(Keys keyData)
+        {
+            switch (keyData)
+            {
+                case Keys.Space:
+                    bufferedPanel1.PanButtons &= ~MouseButtons.Left;
+                    return true;
+            }
+            return false;
+        }
 
 		protected override bool HandleKeyPress(Keys keyData)
 		{
-			bool returnHandled = true;
-
             if (!DoesThisPanelHaveFocus())
             {
                 return false;
             }
+
             if (_layer != null && !IsLocked(_layer) && _layer.KeyPressed(keyData))
             {
                 bufferedPanel1.Invalidate();
                 Factory.GUIController.RefreshPropertyGrid();
+                return true;
             }
-            else if (!ProcessZoomAndPanKeyPresses(keyData))
-            {
-                returnHandled = false;
-            }			
-			return returnHandled;
+            return ProcessPanKeyPress(keyData);
 		}
 
-        private void ShowCoordMenu(MouseEventArgs e)
+        protected override bool HandleKeyRelease(Keys keyData)
+        {
+            if (!DoesThisPanelHaveFocus())
+            {
+                return false;
+            }
+
+            return ProcessPanKeyRelease(keyData);
+        }
+
+        private void ShowContextMenu(int x, int y)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+            PrepareContextMenu(menu, x, y);
+            menu.Show(bufferedPanel1, x, y);
+        }
+
+        private void PrepareContextMenu(ContextMenuStrip menu, int x, int y)
         {
             EventHandler onClick = new EventHandler(CoordMenuEventHandler);
-            ContextMenuStrip menu = new ContextMenuStrip();
             menu.Items.Add(new ToolStripMenuItem("Copy mouse coordinates to clipboard", null, onClick, MENU_ITEM_COPY_COORDS));
-
-            _menuClickX = _state.WindowXToRoom(e.X);
-            _menuClickY = _state.WindowYToRoom(e.Y);
-
-            menu.Show(bufferedPanel1, e.X, e.Y);
+            _menuClickX = _state.WindowXToRoom(x);
+            _menuClickY = _state.WindowYToRoom(y);
         }
 
         private void CoordMenuEventHandler(object sender, EventArgs e)
@@ -942,20 +971,52 @@ namespace AGS.Editor
             }
         }
 
+        /// <summary>
+        /// Set new zoom level and updates controls accordingly.
+        /// </summary>
+        /// <param name="zoom">Zoom level in ZOOM_STEP_VALUE percents.</param>
+        /// <param name="anchor">The room point of reference which must retain its position after zoom.
+        /// This point should be given in the ** window ** coordinates though (best to think as a point
+        /// under mouse cursor, or center of the panel).
+        /// </param>
+        private void ChangeZoom(int zoom, Point anchor)
+        {
+            _isChangingZoom = true; // set the flag to prevent controls reupdating themselves infinitely
+
+            float oldScale = _state.Scale;
+            Point oldOffset = _state.Offset;
+
+            // Update scale
+            float newScale = zoom * ZOOM_STEP_VALUE * 0.01f;
+            _state.Scale = newScale;
+            UpdateScrollableWindowSize();
+
+            // Update offset
+            Point newOffset = RoomEditorState.RecalcOffset(oldOffset, oldScale, newScale, anchor);
+            newOffset.X = Math.Min(bufferedPanel1.AutoScrollMinSize.Width - 1, newOffset.X);
+            newOffset.Y = Math.Min(bufferedPanel1.AutoScrollMinSize.Height - 1, newOffset.Y);
+            newOffset.X = Math.Max(0, newOffset.X);
+            newOffset.Y = Math.Max(0, newOffset.Y);
+            _state.Offset = newOffset;
+
+            // Update scroll positions and redraw
+            bufferedPanel1.HorizontalScroll.Value = _state.Offset.X;
+            bufferedPanel1.VerticalScroll.Value = _state.Offset.Y;
+            bufferedPanel1.Invalidate();
+            // Update slider position (in case zoom was set by other controls)
+            sldZoomLevel.Value = zoom;
+            // Update label text
+            lblZoomInfo.Text = String.Format("{0}%", zoom * ZOOM_STEP_VALUE);
+            _isChangingZoom = false;
+        }
+
         private void sldZoomLevel_Scroll(object sender, EventArgs e)
 		{
-            lblZoomInfo.Text = String.Format("{0}%", sldZoomLevel.Value * ZOOM_STEP_VALUE);
-
-            int oldPosX = _state.WindowSizeToRoom(bufferedPanel1.HorizontalScroll.Value);
-            int oldPosY = _state.WindowSizeToRoom(bufferedPanel1.VerticalScroll.Value);
-
-            _state.Scale = sldZoomLevel.Value * ZOOM_STEP_VALUE * 0.01f;
-            UpdateScrollableWindowSize();
-            
-            bufferedPanel1.HorizontalScroll.Value = _state.RoomSizeToWindow(oldPosX);
-            bufferedPanel1.VerticalScroll.Value = _state.RoomSizeToWindow(oldPosY);
-            bufferedPanel1.Invalidate();
-		}
+            if (_isChangingZoom)
+                return;
+            // for the zoom slider we use center of panel as anchor
+            ChangeZoom(sldZoomLevel.Value, new Point(bufferedPanel1.ClientSize.Width / 2, bufferedPanel1.ClientSize.Height / 2));
+        }
 
 		private void sldTransparency_Scroll(object sender, EventArgs e)
 		{
@@ -1005,8 +1066,7 @@ namespace AGS.Editor
         // Multiplier, defining convertion between room and editor coords.
         private float _scale;
         // Offsets, in window coordinates.
-        private int _scrollOffsetX;
-        private int _scrollOffsetY;
+        private Point _scrollOffset;
 
         internal Cursor CurrentCursor;
         internal bool DragFromCenter;
@@ -1018,22 +1078,22 @@ namespace AGS.Editor
 
         internal int WindowXToRoom(int x)
         {
-            return (int)((x + _scrollOffsetX) / _scale);
+            return (int)((x + _scrollOffset.X) / _scale);
         }
 
         internal int WindowYToRoom(int y)
         {
-            return (int)((y + _scrollOffsetY) / _scale);
+            return (int)((y + _scrollOffset.Y) / _scale);
         }
 
         internal int RoomXToWindow(int x)
         {
-            return (int)(x * _scale) - _scrollOffsetX;
+            return (int)(x * _scale) - _scrollOffset.X;
         }
 
         internal int RoomYToWindow(int y)
         {
-            return (int)(y * _scale) - _scrollOffsetY;
+            return (int)(y * _scale) - _scrollOffset.Y;
         }
 
         internal int RoomSizeToWindow(int sz)
@@ -1052,23 +1112,41 @@ namespace AGS.Editor
         internal float Scale
         {
             get { return _scale; }
-            set
-            {
-                float oldScale = _scale;
-                _scale = value;
-                _scrollOffsetX = (int)((_scrollOffsetX / oldScale) * _scale);
-                _scrollOffsetY = (int)((_scrollOffsetY / oldScale) * _scale);
-            }
+            set { _scale = value; }
         }
 
         /// <summary>
-        /// Updates offset using current scrollbar position.
+        /// Offset of the Room image on screen.
         /// </summary>
-        /// <param name="scrollPt">Scroll position in window coordinates.</param>
-        internal void UpdateScroll(Point scrollPt)
+        internal Point Offset
         {
-            _scrollOffsetX = -scrollPt.X;
-            _scrollOffsetY = -scrollPt.Y;
+            get { return _scrollOffset; }
+            set { _scrollOffset = value; }
+        }
+
+        /// <summary>
+        /// Recalculates resulting image offsets, depending on the changing zoom and anchor point.
+        /// </summary>
+        // TODO: move this elsewhere, this kind of logic should perhaps take place in a dedicated control.
+        // FreePanControl?
+        /// <param name="curOffset"></param>
+        /// <param name="oldScale"></param>
+        /// <param name="newScale"></param>
+        /// <param name="anchor">Anchor point in * window * coordinates.</param>
+        /// <returns>Image offset in * window * coordinates</returns>
+        internal static Point RecalcOffset(Point curOffset, float oldScale, float newScale, Point anchor)
+        {
+            // The idea here is that the anchor point defines the room location that must remain
+            // * under same window location * after the rescaling.
+            // In other words, the distance from window sides to this point must be same with old and new zoom.
+            // Since the anchor is already given to us in window coordinates, its meaning is equal to distance from window's left-top;
+            // this distance will remain the same, what will change is the distance in * room coordinates * (because room scale changes).
+            
+            Point roomAnchor = new Point((int)((anchor.X + curOffset.X) / oldScale), (int)((anchor.Y + curOffset.Y) / oldScale));
+            Point newRoomDist = new Point((int)(anchor.X / newScale), (int)(anchor.Y / newScale));
+            Point newRoomLT = new Point(roomAnchor.X - newRoomDist.X, roomAnchor.Y - newRoomDist.Y);
+            Point newWindowLT = new Point((int)(newRoomLT.X * newScale), (int)(newRoomLT.Y * newScale));
+            return newWindowLT;
         }
 
         // Refactor following static methods and/or move elsewhere.

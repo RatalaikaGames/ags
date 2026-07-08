@@ -86,6 +86,7 @@ using namespace AGS::Engine;
 #endif // BUILTIN_PLUGINS
 
 
+extern String appDirectory;
 extern IGraphicsDriver *gfxDriver;
 extern int mousex, mousey;
 extern int displayed_room;
@@ -703,8 +704,8 @@ void IAGSEngine::QueueGameScriptFunction(const char *name, int32 globalScript, i
 }
 
 int IAGSEngine::RegisterManagedObject(void *object, IAGSScriptManagedObject *callback) {
-    GlobalReturnValue.SetScriptObjectBuf(object, (IScriptObject*)callback);
-    return ccRegisterManagedObject(object, (IScriptObject*)callback, kScValScriptObjectBuf);
+    GlobalReturnValue.SetPluginObject(object, (IScriptObject*)callback);
+    return ccRegisterManagedObject(object, (IScriptObject*)callback, kScValPluginObject);
 }
 
 void IAGSEngine::AddManagedObjectReader(const char *typeName, IAGSManagedObjectReader *reader) {
@@ -725,8 +726,8 @@ void IAGSEngine::AddManagedObjectReader(const char *typeName, IAGSManagedObjectR
 }
 
 void IAGSEngine::RegisterUnserializedObject(int key, void *object, IAGSScriptManagedObject *callback) {
-    GlobalReturnValue.SetScriptObjectBuf((void*)object, (IScriptObject*)callback);
-    ccRegisterUnserializedObject(key, object, (IScriptObject*)callback, kScValScriptObjectBuf);
+    GlobalReturnValue.SetPluginObject((void*)object, (IScriptObject*)callback);
+    ccRegisterUnserializedObject(key, object, (IScriptObject*)callback, kScValPluginObject);
 }
 
 int IAGSEngine::GetManagedObjectKeyByAddress(void *address) {
@@ -1005,8 +1006,13 @@ bool pl_use_builtin_plugin(EnginePlugin* apl)
     return false;
 }
 
-Engine::GameInitError pl_register_plugins(const std::vector<Common::PluginInfo> &infos)
+Engine::GameInitError pl_register_plugins(const std::vector<PluginInfo> &infos)
 {
+    std::vector<String> lookup_dirs;
+    lookup_dirs.push_back(appDirectory);
+    if (ResPaths.DataDir != appDirectory)
+        lookup_dirs.push_back(ResPaths.DataDir);
+
     numPlugins = 0;
     for (size_t inf_index = 0; inf_index < infos.size(); ++inf_index)
     {
@@ -1041,9 +1047,10 @@ Engine::GameInitError pl_register_plugins(const std::vector<Common::PluginInfo> 
             apl->filename = "ags_snowrain";
         }
 
-        if (apl->library.Load(apl->filename))
+        if (apl->library.Load(apl->filename, lookup_dirs))
         {
-          AGS::Common::Debug::Printf(kDbgMsg_Info, "Plugin '%s' loaded from '%s', resolving imports...", apl->filename.GetCStr(), apl->library.GetFilePath().GetCStr());
+          AGS::Common::Debug::Printf(kDbgMsg_Info, "Plugin '%s' loaded from '%s', resolving imports...",
+              apl->filename.GetCStr(), apl->library.GetPath().GetCStr());
 
           if (apl->library.GetFunctionAddress("AGS_PluginV2") == nullptr) {
               quitprintf("Plugin '%s' is an old incompatible version.", apl->filename.GetCStr());

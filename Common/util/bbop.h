@@ -41,6 +41,24 @@ enum DataEndianess
 #endif
 };
 
+
+//
+// Various bit flags operations
+//
+// Converts from one flag into another:
+// sets flag2 if flag1 IS set
+// TODO: find more optimal way, using bitwise ops?
+inline int FlagToFlag(int value, int flag1, int flag2)
+{
+    return ((value & flag1) != 0) * flag2;
+}
+// Sets flag2 if flag1 is NOT set
+inline int FlagToNoFlag(int value, int flag1, int flag2)
+{
+    return ((value & flag1) == 0) * flag2;
+}
+
+
 namespace BitByteOperations
 {
     inline int16_t SwapBytesInt16(const int16_t val)

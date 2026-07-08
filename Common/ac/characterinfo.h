@@ -18,11 +18,13 @@
 #include "core/types.h"
 #include "ac/common_defines.h" // constants
 #include "ac/game_version.h"
+#include "util/bbop.h"
 
 namespace AGS { namespace Common { class Stream; } }
 using namespace AGS; // FIXME later
 
 #define MAX_INV             301
+// Character flags
 #define CHF_MANUALSCALING   1
 #define CHF_FIXVIEW         2     // between SetCharView and ReleaseCharView
 #define CHF_NOINTERACT      4
@@ -42,6 +44,7 @@ using namespace AGS; // FIXME later
 #define CHF_MOVENOTWALK     0x10000   // engine only - do not do walk anim
 #define CHF_ANTIGLIDE       0x20000
 #define CHF_HASLIGHT        0x40000
+#define CHF_TINTLIGHTMASK   (CHF_NOLIGHTING | CHF_HASTINT | CHF_HASLIGHT)
 // Speechcol is no longer part of the flags as of v2.5
 #define OCHF_SPEECHCOL      0xff000000
 #define OCHF_SPEECHCOLSHIFT 24
@@ -53,6 +56,22 @@ using namespace AGS; // FIXME later
 #define CHANIM_ON           0x01
 #define CHANIM_REPEAT       0x02
 #define CHANIM_BACKWARDS    0x04
+
+
+// Converts character flags (CHF_*) to matching RoomObject flags (OBJF_*)
+inline int CharFlagsToObjFlags(int chflags)
+{
+    using namespace AGS::Common;
+    return 
+        FlagToFlag(chflags,   CHF_NOINTERACT,       OBJF_NOINTERACT) |
+        FlagToFlag(chflags,   CHF_NOWALKBEHINDS,    OBJF_NOWALKBEHINDS) |
+        FlagToFlag(chflags,   CHF_HASTINT,          OBJF_HASTINT) |
+        FlagToFlag(chflags,   CHF_HASLIGHT,         OBJF_HASLIGHT) |
+        // following flags are inverse
+        FlagToNoFlag(chflags, CHF_NOLIGHTING,       OBJF_USEREGIONTINTS) |
+        FlagToNoFlag(chflags, CHF_MANUALSCALING,    OBJF_USEROOMSCALING) |
+        FlagToNoFlag(chflags, CHF_NOBLOCKING,       OBJF_SOLID);
+}
 
 
 struct CharacterExtras; // forward declaration

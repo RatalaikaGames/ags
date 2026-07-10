@@ -84,7 +84,13 @@ FSLocation AGSPlatformXDGUnix::GetAppOutputDirectory()
     return UserDataDirectory;
 }
 
-uint64_t AGSPlatformXDGUnix::GetDiskFreeSpaceMB() {
+bool AGSPlatformXDGUnix::IsLocalDirRestricted()
+{
+    // Let them to create temp files in the current working dir
+    return false;
+}
+
+uint64_t AGSPlatformXDGUnix::GetDiskFreeSpaceMB(const String &path) {
     // placeholder
     return 100;
 }

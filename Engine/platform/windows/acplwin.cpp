@@ -31,6 +31,7 @@
 struct BITMAP; // we need it only as a placeholder here
 #include "plugin/agsplugin.h"
 #include "resource/resource.h"
+#include "util/string_utils.h"
 #include "util/stdio_compat.h"
 
 
@@ -61,9 +62,10 @@ struct AGSWin32 : AGSPlatformDriver {
   FSLocation GetUserConfigDirectory() override;
   FSLocation GetUserGlobalConfigDirectory() override;
   FSLocation GetAppOutputDirectory() override;
+  bool IsLocalDirRestricted() override;
   const char *GetIllegalFileChars() override;
   const char *GetGraphicsTroubleshootingText() override;
-  uint64_t GetDiskFreeSpaceMB() override;
+  uint64_t GetDiskFreeSpaceMB(const String &path) override;
   const char* GetBackendFailUserHint() override;
   eScriptSystemOSID GetSystemOSID() override;
   int  InitializeCDPlayer() override;
@@ -239,6 +241,12 @@ FSLocation AGSWin32::GetAppOutputDirectory()
   return win32OutputDirectory;
 }
 
+bool AGSWin32::IsLocalDirRestricted()
+{
+  // Let them to create temp files in the current working dir
+  return false;
+}
+
 const char *AGSWin32::GetIllegalFileChars()
 {
     return "\\/:?\"<>|*";
@@ -305,7 +313,7 @@ int AGSWin32::GetLastSystemError()
   return ::GetLastError();
 }
 
-uint64_t AGSWin32::GetDiskFreeSpaceMB()
+uint64_t AGSWin32::GetDiskFreeSpaceMB(const String &path)
 {
   // On Win9x, the last 3 params cannot be null, so need to supply values for all
   __int64 i64FreeBytesToCaller, i64Unused1, i64Unused2;
@@ -313,7 +321,9 @@ uint64_t AGSWin32::GetDiskFreeSpaceMB()
   // Win95 OSR2 or higher - use GetDiskFreeSpaceEx, since the
   // normal GetDiskFreeSpace returns erroneous values if the
   // free space is > 2 GB
-  BOOL fResult = GetDiskFreeSpaceEx(NULL,
+  WCHAR wstr[MAX_PATH_SZ] = L"";
+  StrUtil::ConvertUtf8ToWstr(path.GetCStr(), wstr, MAX_PATH_SZ);
+  BOOL fResult = GetDiskFreeSpaceExW(wstr,
              (PULARGE_INTEGER)&i64FreeBytesToCaller,
              (PULARGE_INTEGER)&i64Unused1,
              (PULARGE_INTEGER)&i64Unused2);

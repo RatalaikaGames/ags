@@ -121,11 +121,15 @@ public:
     virtual FSLocation GetUserGlobalConfigDirectory()  { return FSLocation("."); }
     // Get default directory for program output (logs)
     virtual FSLocation GetAppOutputDirectory() { return FSLocation("."); }
+    // Tells whether it's not permitted to write to the local directory (cwd, or game dir),
+    // and only specified user/app directories should be used.
+    // FIXME: this is a part of a hotfix, review uses of this function later.
+    virtual bool IsLocalDirRestricted() { return true; }
     // Returns array of characters illegal to use in file names
     virtual const char *GetIllegalFileChars() { return "\\/"; }
     virtual const char *GetDiskWriteAccessTroubleshootingText();
     virtual const char *GetGraphicsTroubleshootingText() { return ""; }
-    virtual uint64_t GetDiskFreeSpaceMB() = 0;
+    virtual uint64_t GetDiskFreeSpaceMB(const Common::String &path) = 0;
     virtual const char* GetBackendFailUserHint();
     virtual eScriptSystemOSID GetSystemOSID() = 0;
     virtual void GetSystemTime(ScriptDateTime*);

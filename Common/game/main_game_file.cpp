@@ -2,13 +2,13 @@
 //
 // Adventure Game Studio (AGS)
 //
-// Copyright (C) 1999-2011 Chris Jones and 2011-20xx others
+// Copyright (C) 1999-2011 Chris Jones and 2011-2023 various contributors
 // The full list of copyright holders can be found in the Copyright.txt
 // file, which is part of this source code distribution.
 //
 // The AGS source code is provided under the Artistic License 2.0.
 // A copy of this license can be found in the file License.txt and at
-// http://www.opensource.org/licenses/artistic-license-2.0.php
+// https://opensource.org/license/artistic-2-0/
 //
 //=============================================================================
 #include <cstdio>
@@ -193,7 +193,7 @@ HGameFileError OpenMainGameFile(const String &filename, MainGameSource &src)
     // Try to open given file
     Stream *in = File::OpenFileRead(filename);
     if (!in)
-        return new MainGameFileError(kMGFErr_FileOpenFailed, String::FromFormat("Filename: %s.", filename.GetCStr()));
+        return new MainGameFileError(kMGFErr_FileOpenFailed, String::FromFormat("Tried filename: %s.", filename.GetCStr()));
     src.Filename = filename;
     src.InputStream.reset(in);
     return OpenMainGameFileBase(in, src);
@@ -212,7 +212,8 @@ HGameFileError OpenMainGameFileFromDefaultAsset(MainGameSource &src, AssetManage
         in = mgr->OpenAsset(filename);
     }
     if (!in)
-        return new MainGameFileError(kMGFErr_FileOpenFailed, String::FromFormat("Filename: %s.", filename.GetCStr()));
+        return new MainGameFileError(kMGFErr_FileOpenFailed, String::FromFormat("Tried filenames: %s, %s.",
+            MainGameSource::DefaultFilename_v3.GetCStr(), MainGameSource::DefaultFilename_v2.GetCStr()));
     src.Filename = filename;
     src.InputStream.reset(in);
     return OpenMainGameFileBase(in, src);
@@ -422,6 +423,7 @@ void BuildAudioClipArray(const std::vector<String> &assets, std::vector<ScriptAu
     int temp_number;
     char temp_extension[10];
 
+    // FIXME: use audio type constants instead of obscure numeric literals
     for (const String &asset : assets)
     {
         if (sscanf(asset.GetCStr(), "%5s%d.%3s", temp_name, &temp_number, temp_extension) != 3)
@@ -543,21 +545,10 @@ void UpgradeAudio(GameSetupStruct &game, LoadedGameEntities &ents, GameDataVersi
     if (data_ver >= kGameVersion_320)
         return;
 
-    // An explanation of building audio clips array for pre-3.2 games.
-    //
-    // When AGS version 3.2 was released, it contained new audio system.
-    // In the nutshell, prior to 3.2 audio files had to be manually put
-    // to game project directory and their IDs were taken out of filenames.
-    // Since 3.2 this information is stored inside the game data.
-    // To make the modern engine compatible with pre-3.2 games, we have
-    // to scan game data packages for audio files, and enumerate them
-    // ourselves, then add this information to game struct.
-
-    // Create soundClips and audioClipTypes structures.
+    // Create new-style audioClipTypes array.
     std::vector<AudioClipType> audiocliptypes;
-    std::vector<ScriptAudioClip> audioclips;
-
-    // TODO: find out what is 4 (maybe music, sound, ambient sound, voice?)
+    // FIXME: use audio type constants instead of obscure numeric literals
+    // (maybe music, sound, ambient sound, voice???)
     audiocliptypes.resize(4);
     for (int i = 0; i < 4; i++)
     {
@@ -567,46 +558,40 @@ void UpgradeAudio(GameSetupStruct &game, LoadedGameEntities &ents, GameDataVersi
     }
     audiocliptypes[3].reservedChannels = 0;
 
-    audioclips.reserve(1000);
-    std::vector<String> assets;
-    // Read audio clip names from from registered libraries
-    for (size_t i = 0; i < AssetMgr->GetLibraryCount(); ++i)
-    {
-        const AssetLibInfo *game_lib = AssetMgr->GetLibraryInfo(i);
-        if (File::IsDirectory(game_lib->BasePath))
-            continue; // might be a directory
-
-        for (const AssetInfo &info : game_lib->AssetInfos)
-        {
-            if (info.FileName.CompareLeftNoCase("music", 5) == 0 || info.FileName.CompareLeftNoCase("sound", 5) == 0)
-                assets.push_back(info.FileName);
-        }
-    }
-    // Append contents of the registered directories
-    // TODO: implement pattern search or asset query with callback (either of two or both)
-    // within AssetManager to avoid doing this in place here. Alternatively we could maybe
-    // make AssetManager to do directory scans by demand and fill AssetInfos...
-    // but that have to be done consistently if done at all.
-    for (size_t i = 0; i < AssetMgr->GetLibraryCount(); ++i)
-    {
-        const AssetLibInfo *game_lib = AssetMgr->GetLibraryInfo(i);
-        if (!File::IsDirectory(game_lib->BasePath))
-            continue; // might be a library
-
-        for (FindFile ff = FindFile::OpenFiles(game_lib->BasePath, "*.*"); !ff.AtEnd(); ff.Next())
-        {
-            String filename = ff.Current();
-            if (ags_strnicmp(filename.GetCStr(), "music", 5) == 0 || ags_strnicmp(filename.GetCStr(), "sound", 5) == 0)
-                assets.push_back(filename);
-        }
-    }
-    BuildAudioClipArray(assets, audioclips);
-
-    // Copy gathered data over to game
+    // Assign new types to the game
     game.audioClipTypes = audiocliptypes;
+}
+
+void ScanOldStyleAudio(AssetManager *asset_mgr, GameSetupStruct &game, std::vector<ViewStruct> &views, GameDataVersion data_ver)
+{
+    // An explanation of building audio clips array for pre-3.2 games.
+    //
+    // When AGS version 3.2 was released, it contained new audio system.
+    // In the nutshell, prior to 3.2 audio files had to be manually put
+    // to game project directory and their IDs were taken out of filenames.
+    // Since 3.2 this information is stored inside the game data.
+    // To make the modern engine compatible with pre-3.2 games, we have
+    // to scan game data packages for audio files, and enumerate them
+    // ourselves, then add this information to game struct.
+    if (data_ver >= kGameVersion_320)
+        return;
+
+    // Read audio clip names from registered libraries
+    std::vector<String> assets;
+    std::vector<String> filtered_assets;
+    asset_mgr->FindAssets(assets, "*.*", "audio");
+    for (const String &filename : assets)
+    {
+        if (filename.CompareLeftNoCase("music", 5) == 0 || filename.CompareLeftNoCase("sound", 5) == 0)
+            filtered_assets.push_back(filename);
+    }
+
+    // Build new-style audio clips array and assign to the game
+    std::vector<ScriptAudioClip> audioclips;
+    BuildAudioClipArray(filtered_assets, audioclips);
     game.audioClips = audioclips;
     
-    RemapLegacySoundNums(game, ents.Views, data_ver);
+    RemapLegacySoundNums(game, views, data_ver);
 }
 
 // Convert character data to the current version

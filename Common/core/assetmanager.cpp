@@ -2,13 +2,13 @@
 //
 // Adventure Game Studio (AGS)
 //
-// Copyright (C) 1999-2011 Chris Jones and 2011-20xx others
+// Copyright (C) 1999-2011 Chris Jones and 2011-2023 various contributors
 // The full list of copyright holders can be found in the Copyright.txt
 // file, which is part of this source code distribution.
 //
 // The AGS source code is provided under the Artistic License 2.0.
 // A copy of this license can be found in the file License.txt and at
-// http://www.opensource.org/licenses/artistic-license-2.0.php
+// https://opensource.org/license/artistic-2-0/
 //
 //=============================================================================
 #include "core/assetmanager.h"
@@ -213,8 +213,8 @@ void AssetManager::FindAssets(std::vector<String> &assets, const String &wildcar
     }
 
     // Sort and remove duplicates
-    std::sort(assets.begin(), assets.end());
-    assets.erase(std::unique(assets.begin(), assets.end()), assets.end());
+    std::sort(assets.begin(), assets.end(), StrLessNoCase());
+    assets.erase(std::unique(assets.begin(), assets.end(), StrEqNoCase()), assets.end());
 }
 
 AssetError AssetManager::RegisterAssetLib(const String &path, AssetLibEx *&out_lib)

@@ -2,13 +2,13 @@
 //
 // Adventure Game Studio (AGS)
 //
-// Copyright (C) 1999-2011 Chris Jones and 2011-20xx others
+// Copyright (C) 1999-2011 Chris Jones and 2011-2023 various contributors
 // The full list of copyright holders can be found in the Copyright.txt
 // file, which is part of this source code distribution.
 //
 // The AGS source code is provided under the Artistic License 2.0.
 // A copy of this license can be found in the file License.txt and at
-// http://www.opensource.org/licenses/artistic-license-2.0.php
+// https://opensource.org/license/artistic-2-0/
 //
 //=============================================================================
 
@@ -218,6 +218,9 @@ HError load_game_file()
     err = (HError)UpdateGameData(ents, src.DataVersion);
     if (!err)
         return err;
+    // Search the asset locations for old-style audio files and recreate clips array;
+    // we do this separately after UpdateGameData, because this involves scanning enviroment.
+    ScanOldStyleAudio(AssetMgr.get(), ents.Game, ents.Views, src.DataVersion);
     err = LoadGameScripts(ents);
     if (!err)
         return err;

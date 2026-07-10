@@ -2,13 +2,13 @@
 //
 // Adventure Game Studio (AGS)
 //
-// Copyright (C) 1999-2011 Chris Jones and 2011-20xx others
+// Copyright (C) 1999-2011 Chris Jones and 2011-2023 various contributors
 // The full list of copyright holders can be found in the Copyright.txt
 // file, which is part of this source code distribution.
 //
 // The AGS source code is provided under the Artistic License 2.0.
 // A copy of this license can be found in the file License.txt and at
-// http://www.opensource.org/licenses/artistic-license-2.0.php
+// https://opensource.org/license/artistic-2-0/
 //
 //=============================================================================
 //
@@ -362,7 +362,7 @@ private:
     size_t _fxIndex; // next free pool item
 
     // specialized method to convert bitmap to video memory depending on bit depth
-    template <typename T, bool HasAlpha, bool UsingLinearFiltering> void
+    template <typename T, bool HasAlpha> void
     BitmapToVideoMemImpl(
             const Bitmap *bitmap, const TextureTile *tile,
             uint8_t *dst_ptr, const int dst_pitch
@@ -370,6 +370,12 @@ private:
 
     template <typename T> void
     BitmapToVideoMemOpaqueImpl(
+            const Bitmap *bitmap, const TextureTile *tile,
+            uint8_t *dst_ptr, const int dst_pitch
+    );
+
+    template <typename T, bool HasAlpha> void
+    BitmapToVideoMemLinearImpl(
             const Bitmap *bitmap, const TextureTile *tile,
             uint8_t *dst_ptr, const int dst_pitch
     );

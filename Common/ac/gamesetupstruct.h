@@ -2,13 +2,13 @@
 //
 // Adventure Game Studio (AGS)
 //
-// Copyright (C) 1999-2011 Chris Jones and 2011-20xx others
+// Copyright (C) 1999-2011 Chris Jones and 2011-2023 various contributors
 // The full list of copyright holders can be found in the Copyright.txt
 // file, which is part of this source code distribution.
 //
 // The AGS source code is provided under the Artistic License 2.0.
 // A copy of this license can be found in the file License.txt and at
-// http://www.opensource.org/licenses/artistic-license-2.0.php
+// https://opensource.org/license/artistic-2-0/
 //
 //=============================================================================
 //
@@ -82,7 +82,8 @@ struct GameSetupStruct : public GameSetupStructBase
     std::vector<ScriptAudioClip> audioClips;
     std::vector<AudioClipType> audioClipTypes;
     // A clip to play when player gains score in game
-    // TODO: find out why OPT_SCORESOUND option cannot be used to store this in >=3.2 games
+    // NOTE: this stores an internal audio clip index, which may or not correspond
+    // to the OPT_SCORESOUND, and also depends on whether the game was upgraded from <3.2 data.
     int               scoreClipID;
     // number of accessible game audio channels (the ones under direct user control)
     int               numGameChannels = 0;
@@ -122,8 +123,6 @@ struct GameSetupStruct : public GameSetupStructBase
     // being read between them;
     // b) use a helper struct to pass some arguments
     //
-    // I also had to move BuildAudioClipArray from the engine and make it
-    // GameSetupStruct member.
 
     //--------------------------------------------------------------------
     // Do not call these directly

@@ -2,13 +2,13 @@
 //
 // Adventure Game Studio (AGS)
 //
-// Copyright (C) 1999-2011 Chris Jones and 2011-20xx others
+// Copyright (C) 1999-2011 Chris Jones and 2011-2023 various contributors
 // The full list of copyright holders can be found in the Copyright.txt
 // file, which is part of this source code distribution.
 //
 // The AGS source code is provided under the Artistic License 2.0.
 // A copy of this license can be found in the file License.txt and at
-// http://www.opensource.org/licenses/artistic-license-2.0.php
+// https://opensource.org/license/artistic-2-0/
 //
 //=============================================================================
 #include "util/filestream.h"
@@ -138,9 +138,7 @@ bool FileStream::Seek(soff_t offset, StreamSeek origin)
     case kSeekBegin:    stdclib_origin = SEEK_SET; break;
     case kSeekCurrent:  stdclib_origin = SEEK_CUR; break;
     case kSeekEnd:      stdclib_origin = SEEK_END; break;
-    default:
-        // TODO: warning to the log
-        return false;
+    default: return false;
     }
 
     return ags_fseek(_file, (file_off_t)offset, stdclib_origin) == 0;

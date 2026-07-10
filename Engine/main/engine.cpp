@@ -143,7 +143,7 @@ void engine_setup_window()
     Debug::Printf(kDbgMsg_Info, "Setting up window");
 
     our_eip = -198;
-    sys_window_set_title(game.gamename);
+    sys_window_set_title(game.gamename.GetCStr());
     sys_window_set_icon();
     sys_evt_set_quit_callback(winclosehook);
     our_eip = -197;
@@ -828,7 +828,7 @@ void engine_init_game_settings()
     play.speech_textwindow_gui = game.options[OPT_TWCUSTOM];
     if (play.speech_textwindow_gui == 0)
         play.speech_textwindow_gui = -1;
-    snprintf(play.game_name, sizeof(play.game_name), "%s", game.gamename);
+    play.game_name = game.gamename;
     play.lastParserEntry[0] = 0;
     play.follow_change_room_timer = 150;
     for (ee = 0; ee < MAX_ROOM_BGFRAMES; ee++) 
@@ -867,7 +867,7 @@ void engine_init_game_settings()
 void engine_setup_scsystem_auxiliary()
 {
     // ScriptSystem::aci_version is only 10 chars long
-    strncpy(scsystem.aci_version, EngineVersion.LongString.GetCStr(), 10);
+    snprintf(scsystem.aci_version, sizeof(scsystem.aci_version), "%s", EngineVersion.LongString.GetCStr());
     if (usetup.override_script_os > eOS_Unknown)
     {
         scsystem.os = usetup.override_script_os;

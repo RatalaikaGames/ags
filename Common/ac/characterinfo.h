@@ -51,6 +51,9 @@ using namespace AGS; // FIXME later
 #define UNIFORM_WALK_SPEED  0
 #define FOLLOW_ALWAYSONTOP  0x7ffe
 
+// Length of deprecated character name field, in bytes
+#define LEGACY_MAX_CHAR_NAME_LEN 40
+
 // Character's internal flags, packed in CharacterInfo::animating
 #define CHANIM_MASK         0xFF
 #define CHANIM_ON           0x01
@@ -74,12 +77,15 @@ inline int CharFlagsToObjFlags(int chflags)
 }
 
 
-struct CharacterExtras; // forward declaration
+// CharacterInfoBase contains original set of character fields.
+// It's picked out from CharacterInfo for convenience of adding
+// new design-time fields; easier to maintain backwards compatibility.
 // IMPORTANT: exposed to script API, and plugin API as AGSCharacter!
 // For older script compatibility the struct also has to maintain its size;
 // do not extend or change existing fields, unless planning breaking compatibility.
-// Use CharacterExtras struct for any extensions.
-struct CharacterInfo {
+// Prefer to use CharacterExtras struct for any extensions.
+struct CharacterInfoBase
+{
     int   defview;
     int   talkview;
     int   view;
@@ -112,9 +118,22 @@ struct CharacterInfo {
     short walkspeed, animspeed;
     short inv[MAX_INV];
     short actx, acty;
-    char  name[40];
-    char  scrname[MAX_SCRIPT_NAME_LEN];
+    // These two name fields are deprecated, but must stay here
+    // for compatibility with the plugin API (unless the plugin interface is reworked)
+    char  legacy_name[LEGACY_MAX_CHAR_NAME_LEN];
+    char  legacy_scrname[LEGACY_MAX_SCRIPT_NAME_LEN];
     char  on;
+};
+
+
+struct CharacterExtras;
+
+// Design-time Character data.
+// TODO: must refactor, some parts of it should be in a runtime Character class.
+struct CharacterInfo : public CharacterInfoBase
+{
+    AGS::Common::String scrname;
+    AGS::Common::String name;
 
     int get_baseline() const;        // return baseline, or Y if not set
     int get_blocking_top() const;    // return Y - BlockingHeight/2
@@ -153,12 +172,12 @@ struct CharacterInfo {
     void ReadFromFile(Common::Stream *in, GameDataVersion data_ver);
     void WriteToFile(Common::Stream *out) const;
     // TODO: move to runtime-only class (?)
-    void ReadFromSavegame(Common::Stream *in, int save_ver);
+    void ReadFromSavegame(Common::Stream *in);
     void WriteToSavegame(Common::Stream *out) const;
 
 private:
     // TODO: this is likely temp here until runtime class is factored out
-    void ReadFromFileImpl(Common::Stream *in, GameDataVersion data_ver, int save_ver);
+    void ReadFromFileImpl(Common::Stream *in, bool is_save);
     void WriteToFileImpl(Common::Stream *out, bool is_save) const;
 };
 

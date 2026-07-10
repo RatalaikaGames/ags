@@ -167,7 +167,7 @@ void AGSPlatformDriver::Save_DeleteSlot(int slnum)
 }
 #endif
 
-Common::Stream *AGSPlatformDriver::OpenFile(const Common::String &filename, Common::FileOpenMode open_mode, Common::FileWorkMode work_mode)
+Common::Stream *AGSPlatformDriver::OpenFile(const Common::String &filename, Common::FileOpenMode open_mode, Common::StreamMode work_mode)
 {
     return File::OpenFile(filename, open_mode, work_mode);
 }

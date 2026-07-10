@@ -49,10 +49,6 @@ inline size_t Hash_LowerCase(const char *data, const size_t len)
 // A std::hash specialization for AGS String
 namespace std
 {
-#ifdef AGS_NEEDS_TR1
-namespace tr1
-{
-#endif
 // std::hash for String object
 template<>
 struct hash<AGS::Common::String>
@@ -62,9 +58,6 @@ struct hash<AGS::Common::String>
         return FNV::Hash(key.GetCStr(), key.GetLength());
     }
 };
-#ifdef AGS_NEEDS_TR1
-}
-#endif
 }
 
 

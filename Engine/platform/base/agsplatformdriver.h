@@ -173,7 +173,7 @@ public:
     virtual Common::Stream* Save_CreateSlotStream(int slnum);
     //virtual void Save_DeleteSlot(int slnum);
 
-    virtual Common::Stream *OpenFile(const Common::String &filename, Common::FileOpenMode open_mode, Common::FileWorkMode work_mode);
+    virtual Common::Stream *OpenFile(const Common::String &filename, Common::FileOpenMode open_mode, Common::StreamMode work_mode);
 
     //-----------------------
     //New functions which only had posix implementations but need to be done differently on non-posix systems

@@ -263,7 +263,7 @@ void InitAndRegisterRegions()
 // Registers static entity arrays in the script system
 void RegisterStaticArrays(GameSetupStruct &game)
 {
-    StaticCharacterArray.Create(&ccDynamicCharacter, sizeof(CharacterInfo), sizeof(CharacterInfo));
+    StaticCharacterArray.Create(&ccDynamicCharacter, sizeof(CharacterInfoBase), sizeof(CharacterInfo));
     StaticObjectArray.Create(&ccDynamicObject, sizeof(ScriptObject), sizeof(ScriptObject));
     StaticGUIArray.Create(&ccDynamicGUI, sizeof(ScriptGUI), sizeof(ScriptGUI));
     StaticHotspotArray.Create(&ccDynamicHotspot, sizeof(ScriptHotspot), sizeof(ScriptHotspot));

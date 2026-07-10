@@ -34,6 +34,13 @@ using namespace AGS; // FIXME later
 
 #define IS_ANTIALIAS_SPRITES usetup.enable_antialiasing && (play.disable_antialiasing == 0)
 
+// Render stage flags, for filtering out certain elements
+// during room transitions, capturing screenshots, etc.
+// NOTE: these values are internal and purely arbitrary atm.
+#define RENDER_BATCH_ENGINE_OVERLAY  0x0001
+#define RENDER_BATCH_MOUSE_CURSOR    0x0002
+#define RENDER_SHOT_SKIP_ON_FADE     (RENDER_BATCH_ENGINE_OVERLAY | RENDER_BATCH_MOUSE_CURSOR)
+
 // Converts AGS color index to the actual bitmap color using game's color depth
 int MakeColor(int color_index);
 
@@ -206,7 +213,8 @@ Common::Bitmap *PrepareSpriteForUse(Common::Bitmap *bitmap, bool has_alpha);
 Common::PBitmap PrepareSpriteForUse(Common::PBitmap bitmap, bool has_alpha);
 // Makes a screenshot corresponding to the last screen render and returns it as a bitmap
 // of the requested width and height and game's native color depth.
-Common::Bitmap *CopyScreenIntoBitmap(int width, int height, bool at_native_res = false);
+Common::Bitmap *CopyScreenIntoBitmap(int width, int height, const Rect *src_rect = nullptr,
+    bool at_native_res = false, uint32_t batch_skip_filter = 0u);
 
 
 // TODO: hide these behind some kind of an interface

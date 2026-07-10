@@ -530,8 +530,8 @@ static void check_keyboard_controls()
     // TODO: instead of making a preliminary check, just let each gui control
     // test the key and OnKeyPress return if it was handled?
     if ((all_buttons_disabled < 0) &&
-        ((ki.UChar > 0) || (agskey >= 32) && (agskey <= 255)) ||
-         (agskey == eAGSKeyCodeReturn) || (agskey == eAGSKeyCodeBackspace)) {
+        ((ki.UChar > 0) || ((agskey >= 32) && (agskey <= 255)) ||
+         (agskey == eAGSKeyCodeReturn) || (agskey == eAGSKeyCodeBackspace))) {
         for (int guiIndex = 0; guiIndex < game.numgui; guiIndex++) {
             auto &gui = guis[guiIndex];
 
@@ -1215,6 +1215,12 @@ void UpdateCursorAndDrawables()
     // TODO: following does not have to be called every frame while in a
     // fully blocking state (like Display() func), refactor to only call it
     // once the blocking state begins.
+    update_objects_scale();
+}
+
+void SyncDrawablesState()
+{
+    // TODO: there's likely more things that could've be done here
     update_objects_scale();
 }
 

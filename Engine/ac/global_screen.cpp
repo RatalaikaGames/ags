@@ -149,11 +149,9 @@ void FadeOut(int sppd) {
 void fadeout_impl(int spdd) {
     if (play.screen_is_faded_out == 0)
     {
-        gfxDriver->FadeOut(spdd, play.fade_to_red, play.fade_to_green, play.fade_to_blue);
-    }
-
-    if (game.color_depth > 1)
+        gfxDriver->FadeOut(spdd, play.fade_to_red, play.fade_to_green, play.fade_to_blue, RENDER_SHOT_SKIP_ON_FADE);
         play.screen_is_faded_out = 1;
+    }
 }
 
 void SetScreenTransition(int newtrans) {
@@ -190,6 +188,9 @@ void FadeIn(int sppd) {
     if (play.fast_forward)
         return;
 
+    // Update drawables, prepare them for the transition-in
+    // in case this is called after the game state change but before any update was run
+    SyncDrawablesState();
     // FIXME: we have to sync audio here explicitly, because FadeIn
     // does not call any game update function while it works
     sync_audio_playback();

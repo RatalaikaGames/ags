@@ -296,6 +296,8 @@ ScriptDynamicSprite* DynamicSprite_CreateFromScreenShot(int width, int height) {
     if (!spriteset.HasFreeSlots())
         return nullptr;
 
+    // NOTE: be aware that by the historical logic AGS makes a screenshot
+    // of a "main viewport", that may be smaller in legacy "letterbox" mode.
     const Rect &viewport = play.GetMainViewport();
     if (width <= 0)
         width = viewport.GetWidth();
@@ -307,8 +309,10 @@ ScriptDynamicSprite* DynamicSprite_CreateFromScreenShot(int width, int height) {
     else
         height = data_to_game_coord(height);
 
-    std::unique_ptr<Bitmap> new_pic(CopyScreenIntoBitmap(width, height));
+    std::unique_ptr<Bitmap> new_pic(CopyScreenIntoBitmap(width, height, &viewport));
     int new_slot = add_dynamic_sprite(std::move(new_pic));
+    if (new_slot <= 0)
+        return nullptr; // something went wrong
     return new ScriptDynamicSprite(new_slot);
 }
 
@@ -327,6 +331,8 @@ ScriptDynamicSprite* DynamicSprite_CreateFromExistingSprite(int slot, int preser
 
     bool has_alpha = (preserveAlphaChannel) && ((game.SpriteInfos[slot].Flags & SPF_ALPHACHANNEL) != 0);
     int new_slot = add_dynamic_sprite(std::move(new_pic), has_alpha);
+    if (new_slot <= 0)
+        return nullptr; // something went wrong
     return new ScriptDynamicSprite(new_slot);
 }
 
@@ -335,28 +341,42 @@ ScriptDynamicSprite* DynamicSprite_CreateFromDrawingSurface(ScriptDrawingSurface
     if (!spriteset.HasFreeSlots())
         return nullptr;
 
+    if (width <= 0 || height <= 0)
+    {
+        debug_script_warn("WARNING: DynamicSprite.CreateFromDrawingSurface: invalid size %d x %d, will adjust", width, height);
+        width = std::max(1, width);
+        height = std::max(1, height);
+    }
+
     // use DrawingSurface resolution
     sds->PointToGameResolution(&x, &y);
     sds->SizeToGameResolution(&width, &height);
 
     Bitmap *ds = sds->StartDrawing();
-
     if ((x < 0) || (y < 0) || (x + width > ds->GetWidth()) || (y + height > ds->GetHeight()))
         quit("!DynamicSprite.CreateFromDrawingSurface: requested area is outside the surface");
 
     std::unique_ptr<Bitmap> new_pic(BitmapHelper::CreateBitmap(width, height, ds->GetColorDepth()));
     if (!new_pic)
+    {
+        sds->FinishedDrawingReadOnly();
         return nullptr;
+    }
 
     new_pic->Blit(ds, x, y, 0, 0, width, height);
     sds->FinishedDrawingReadOnly();
 
     int new_slot = add_dynamic_sprite(std::move(new_pic), (sds->hasAlphaChannel != 0));
+    if (new_slot <= 0)
+        return nullptr; // something went wrong
     return new ScriptDynamicSprite(new_slot);
 }
 
 ScriptDynamicSprite* DynamicSprite_Create(int width, int height, int alphaChannel) 
 {
+    if (!spriteset.HasFreeSlots())
+        return nullptr;
+
     if (width <= 0 || height <= 0)
     {
         debug_script_warn("WARNING: DynamicSprite.Create: invalid size %d x %d, will adjust", width, height);
@@ -365,10 +385,6 @@ ScriptDynamicSprite* DynamicSprite_Create(int width, int height, int alphaChanne
     }
 
     data_to_game_coords(&width, &height);
-
-    if (!spriteset.HasFreeSlots())
-        return nullptr;
-
 #if 0 // DPASCA - MBG: "when creating a dynamic sprite on color depth 32 platform, force it to have an alpha channel. i dont really understand all this alpha channel stuff and I can't figure out how the other 3d renderers are using it, but I traced my problem to here."
     if(game.GetColorDepth() == 32)
       alphaChannel = 1;
@@ -385,6 +401,8 @@ ScriptDynamicSprite* DynamicSprite_Create(int width, int height, int alphaChanne
         alphaChannel = false;
 
     int new_slot = add_dynamic_sprite(std::move(new_pic), alphaChannel != 0);
+    if (new_slot <= 0)
+        return nullptr; // something went wrong
     return new ScriptDynamicSprite(new_slot);
 }
 
@@ -393,7 +411,10 @@ ScriptDynamicSprite* DynamicSprite_CreateFromExistingSprite_Old(int slot)
     return DynamicSprite_CreateFromExistingSprite(slot, 0);
 }
 
-ScriptDynamicSprite* DynamicSprite_CreateFromBackground(int frame, int x1, int y1, int width, int height) {
+ScriptDynamicSprite* DynamicSprite_CreateFromBackground(int frame, int x1, int y1, int width, int height)
+{
+    if (!spriteset.HasFreeSlots())
+        return nullptr;
 
     if (frame == SCR_NO_VALUE) {
         frame = play.bg_frame;
@@ -401,22 +422,27 @@ ScriptDynamicSprite* DynamicSprite_CreateFromBackground(int frame, int x1, int y
     else if ((frame < 0) || ((size_t)frame >= thisroom.BgFrameCount))
         quit("!DynamicSprite.CreateFromBackground: invalid frame specified");
 
-    if (x1 == SCR_NO_VALUE) {
+    if (x1 == SCR_NO_VALUE)
         x1 = 0;
+    if (y1 == SCR_NO_VALUE)
         y1 = 0;
+    if (width == SCR_NO_VALUE)
         width = play.room_width;
+    if (height == SCR_NO_VALUE)
         height = play.room_height;
+
+    if (width <= 0 || height <= 0)
+    {
+        debug_script_warn("WARNING: DynamicSprite.CreateFromBackground: invalid size %d x %d, will adjust", width, height);
+        width = std::max(1, width);
+        height = std::max(1, height);
     }
-    else if ((x1 < 0) || (y1 < 0) || (width < 1) || (height < 1) ||
-        (x1 + width > play.room_width) || (y1 + height > play.room_height))
+
+    if ((x1 < 0) || (y1 < 0) || (x1 + width > play.room_width) || (y1 + height > play.room_height))
         quit("!DynamicSprite.CreateFromBackground: invalid co-ordinates specified");
 
     data_to_game_coords(&x1, &y1);
     data_to_game_coords(&width, &height);
-
-    if (!spriteset.HasFreeSlots())
-        return nullptr;
-
     // create a new sprite as a copy of the existing one
     std::unique_ptr<Bitmap> new_pic(BitmapHelper::CreateBitmap(width, height, thisroom.BgFrames[frame].Graphic->GetColorDepth()));
     if (!new_pic)
@@ -425,25 +451,32 @@ ScriptDynamicSprite* DynamicSprite_CreateFromBackground(int frame, int x1, int y
     new_pic->Blit(thisroom.BgFrames[frame].Graphic.get(), x1, y1, 0, 0, width, height);
 
     int new_slot = add_dynamic_sprite(std::move(new_pic));
+    if (new_slot <= 0)
+        return nullptr; // something went wrong
     return new ScriptDynamicSprite(new_slot);
 }
 
 //=============================================================================
 
-int add_dynamic_sprite(std::unique_ptr<Bitmap> image, bool has_alpha) {
+int add_dynamic_sprite(std::unique_ptr<Bitmap> image, bool has_alpha, uint32_t extra_flags)
+{
     int slot = spriteset.GetFreeIndex();
     if (slot <= 0)
         return 0;
 
-    return add_dynamic_sprite(slot, std::move(image), has_alpha);
+    return add_dynamic_sprite(slot, std::move(image), has_alpha, extra_flags);
 }
 
-int add_dynamic_sprite(int slot, std::unique_ptr<Bitmap> image, bool has_alpha) {
+int add_dynamic_sprite(int slot, std::unique_ptr<Bitmap> image, bool has_alpha, uint32_t extra_flags)
+{
     assert(slot > 0 && !spriteset.IsAssetSprite(slot));
     if (slot <= 0 || spriteset.IsAssetSprite(slot))
         return 0; // invalid slot, or reserved for the static sprite
 
-    spriteset.SetSprite(slot, std::move(image), SPF_DYNAMICALLOC | (SPF_ALPHACHANNEL * has_alpha));
+    uint32_t flags = SPF_DYNAMICALLOC | (SPF_ALPHACHANNEL * has_alpha) | extra_flags;
+    if (!spriteset.SetSprite(slot, std::move(image), flags))
+        return 0; // failed to add the sprite, bad image or realloc failed
+
     if (play.spritemodified.size() < game.SpriteInfos.size())
         play.spritemodified.resize(game.SpriteInfos.size());
     return slot;

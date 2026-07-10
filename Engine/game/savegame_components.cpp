@@ -258,21 +258,17 @@ void ReadLegacyCameraState(Stream *in, RestoredData &r_data)
     int camy = in->ReadInt32();
     play.CreateRoomCamera();
     play.CreateRoomViewport();
-    const auto &main_view = play.GetMainViewport();
     RestoredData::CameraData cam_dat;
     cam_dat.ID = 0;
     cam_dat.Left = camx;
     cam_dat.Top = camy;
-    cam_dat.Width = main_view.GetWidth();
-    cam_dat.Height = main_view.GetHeight();
     r_data.Cameras.push_back(cam_dat);
     RestoredData::ViewportData view_dat;
     view_dat.ID = 0;
-    view_dat.Width = main_view.GetWidth();
-    view_dat.Height = main_view.GetHeight();
     view_dat.Flags = kSvgViewportVisible;
     view_dat.CamID = 0;
     r_data.Viewports.push_back(view_dat);
+    r_data.LegacyViewCamera = true;
 }
 
 void ReadCameraState(RestoredData &r_data, Stream *in)
@@ -845,7 +841,7 @@ HSaveError ReadDynamicSprites(Stream *in, int32_t /*cmp_ver*/, soff_t cmp_size, 
         int id = in->ReadInt32();
         int flags = in->ReadInt32();
         std::unique_ptr<Bitmap> image(read_serialized_bitmap(in));
-        add_dynamic_sprite(id, std::move(image), (flags & SPF_ALPHACHANNEL) != 0);
+        add_dynamic_sprite(id, std::move(image), (flags & SPF_ALPHACHANNEL) != 0, flags);
     }
     return err;
 }

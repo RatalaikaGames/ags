@@ -530,30 +530,40 @@ PBitmap PrepareSpriteForUse(PBitmap bitmap, bool has_alpha)
     return new_bitmap == bitmap.get() ? bitmap : PBitmap(new_bitmap); // if bitmap is same, don't create new smart ptr!
 }
 
-Bitmap *CopyScreenIntoBitmap(int width, int height, bool at_native_res)
+Bitmap *CopyScreenIntoBitmap(int width, int height, const Rect *src_rect,
+    bool at_native_res, uint32_t batch_skip_filter)
 {
     Bitmap *dst = new Bitmap(width, height, game.GetColorDepth());
     GraphicResolution want_fmt;
-    // If the size and color depth are supported we may copy right into our bitmap
-    if (gfxDriver->GetCopyOfScreenIntoBitmap(dst, at_native_res, &want_fmt))
+    // If the size and color depth are supported, then we may copy right into our final bitmap
+    if (gfxDriver->GetCopyOfScreenIntoBitmap(dst, src_rect, at_native_res, &want_fmt, batch_skip_filter))
         return dst;
+
     // Otherwise we might need to copy between few bitmaps...
-    Bitmap *buf_screenfmt = new Bitmap(want_fmt.Width, want_fmt.Height, want_fmt.ColorDepth);
-    gfxDriver->GetCopyOfScreenIntoBitmap(buf_screenfmt, at_native_res);
-    // If at least size matches then we may blit
-    if (dst->GetSize() == buf_screenfmt->GetSize())
+    // Get screenshot in the suitable format
+    std::unique_ptr<Bitmap> buf_screenfmt(new Bitmap(want_fmt.Width, want_fmt.Height, want_fmt.ColorDepth));
+    gfxDriver->GetCopyOfScreenIntoBitmap(buf_screenfmt.get(), src_rect, at_native_res);
+    // If color depth does not match, and we must stretch-blit, then we need another helper bmp,
+    // because Allegro does not support stretching with mismatching color depths
+    std::unique_ptr<Bitmap> buf_fixdepth;
+    Bitmap *blit_from = buf_screenfmt.get();
+    if ((dst->GetSize() != blit_from->GetSize())
+        && (want_fmt.ColorDepth != game.GetColorDepth()))
     {
-        dst->Blit(buf_screenfmt);
+        buf_fixdepth.reset(new Bitmap(want_fmt.Width, want_fmt.Height, game.GetColorDepth()));
+        buf_fixdepth->Blit(buf_screenfmt.get());
+        blit_from = buf_fixdepth.get();
     }
-    // Otherwise we need to go through another bitmap of the matching format
+
+    // Now either blit or stretch-blit
+    if (dst->GetSize() == blit_from->GetSize())
+    {
+        dst->Blit(blit_from);
+    }
     else
     {
-        Bitmap *buf_dstfmt = new Bitmap(buf_screenfmt->GetWidth(), buf_screenfmt->GetHeight(), dst->GetColorDepth());
-        buf_dstfmt->Blit(buf_screenfmt);
-        dst->StretchBlt(buf_dstfmt, RectWH(dst->GetSize()));
-        delete buf_dstfmt;
+        dst->StretchBlt(blit_from, RectWH(dst->GetSize()));
     }
-    delete buf_screenfmt;
     return dst;
 }
 
@@ -722,8 +732,6 @@ void init_draw_method()
     init_room_drawdata();
     if (gfxDriver->UsesMemoryBackBuffer())
         gfxDriver->GetMemoryBackBuffer()->Clear();
-
-    play.spritemodified.resize(game.SpriteInfos.size());
 }
 
 void dispose_draw_method()
@@ -754,11 +762,18 @@ void init_game_drawdata()
         guio_num += gui.GetControlCount();
     }
     guiobjbg.resize(guio_num);
+
+    play.spritemodified.resize(game.SpriteInfos.size());
 }
 
 void dispose_game_drawdata()
 {
     clear_drawobj_cache();
+
+    // mouse cursor texture
+    if (mouse_cur_ddb)
+        gfxDriver->DestroyDDB(mouse_cur_ddb);
+    mouse_cur_ddb = nullptr;
 
     charcache.clear();
     actsps.clear();
@@ -769,6 +784,9 @@ void dispose_game_drawdata()
     gui_render_tex.clear();
     guiobjbg.clear();
     guiobjddbref.clear();
+
+    play.spritemodified.clear();
+    play.spritemodifiedlist.clear();
 }
 
 static void dispose_debug_room_drawdata()
@@ -923,7 +941,7 @@ void init_room_drawdata()
 
 void on_roomviewport_created(int index)
 {
-    if (!gfxDriver || drawstate.FullFrameRedraw)
+    if (drawstate.FullFrameRedraw || (displayed_room < 0))
         return;
     if ((size_t)index < CameraDrawData.size())
         return;
@@ -932,7 +950,7 @@ void on_roomviewport_created(int index)
 
 void on_roomviewport_deleted(int index)
 {
-    if (drawstate.FullFrameRedraw)
+    if (drawstate.FullFrameRedraw || (displayed_room < 0))
         return;
     CameraDrawData.erase(CameraDrawData.begin() + index);
     delete_invalid_regions(index);
@@ -940,7 +958,7 @@ void on_roomviewport_deleted(int index)
 
 void on_roomviewport_changed(Viewport *view)
 {
-    if (drawstate.FullFrameRedraw)
+    if (drawstate.FullFrameRedraw || (displayed_room < 0))
         return;
     if (!view->IsVisible() || view->GetCamera() == nullptr)
         return;
@@ -959,7 +977,7 @@ void on_roomviewport_changed(Viewport *view)
 
 void detect_roomviewport_overlaps(size_t z_index)
 {
-    if (drawstate.FullFrameRedraw)
+    if (drawstate.FullFrameRedraw || (displayed_room < 0))
         return;
     // Find out if we overlap or are overlapped by anything;
     const auto &viewports = play.GetRoomViewportsZOrdered();
@@ -988,7 +1006,7 @@ void detect_roomviewport_overlaps(size_t z_index)
 
 void on_roomcamera_changed(Camera *cam)
 {
-    if (drawstate.FullFrameRedraw)
+    if (drawstate.FullFrameRedraw || (displayed_room < 0))
         return;
     if (cam->HasChangedSize())
     {
@@ -1163,7 +1181,7 @@ extern volatile bool want_exit, abort_engine;
 
 void render_to_screen()
 {
-    // Stage: final plugin callback (still drawn on game screen
+    // Stage: final plugin callback (still drawn on game screen)
     if (pl_any_want_hook(AGSE_FINALSCREENDRAW))
     {
         gfxDriver->BeginSpriteBatch(play.GetMainViewport(),
@@ -2723,7 +2741,7 @@ void construct_game_scene(bool full_redraw)
     play.UpdateViewports();
 
     gfxDriver->UseSmoothScaling(IS_ANTIALIAS_SPRITES);
-    gfxDriver->RenderSpritesAtScreenResolution(usetup.RenderAtScreenRes, usetup.Supersampling);
+    gfxDriver->RenderSpritesAtScreenResolution(usetup.RenderAtScreenRes);
 
     pl_run_plugin_hooks(AGSE_PRERENDER, 0);
 
@@ -2777,25 +2795,29 @@ void construct_game_scene(bool full_redraw)
 void construct_game_screen_overlay(bool draw_mouse)
 {
     gfxDriver->BeginSpriteBatch(play.GetMainViewport(),
-            play.GetGlobalTransform(drawstate.FullFrameRedraw), (GraphicFlip)play.screen_flipped);
+            play.GetGlobalTransform(drawstate.FullFrameRedraw),
+            (GraphicFlip)play.screen_flipped);
     if (pl_any_want_hook(AGSE_POSTSCREENDRAW))
     {
         gfxDriver->DrawSprite(AGSE_POSTSCREENDRAW, 0, nullptr);
     }
 
-    // Add mouse cursor pic, and global screen tint effect
+    // Mouse cursor
     if (play.screen_is_faded_out == 0)
     {
-        // Stage: mouse cursor
         if (draw_mouse && !play.mouse_cursor_hidden)
         {
+            // Exclusive sub-batch for mouse cursor, to let filter it out (CHECKME later?)
+            gfxDriver->BeginSpriteBatch(Rect(), SpriteTransform(), kFlip_None, nullptr, RENDER_BATCH_MOUSE_CURSOR);
             gfxDriver->DrawSprite(mousex - hotx, mousey - hoty, mouse_cur_ddb);
             invalidate_sprite(mousex - hotx, mousey - hoty, mouse_cur_ddb, false);
+            gfxDriver->EndSpriteBatch();
         }
-        // Stage: screen fx
-        if (play.screen_tint >= 1)
-            gfxDriver->SetScreenTint(play.screen_tint & 0xff, (play.screen_tint >> 8) & 0xff, (play.screen_tint >> 16) & 0xff);
     }
+
+    // Full screen tint fx, covers everything except for fade fx(?) and engine overlay
+    if ((play.screen_tint >= 1) && (play.screen_is_faded_out == 0))
+        gfxDriver->SetScreenTint(play.screen_tint & 0xff, (play.screen_tint >> 8) & 0xff, (play.screen_tint >> 16) & 0xff);
     gfxDriver->EndSpriteBatch();
 
     // For hardware-accelerated renderers: legacy letterbox and global screen fade effect
@@ -2815,7 +2837,7 @@ void construct_game_screen_overlay(bool draw_mouse)
 void construct_engine_overlay()
 {
     const Rect &viewport = RectWH(game.GetGameRes());
-    gfxDriver->BeginSpriteBatch(viewport, SpriteTransform());
+    gfxDriver->BeginSpriteBatch(viewport, SpriteTransform(), kFlip_None, nullptr, RENDER_BATCH_ENGINE_OVERLAY);
 
     if (display_fps != kFPS_Hide)
         draw_fps(viewport);

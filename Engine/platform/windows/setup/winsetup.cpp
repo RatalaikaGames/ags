@@ -283,7 +283,7 @@ bool CmpICBItemDataAsStr(DWORD_PTR data1, DWORD_PTR data2)
 {
     LPCSTR text_ptr1 = (LPCSTR)data1;
     LPCSTR text_ptr2 = (LPCSTR)data2;
-    return text_ptr1 && text_ptr2 && StrCmpA(text_ptr1, text_ptr2) == 0 || !text_ptr1 && !text_ptr2;
+    return text_ptr1 && text_ptr2 && StrCmpIA(text_ptr1, text_ptr2) == 0 || !text_ptr1 && !text_ptr2;
 }
 
 int SetCurSelToItemData(HWND hwnd, DWORD_PTR data, PfnCompareCBItemData pfn_cmp = NULL, int def_sel = -1)
@@ -744,6 +744,11 @@ INT_PTR WinSetupDialog::OnInitDialog(HWND hwnd)
         EnableWindow(_hRenderAtScreenRes, FALSE);
     if (CfgReadBoolInt(_cfgIn, "disabled", "translation"))
         EnableWindow(_hLanguageList, FALSE);
+    if (CfgReadBoolInt(_cfgIn, "disabled", "fullscreen")) {
+        EnableWindow(_hFullscreenDesktop, FALSE);
+        EnableWindow(_hGfxModeList, FALSE);
+    }
+
 
     RECT win_rect, gfx_rect, adv_rect, border;
     GetWindowRect(_hwnd, &win_rect);

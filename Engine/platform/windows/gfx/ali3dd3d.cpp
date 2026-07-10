@@ -47,6 +47,15 @@ namespace D3D
 
 using namespace Common;
 
+void RectToRECT(const Rect &in_rc, RECT &out_rc)
+{
+    out_rc.left = in_rc.Left;
+    out_rc.top = in_rc.Top;
+    out_rc.right = in_rc.Right + 1;
+    out_rc.bottom = in_rc.Bottom + 1;
+}
+
+
 D3DTexture::~D3DTexture()
 {
     if (_tiles)
@@ -117,7 +126,7 @@ D3DGraphicsDriver::D3DGraphicsDriver(IDirect3D9 *d3d)
   vertexbuffer = NULL;
   pixelShader = NULL;
   _legacyPixelShader = false;
-  set_up_default_vertices();
+  SetupDefaultVertices();
   pNativeSurface = NULL;
   pNativeTexture = NULL;
   _smoothScaling = false;
@@ -132,7 +141,7 @@ D3DGraphicsDriver::D3DGraphicsDriver(IDirect3D9 *d3d)
   _vmem_b_shift_32 = 0;
 }
 
-void D3DGraphicsDriver::set_up_default_vertices()
+void D3DGraphicsDriver::SetupDefaultVertices()
 {
   defaultVertices[0].position.x = 0.0f;
   defaultVertices[0].position.y = 0.0f;
@@ -906,26 +915,33 @@ void D3DGraphicsDriver::ClearScreenRect(const Rect &r, RGB *colorToUse)
   direct3ddevice->Clear(1, &rectToClear, D3DCLEAR_TARGET, colorDword, 0.5f, 0);
 }
 
-bool D3DGraphicsDriver::GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_native_res, GraphicResolution *want_fmt)
+bool D3DGraphicsDriver::GetCopyOfScreenIntoBitmap(Bitmap *destination,
+    const Rect *src_rect, bool at_native_res,
+    GraphicResolution *want_fmt, uint32_t batch_skip_filter)
 {
   // Currently don't support copying in screen resolution when we are rendering in native
   if (!_renderSprAtScreenRes)
       at_native_res = true;
-  Size need_size = at_native_res ? _srcRect.GetSize() : _dstRect.GetSize();
-  if (destination->GetColorDepth() != _mode.ColorDepth || destination->GetSize() != need_size)
+
+  Rect copy_from = src_rect ? *src_rect : _srcRect;
+  if (!at_native_res)
+    copy_from = _scaling.ScaleRange(copy_from);
+  if (destination->GetColorDepth() != _mode.ColorDepth || destination->GetSize() != copy_from.GetSize())
   {
     if (want_fmt)
-      *want_fmt = GraphicResolution(need_size.Width, need_size.Height, _mode.ColorDepth);
+      *want_fmt = GraphicResolution(copy_from.GetWidth(), copy_from.GetHeight(), _mode.ColorDepth);
     return false;
   }
   // If we are rendering sprites at the screen resolution, and requested native res,
-  // re-render last frame to the native surface
-  if (at_native_res && _renderSprAtScreenRes)
+  // re-render last frame to the native surface;
+  // Also forcere-render last frame if we require batch filtering
+  if ((at_native_res && _renderSprAtScreenRes) || (batch_skip_filter != 0))
   {
-    _renderSprAtScreenRes = false;
-    _reDrawLastFrame();
-    _render(true);
-    _renderSprAtScreenRes = true;
+    bool old_render_res = _renderSprAtScreenRes;
+    _renderSprAtScreenRes = !at_native_res;
+    RedrawLastFrame(batch_skip_filter);
+    RenderImpl(true);
+    _renderSprAtScreenRes = old_render_res;
   }
   
   IDirect3DSurface9* surface = NULL;
@@ -962,8 +978,11 @@ bool D3DGraphicsDriver::GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_n
     if (_pollingCallback)
       _pollingCallback();
 
+
+    RECT copy_from_rc;
+    RectToRECT(copy_from, copy_from_rc);
     D3DLOCKED_RECT lockedRect;
-    if (surface->LockRect(&lockedRect, (at_native_res ? NULL : &viewport_rect), D3DLOCK_READONLY ) != D3D_OK)
+    if (surface->LockRect(&lockedRect, &copy_from_rc, D3DLOCK_READONLY) != D3D_OK)
     {
       throw Ali3DException("IDirect3DSurface9::LockRect failed");
     }
@@ -992,15 +1011,16 @@ void D3DGraphicsDriver::Render()
 void D3DGraphicsDriver::Render(int /*xoff*/, int /*yoff*/, GraphicFlip /*flip*/)
 {
   ResetDeviceIfNecessary();
-  _renderAndPresent(true);
+  RenderAndPresent(true);
 }
 
-void D3DGraphicsDriver::_reDrawLastFrame()
+void D3DGraphicsDriver::RedrawLastFrame(uint32_t skip_filter)
 {
   RestoreDrawLists();
+  FilterSpriteBatches(skip_filter);
 }
 
-void D3DGraphicsDriver::_renderSprite(const D3DDrawListEntry *drawListEntry, const glm::mat4 &matGlobal,
+void D3DGraphicsDriver::RenderSprite(const D3DDrawListEntry *drawListEntry, const glm::mat4 &matGlobal,
     const SpriteColorTransform &color, const Size &surface_size)
 {
   HRESULT hr;
@@ -1180,7 +1200,7 @@ void D3DGraphicsDriver::_renderSprite(const D3DDrawListEntry *drawListEntry, con
   }
 }
 
-void D3DGraphicsDriver::_renderFromTexture()
+void D3DGraphicsDriver::RenderFromTexture()
 {
     if (direct3ddevice->SetStreamSource(0, vertexbuffer, 0, sizeof(CUSTOMVERTEX)) != D3D_OK)
     {
@@ -1210,13 +1230,13 @@ void D3DGraphicsDriver::_renderFromTexture()
     }
 }
 
-void D3DGraphicsDriver::_renderAndPresent(bool clearDrawListAfterwards)
+void D3DGraphicsDriver::RenderAndPresent(bool clearDrawListAfterwards)
 {
-  _render(clearDrawListAfterwards);
+  RenderImpl(clearDrawListAfterwards);
   direct3ddevice->Present(NULL, NULL, NULL, NULL);
 }
 
-void D3DGraphicsDriver::_render(bool clearDrawListAfterwards)
+void D3DGraphicsDriver::RenderImpl(bool clearDrawListAfterwards)
 {
   IDirect3DSurface9 *pBackBuffer = NULL;
 
@@ -1250,7 +1270,7 @@ void D3DGraphicsDriver::_render(bool clearDrawListAfterwards)
       throw Ali3DException("IDirect3DSurface9::SetRenderTarget failed");
     }
     SetD3DViewport(_dstRect);
-    _renderFromTexture();
+    RenderFromTexture();
   }
 
   direct3ddevice->EndScene();
@@ -1285,10 +1305,7 @@ void D3DGraphicsDriver::SetScissor(const Rect &clip, bool render_on_texture)
         // Adjust a clipping rect to either whole screen, or a target texture
         Rect scissor = render_on_texture ? clip : _scaling.ScaleRange(clip);
         RECT d3d_scissor;
-        d3d_scissor.left = scissor.Left;
-        d3d_scissor.top = scissor.Top;
-        d3d_scissor.right = scissor.Right + 1;
-        d3d_scissor.bottom = scissor.Bottom + 1;
+        RectToRECT(scissor, d3d_scissor);
         direct3ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, TRUE);
         direct3ddevice->SetScissorRect(&d3d_scissor);
     }
@@ -1449,11 +1466,11 @@ size_t D3DGraphicsDriver::RenderSpriteBatch(const D3DSpriteBatch &batch, size_t 
                 static_cast<int32_t>(reinterpret_cast<uintptr_t>(direct3ddevice)), sx, sy))
             {
                 auto stageEntry = D3DDrawListEntry((D3DBitmap*)ddb, batch.ID, sx, sy);
-                _renderSprite(&stageEntry, batch.Matrix, batch.Color, surface_size);
+                RenderSprite(&stageEntry, batch.Matrix, batch.Color, surface_size);
             }
             break;
         default:
-            _renderSprite(&e, batch.Matrix, batch.Color, surface_size);
+            RenderSprite(&e, batch.Matrix, batch.Color, surface_size);
             break;
         }
     }
@@ -1567,6 +1584,21 @@ void D3DGraphicsDriver::RestoreDrawLists()
     _spriteBatches = _backupBatches;
     _spriteList = _backupSpriteList;
     _actSpriteBatch = UINT32_MAX;
+}
+
+void D3DGraphicsDriver::FilterSpriteBatches(uint32_t skip_filter)
+{
+    if (skip_filter == 0)
+        return;
+    for (size_t i = 0; i < _spriteBatchDesc.size(); ++i)
+    {
+        if (_spriteBatchDesc[i].FilterFlags & skip_filter)
+        {
+            const auto range = _spriteBatchRange[i];
+            for (size_t spr = range.first; spr < range.second; ++spr)
+                _spriteList[spr].skip = true;
+        }
+    }
 }
 
 void D3DGraphicsDriver::DrawSprite(int x, int y, IDriverDependantBitmap* ddb)
@@ -1887,7 +1919,8 @@ Texture *D3DGraphicsDriver::CreateTexture(int width, int height, int color_depth
   return txdata;
 }
 
-void D3DGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, int targetColourGreen, int targetColourBlue)
+void D3DGraphicsDriver::DoFade(bool fadingOut, int speed, int targetColourRed, int targetColourGreen, int targetColourBlue,
+    uint32_t batch_skip_filter)
 {
   // Construct scene in order: game screen, fade fx, post game overlay
   // NOTE: please keep in mind: redrawing last saved frame here instead of constructing new one
@@ -1896,9 +1929,14 @@ void D3DGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, 
   // Unfortunately some existing games were changing looks of the screen during same function,
   // but these were not supposed to get on screen until before fade-in.
   if (fadingOut)
-    this->_reDrawLastFrame();
+  {
+    RedrawLastFrame(batch_skip_filter);
+  }
   else if (_drawScreenCallback != NULL)
+  {
     _drawScreenCallback();
+  }
+
   Bitmap *blackSquare = BitmapHelper::CreateBitmap(16, 16, 32);
   blackSquare->Clear(makecol32(targetColourRed, targetColourGreen, targetColourBlue));
   IDriverDependantBitmap *d3db = this->CreateDDBFromBitmap(blackSquare, false, true);
@@ -1915,7 +1953,7 @@ void D3DGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, 
   for (int a = 1; a < 255; a += speed)
   {
     d3db->SetAlpha(fadingOut ? a : (255 - a));
-    this->_renderAndPresent(false);
+    this->RenderAndPresent(false);
 
     sys_evt_process_pending();
     if (_pollingCallback)
@@ -1926,7 +1964,7 @@ void D3DGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, 
   if (fadingOut)
   {
     d3db->SetAlpha(255);
-    this->_renderAndPresent(false);
+    this->RenderAndPresent(false);
   }
 
   this->DestroyDDB(d3db);
@@ -1934,23 +1972,30 @@ void D3DGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, 
   ResetFxPool();
 }
 
-void D3DGraphicsDriver::FadeOut(int speed, int targetColourRed, int targetColourGreen, int targetColourBlue) 
+void D3DGraphicsDriver::FadeOut(int speed, int targetColourRed, int targetColourGreen, int targetColourBlue,
+    uint32_t batch_skip_filter)
 {
-  do_fade(true, speed, targetColourRed, targetColourGreen, targetColourBlue);
+  DoFade(true, speed, targetColourRed, targetColourGreen, targetColourBlue, batch_skip_filter);
 }
 
-void D3DGraphicsDriver::FadeIn(int speed, PALETTE /*p*/, int targetColourRed, int targetColourGreen, int targetColourBlue) 
+void D3DGraphicsDriver::FadeIn(int speed, PALETTE /*p*/, int targetColourRed, int targetColourGreen, int targetColourBlue,
+    uint32_t batch_skip_filter)
 {
-  do_fade(false, speed, targetColourRed, targetColourGreen, targetColourBlue);
+  DoFade(false, speed, targetColourRed, targetColourGreen, targetColourBlue, batch_skip_filter);
 }
 
-void D3DGraphicsDriver::BoxOutEffect(bool blackingOut, int speed, int delay)
+void D3DGraphicsDriver::BoxOutEffect(bool blackingOut, int speed, int delay, uint32_t batch_skip_filter)
 {
   // Construct scene in order: game screen, fade fx, post game overlay
   if (blackingOut)
-     this->_reDrawLastFrame();
+  {
+    RedrawLastFrame(batch_skip_filter);
+  }
   else if (_drawScreenCallback != NULL)
+  {
     _drawScreenCallback();
+  }
+
   Bitmap *blackSquare = BitmapHelper::CreateBitmap(16, 16, 32);
   blackSquare->Clear();
   IDriverDependantBitmap *d3db = this->CreateDDBFromBitmap(blackSquare, false, true);
@@ -1998,7 +2043,7 @@ void D3DGraphicsDriver::BoxOutEffect(bool blackingOut, int speed, int delay)
       d3db->SetStretch(_srcRect.GetWidth(), _srcRect.GetHeight(), false);
     }
     
-    this->_renderAndPresent(false);
+    this->RenderAndPresent(false);
 
     sys_evt_process_pending();
     if (_pollingCallback)

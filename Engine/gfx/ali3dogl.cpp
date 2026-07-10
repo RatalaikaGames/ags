@@ -115,7 +115,6 @@ OGLGraphicsDriver::OGLGraphicsDriver()
   _legacyPixelShader = false;
   _can_render_to_texture = false;
   _do_render_to_texture = false;
-  _super_sampling = 1;
   SetupDefaultVertices();
 
   // Shifts comply to GL_RGBA
@@ -160,13 +159,11 @@ void OGLGraphicsDriver::UpdateDeviceScreen(const Size &/*screen_size*/)
     _mode.Height = device_screen_physical_height;
 }
 
-void OGLGraphicsDriver::RenderSpritesAtScreenResolution(bool enabled, int supersampling)
+void OGLGraphicsDriver::RenderSpritesAtScreenResolution(bool enabled)
 {
   if (_can_render_to_texture)
   {
     _do_render_to_texture = !enabled;
-    _super_sampling = supersampling;
-    TestSupersampling();
   }
 
   if (_do_render_to_texture)
@@ -397,7 +394,6 @@ void OGLGraphicsDriver::TestRenderToTexture()
 {
   if (CanDoFrameBuffer()) {
     _can_render_to_texture = true;
-    TestSupersampling();
   } else {
     _can_render_to_texture = false;
     Debug::Printf(kDbgMsg_Warn, "WARNING: OpenGL extension 'GL_EXT_framebuffer_object' not supported, rendering to texture mode will be disabled.");
@@ -406,21 +402,6 @@ void OGLGraphicsDriver::TestRenderToTexture()
   if (!_can_render_to_texture)
     _do_render_to_texture = false;
 }
-
-void OGLGraphicsDriver::TestSupersampling()
-{
-    if (!_can_render_to_texture)
-        return;
-    // Disable super-sampling if it would cause a too large texture size
-    if (_super_sampling > 1)
-    {
-      int max = 1024;
-      glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max);
-      if ((max < _srcRect.GetWidth() * _super_sampling) || (max < _srcRect.GetHeight() * _super_sampling))
-        _super_sampling = 1;
-    }
-}
-
 
 
 bool CreateTransparencyShader(ShaderProgram &prg);
@@ -735,7 +716,7 @@ void OGLGraphicsDriver::SetupBackbufferTexture()
   DeleteBackbufferTexture();
 
   // _backbuffer_texture_coordinates defines translation from wanted texture size to actual supported texture size
-  _backRenderSize = _srcRect.GetSize() * _super_sampling;
+  _backRenderSize = _srcRect.GetSize();
   _backTextureSize = _backRenderSize;
   AdjustSizeToNearestSupportedByCard(&_backTextureSize.Width, &_backTextureSize.Height);
   const float back_ratio_w = (float)_backRenderSize.Width / (float)_backTextureSize.Width;
@@ -864,7 +845,6 @@ bool OGLGraphicsDriver::SetNativeResolution(const GraphicResolution &native_res)
   SetupBackbufferTexture();
   // If we already have a gfx mode set, then update virtual screen immediately
   CreateVirtualScreen();
-  TestSupersampling();
   return !_srcRect.IsEmpty();
 }
 
@@ -940,9 +920,17 @@ void OGLGraphicsDriver::ClearRectangle(int /*x1*/, int /*y1*/, int /*x2*/, int /
   // NOTE: this function is practically useless at the moment, because OGL redraws whole game frame each time
 }
 
-bool OGLGraphicsDriver::GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_native_res, GraphicResolution *want_fmt)
+bool OGLGraphicsDriver::GetCopyOfScreenIntoBitmap(Bitmap *destination,
+    const Rect *src_rect, bool at_native_res,
+    GraphicResolution *want_fmt, uint32_t batch_skip_filter)
 {
-  (void)at_native_res; // TODO: support this at some point
+  // Currently don't support copying in screen resolution when we are rendering in native
+  if (_do_render_to_texture)
+      at_native_res = true;
+
+  Rect copy_from = src_rect ? *src_rect : _srcRect;
+  if (!at_native_res)
+    copy_from = _scaling.ScaleRange(copy_from);
 
   // TODO: following implementation currently only reads GL pixels in 32-bit RGBA.
   // this **should** work regardless of actual display mode because OpenGL is
@@ -950,53 +938,56 @@ bool OGLGraphicsDriver::GetCopyOfScreenIntoBitmap(Bitmap *destination, bool at_n
   // If you like to support writing directly into 16-bit bitmap, please take
   // care of ammending the pixel reading code below.
   const int read_in_colordepth = 32;
-  Size need_size = _do_render_to_texture ? _backRenderSize : _dstRect.GetSize();
-  if (destination->GetColorDepth() != read_in_colordepth || destination->GetSize() != need_size)
+  if (destination->GetColorDepth() != read_in_colordepth || destination->GetSize() != copy_from.GetSize())
   {
     if (want_fmt)
-      *want_fmt = GraphicResolution(need_size.Width, need_size.Height, read_in_colordepth);
+      *want_fmt = GraphicResolution(copy_from.GetWidth(), copy_from.GetHeight(), read_in_colordepth);
     return false;
   }
+  // If we are rendering sprites at the screen resolution, and requested native res,
+  // re-render last frame to the native surface
+  // Also forcere-render last frame if we require batch filtering
+  if ((at_native_res && !_do_render_to_texture) || (batch_skip_filter != 0))
+  {
+    bool old_render_res = _do_render_to_texture;
+    _do_render_to_texture = at_native_res;
+    RedrawLastFrame(batch_skip_filter);
+    RenderImpl(true);
+    _do_render_to_texture = old_render_res;
+  }
 
-  Rect retr_rect;
-  if (_do_render_to_texture)
+  if (at_native_res)
   {
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, _fbo);
-    retr_rect = RectWH(0, 0, _backRenderSize.Width, _backRenderSize.Height);
   }
   else
   {
+    // CHECKME: is this condition still relevant?
 #if !AGS_OPENGL_ES2
     glReadBuffer(GL_FRONT);
 #endif
-
-    retr_rect = _dstRect;
   }
 
-  int bpp = read_in_colordepth / 8;
-  int bufferSize = retr_rect.GetWidth() * retr_rect.GetHeight() * bpp;
+  // Retrieve the backbuffer pixels
+  const int bpp = read_in_colordepth / 8;
+  const int buf_sz = copy_from.GetWidth() * copy_from.GetHeight() * bpp;
+  std::vector<uint8_t> buffer(buf_sz);
+  glReadPixels(copy_from.Left, copy_from.Top, copy_from.GetWidth(), copy_from.GetHeight(), GL_RGBA, GL_UNSIGNED_BYTE, &buffer.front());
 
-  unsigned char* buffer = new unsigned char[bufferSize];
-  if (buffer)
+  // Now convert from OGL RGBA to Allegro RGBA pixel format
+  uint8_t* sourcePtr = &buffer.front();
+  for (int y = destination->GetHeight() - 1; y >= 0; y--)
   {
-    glReadPixels(retr_rect.Left, retr_rect.Top, retr_rect.GetWidth(), retr_rect.GetHeight(), GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-
-    unsigned char* sourcePtr = buffer;
-    for (int y = destination->GetHeight() - 1; y >= 0; y--)
+    unsigned int * destPtr = reinterpret_cast<unsigned int*>(&destination->GetScanLineForWriting(y)[0]);
+    for (int dx = 0, sx = 0; dx < destination->GetWidth(); ++dx, sx = dx * bpp)
     {
-      unsigned int * destPtr = reinterpret_cast<unsigned int*>(&destination->GetScanLineForWriting(y)[0]);
-      for (int dx = 0, sx = 0; dx < destination->GetWidth(); ++dx, sx = dx * bpp)
-      {
-        destPtr[dx] = makeacol32(sourcePtr[sx + 0], sourcePtr[sx + 1], sourcePtr[sx + 2], sourcePtr[sx + 3]);
-      }
-      sourcePtr += retr_rect.GetWidth() * bpp;
+      destPtr[dx] = makeacol32(sourcePtr[sx + 0], sourcePtr[sx + 1], sourcePtr[sx + 2], sourcePtr[sx + 3]);
     }
-
-    if (_pollingCallback)
-      _pollingCallback();
-
-    delete [] buffer;
+    sourcePtr += copy_from.GetWidth() * bpp;
   }
+
+  if (_pollingCallback)
+    _pollingCallback();
   return true;
 }
 
@@ -1012,15 +1003,16 @@ void OGLGraphicsDriver::Render()
 
 void OGLGraphicsDriver::Render(int /*xoff*/, int /*yoff*/, GraphicFlip /*flip*/)
 {
-  _render(true);
+  RenderImpl(true);
 }
 
-void OGLGraphicsDriver::_reDrawLastFrame()
+void OGLGraphicsDriver::RedrawLastFrame(uint32_t skip_filter)
 {
     RestoreDrawLists();
+    FilterSpriteBatches(skip_filter);
 }
 
-void OGLGraphicsDriver::_renderSprite(const OGLDrawListEntry *drawListEntry,
+void OGLGraphicsDriver::RenderSprite(const OGLDrawListEntry *drawListEntry,
     const glm::mat4 &projection, const glm::mat4 &matGlobal,
     const SpriteColorTransform &color, const Size &surface_size)
 {
@@ -1213,7 +1205,7 @@ void OGLGraphicsDriver::_renderSprite(const OGLDrawListEntry *drawListEntry,
 }
 
 #ifndef CONSOLE_VERSION
-void OGLGraphicsDriver::_render(bool clearDrawListAfterwards)
+void OGLGraphicsDriver::RenderImpl(bool clearDrawListAfterwards)
 {
   glm::mat4 projection;
 
@@ -1479,11 +1471,11 @@ size_t OGLGraphicsDriver::RenderSpriteBatch(const OGLSpriteBatch &batch, size_t 
             if (auto *ddb = DoSpriteEvtCallback(e.x, 0, sx, sy))
             {
                 auto stageEntry = OGLDrawListEntry((OGLBitmap*)ddb, batch.ID, sx, sy);
-                _renderSprite(&stageEntry, projection, batch.Matrix, batch.Color, surface_size);
+                RenderSprite(&stageEntry, projection, batch.Matrix, batch.Color, surface_size);
             }
             break;
         default:
-            _renderSprite(&e, projection, batch.Matrix, batch.Color, surface_size);
+            RenderSprite(&e, projection, batch.Matrix, batch.Color, surface_size);
             break;
         }
     }
@@ -1597,6 +1589,21 @@ void OGLGraphicsDriver::RestoreDrawLists()
     _spriteBatches = _backupBatches;
     _spriteList = _backupSpriteList;
     _actSpriteBatch = UINT32_MAX;
+}
+
+void OGLGraphicsDriver::FilterSpriteBatches(uint32_t skip_filter)
+{
+    if (skip_filter == 0)
+        return;
+    for (size_t i = 0; i < _spriteBatchDesc.size(); ++i)
+    {
+        if (_spriteBatchDesc[i].FilterFlags & skip_filter)
+        {
+            const auto range = _spriteBatchRange[i];
+            for (size_t spr = range.first; spr < range.second; ++spr)
+                _spriteList[spr].skip = true;
+        }
+    }
 }
 
 void OGLGraphicsDriver::DrawSprite(int x, int y, IDriverDependantBitmap* ddb)
@@ -1999,7 +2006,8 @@ Texture *OGLGraphicsDriver::CreateTexture(int width, int height, int color_depth
   return txdata;
 }
 
-void OGLGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, int targetColourGreen, int targetColourBlue)
+void OGLGraphicsDriver::DoFade(bool fadingOut, int speed, int targetColourRed, int targetColourGreen, int targetColourBlue,
+    uint32_t batch_skip_filter)
 {
   // Construct scene in order: game screen, fade fx, post game overlay
   // NOTE: please keep in mind: redrawing last saved frame here instead of constructing new one
@@ -2008,9 +2016,14 @@ void OGLGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, 
   // Unfortunately some existing games were changing looks of the screen during same function,
   // but these were not supposed to get on screen until before fade-in.
   if (fadingOut)
-     this->_reDrawLastFrame();
+  {
+    RedrawLastFrame(batch_skip_filter);
+  }
   else if (_drawScreenCallback != nullptr)
+  {
     _drawScreenCallback();
+  }
+
   Bitmap *blackSquare = BitmapHelper::CreateBitmap(16, 16, 32);
   blackSquare->Clear(makecol32(targetColourRed, targetColourGreen, targetColourBlue));
   IDriverDependantBitmap *d3db = this->CreateDDBFromBitmap(blackSquare, false, true);
@@ -2027,7 +2040,7 @@ void OGLGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, 
   for (int a = 1; a < 255; a += speed)
   {
     d3db->SetAlpha(fadingOut ? a : (255 - a));
-    this->_render(false);
+    this->RenderImpl(false);
 
     sys_evt_process_pending();
     if (_pollingCallback)
@@ -2038,7 +2051,7 @@ void OGLGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, 
   if (fadingOut)
   {
     d3db->SetAlpha(255);
-    this->_render(false);
+    this->RenderImpl(false);
   }
 
   this->DestroyDDB(d3db);
@@ -2046,23 +2059,30 @@ void OGLGraphicsDriver::do_fade(bool fadingOut, int speed, int targetColourRed, 
   ResetFxPool();
 }
 
-void OGLGraphicsDriver::FadeOut(int speed, int targetColourRed, int targetColourGreen, int targetColourBlue)
+void OGLGraphicsDriver::FadeOut(int speed, int targetColourRed, int targetColourGreen, int targetColourBlue,
+    uint32_t batch_skip_filter)
 {
-  do_fade(true, speed, targetColourRed, targetColourGreen, targetColourBlue);
+  DoFade(true, speed, targetColourRed, targetColourGreen, targetColourBlue, batch_skip_filter);
 }
 
-void OGLGraphicsDriver::FadeIn(int speed, PALETTE /*p*/, int targetColourRed, int targetColourGreen, int targetColourBlue)
+void OGLGraphicsDriver::FadeIn(int speed, PALETTE /*p*/, int targetColourRed, int targetColourGreen, int targetColourBlue,
+    uint32_t batch_skip_filter)
 {
-  do_fade(false, speed, targetColourRed, targetColourGreen, targetColourBlue);
+  DoFade(false, speed, targetColourRed, targetColourGreen, targetColourBlue, batch_skip_filter);
 }
 
-void OGLGraphicsDriver::BoxOutEffect(bool blackingOut, int speed, int delay)
+void OGLGraphicsDriver::BoxOutEffect(bool blackingOut, int speed, int delay, uint32_t batch_skip_filter)
 {
   // Construct scene in order: game screen, fade fx, post game overlay
   if (blackingOut)
-    this->_reDrawLastFrame();
+  {
+    RedrawLastFrame(batch_skip_filter);
+  }
   else if (_drawScreenCallback != nullptr)
+  {
     _drawScreenCallback();
+  }
+
   Bitmap *blackSquare = BitmapHelper::CreateBitmap(16, 16, 32);
   blackSquare->Clear();
   IDriverDependantBitmap *d3db = this->CreateDDBFromBitmap(blackSquare, false, true);
@@ -2108,7 +2128,7 @@ void OGLGraphicsDriver::BoxOutEffect(bool blackingOut, int speed, int delay)
       d3db->SetStretch(_srcRect.GetWidth(), _srcRect.GetHeight(), false);
     }
 
-    this->_render(false);
+    this->RenderImpl(false);
 
     sys_evt_process_pending();
     if (_pollingCallback)

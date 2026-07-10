@@ -1,3 +1,16 @@
+//=============================================================================
+//
+// Adventure Game Studio (AGS)
+//
+// Copyright (C) 1999-2011 Chris Jones and 2011-2024 various contributors
+// The full list of copyright holders can be found in the Copyright.txt
+// file, which is part of this source code distribution.
+//
+// The AGS source code is provided under the Artistic License 2.0.
+// A copy of this license can be found in the file License.txt and at
+// https://opensource.org/license/artistic-2-0/
+//
+//=============================================================================
 #include <stdio.h>
 void ThrowManagedException(const char *message);
 #pragma unmanaged
@@ -1060,7 +1073,7 @@ static void doDrawViewLoop(int hdc, const std::vector<::ViewFrame> &frames,
             bmpbuf.reset(flipped);
             toblt = flipped;
         }
-        todraw->StretchBlt(toblt, RectWH(size*i, 0, neww, newh));
+        todraw->StretchBlt(toblt, RectWH(size*i, 0, neww, newh), Common::kBitmap_Transparency);
         bmpbuf.reset();
         if (i < frames.size() - 1)
         {
@@ -1730,7 +1743,7 @@ void DrawSpriteToBuffer(int sprNum, int x, int y, float scale) {
 	}
 	else
 	{
-        drawBuffer->StretchBlt(imageToDraw, RectWH(x, y, drawWidth, drawHeight));
+        drawBuffer->StretchBlt(imageToDraw, RectWH(x, y, drawWidth, drawHeight), Common::kBitmap_Transparency);
 	}
 
 	if (imageToDraw != todraw)

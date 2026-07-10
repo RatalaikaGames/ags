@@ -179,18 +179,34 @@ void Character_AddWaypoint(CharacterInfo *chaa, int x, int y) {
     MoveList *cmls = &mls[chaa->walking % TURNING_AROUND];
     if (cmls->numstage >= MAXNEEDSTAGES)
     {
-        debug_script_warn("Character_AddWaypoint: move is too complex, cannot add any further paths");
+        debug_script_warn("Character::AddWaypoint: move is too complex, cannot add any further paths");
         return;
     }
 
-    cmls->pos[cmls->numstage] = { x, y };
     // They're already walking there anyway
-    if (cmls->pos[cmls->numstage] == cmls->pos[cmls->numstage - 1])
+    const Point &last_pos = cmls->GetLastPos();
+    if (last_pos == Point(x, y))
         return;
 
-    calculate_move_stage (cmls, cmls->numstage-1);
-    cmls->numstage ++;
+    int move_speed_x, move_speed_y;
+    chaa->get_effective_walkspeeds(move_speed_x, move_speed_y);
+    if ((move_speed_x == 0) && (move_speed_y == 0))
+    {
+        debug_script_warn("Character::AddWaypoint: called for '%s' with walk speed 0", chaa->scrname);
+    }
 
+    // There's an issue: the existing movelist is converted to room resolution,
+    // so we do this trick: convert last step to mask resolution, before calling
+    // a pathfinder api, and then we'll convert old and new last step back.
+    // TODO: figure out a better way of processing this!
+    const int last_stage = cmls->numstage - 1;
+    cmls->pos[last_stage] = { room_to_mask_coord(last_pos.X), room_to_mask_coord(last_pos.Y) };
+    const int dst_x = room_to_mask_coord(x);
+    const int dst_y = room_to_mask_coord(y);
+    if (add_waypoint_direct(cmls, dst_x, dst_y, move_speed_x, move_speed_y))
+    {
+        convert_move_path_to_room_resolution(cmls, last_stage, last_stage + 1);
+    }
 }
 
 void Character_Animate(CharacterInfo *chaa, int loop, int delay, int repeat,
@@ -1694,14 +1710,7 @@ void walk_character(int chac,int tox,int toy,int ignwal, bool autoWalkAnims) {
 
     chin->flags &= ~CHF_MOVENOTWALK;
 
-    // NOTE: for old games we assume the input coordinates are in the "data" coordinate system
-    const int toxPassedIn = tox, toyPassedIn = toy;
-    const int charX = room_to_mask_coord(chin->x);
-    const int charY = room_to_mask_coord(chin->y);
-    tox = room_to_mask_coord(tox);
-    toy = room_to_mask_coord(toy);
-
-    if ((tox == charX) && (toy == charY)) {
+    if ((tox == chin->x) && (toy == chin->y)) {
         StopMoving(chac);
         debug_script_log("%s already at destination, not moving", chin->scrname);
         return;
@@ -1735,20 +1744,23 @@ void walk_character(int chac,int tox,int toy,int ignwal, bool autoWalkAnims) {
     chin->frame = oldframe;
     // use toxPassedIn cached variable so the hi-res co-ordinates
     // are still displayed as such
-    debug_script_log("%s: Start move to %d,%d", chin->scrname, toxPassedIn, toyPassedIn);
+    debug_script_log("%s: Start move to %d,%d", chin->scrname, tox, toy);
 
-    const int move_speed_x = chin->walkspeed;
-    const int move_speed_y =
-        ((chin->walkspeed_y == UNIFORM_WALK_SPEED) ? chin->walkspeed : chin->walkspeed_y);
-
-    if ((move_speed_x == 0) && (move_speed_y == 0)) {
-        debug_script_warn("Warning: MoveCharacter called for '%s' with walk speed 0", chin->scrname);
+    int move_speed_x, move_speed_y;
+    chin->get_effective_walkspeeds(move_speed_x, move_speed_y);
+    if ((move_speed_x == 0) && (move_speed_y == 0))
+    {
+        debug_script_warn("MoveCharacter: called for '%s' with walk speed 0", chin->scrname);
     }
 
-    set_route_move_speed(move_speed_x, move_speed_y);
-    set_color_depth(8);
-    int mslot=find_route(charX, charY, tox, toy, prepare_walkable_areas(chac), chac+CHMLSOFFS, 1, ignwal);
-    set_color_depth(game.GetColorDepth());
+    // Convert src and dest coords to the mask resolution, for pathfinder
+    const int src_x = room_to_mask_coord(chin->x);
+    const int src_y = room_to_mask_coord(chin->y);
+    const int dst_x = room_to_mask_coord(tox);
+    const int dst_y = room_to_mask_coord(toy);
+
+    int mslot = find_route(src_x, src_y, dst_x, dst_y, move_speed_x, move_speed_y,
+        prepare_walkable_areas(chac), chac+CHMLSOFFS, 1, ignwal);
     if (mslot>0) {
         chin->walking = mslot;
         mls[mslot].direct = ignwal;
@@ -2484,7 +2496,10 @@ void _displayspeech(const char*texx, int aschar, int xx, int yy, int widd, int i
 
     if (isPause) {
         postpone_scheduled_music_update_by(std::chrono::milliseconds(play.messagetime * 1000 / frames_per_second));
+        // Set a post-state right away, as we only need to wait for a messagetime timer
+        play.speech_in_post_state = true;
         GameLoopUntilValueIsNegative(&play.messagetime);
+        post_display_cleanup();
         return;
     }
 

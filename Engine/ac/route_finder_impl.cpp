@@ -42,7 +42,6 @@ namespace RouteFinder {
 static const int MAXNAVPOINTS = MAXNEEDSTAGES;
 static Point navpoints[MAXNAVPOINTS];
 static int num_navpoints;
-static fixed move_speed_x, move_speed_y;
 static Navigation nav;
 static Bitmap *wallscreen;
 static int lastcx, lastcy;
@@ -127,12 +126,6 @@ inline fixed input_speed_to_fixed(int speed_val)
   }
 }
 
-void set_route_move_speed(int speed_x, int speed_y)
-{
-  move_speed_x = input_speed_to_fixed(speed_x);
-  move_speed_y = input_speed_to_fixed(speed_y);
-}
-
 inline fixed calc_move_speed_at_angle(fixed speed_x, fixed speed_y, fixed xdist, fixed ydist)
 {
   fixed useMoveSpeed;
@@ -156,9 +149,8 @@ inline fixed calc_move_speed_at_angle(fixed speed_x, fixed speed_y, fixed xdist,
   return useMoveSpeed;
 }
 
-// Calculates the X and Y per game loop, for this stage of the
-// movelist
-void calculate_move_stage(MoveList * mlsp, int aaa)
+// Calculates the X and Y per game loop, for this stage of the movelist
+void calculate_move_stage(MoveList *mlsp, int aaa, fixed move_speed_x, fixed move_speed_y)
 {
   // work out the x & y per move. First, opp/adj=tan, so work out the angle
   if (mlsp->pos[aaa] == mlsp->pos[aaa + 1]) {
@@ -265,7 +257,8 @@ void recalculate_move_speeds(MoveList *mlsp, int old_speed_x, int old_speed_y, i
 }
 
 
-int find_route(short srcx, short srcy, short xx, short yy, Bitmap *onscreen, int move_id, int nocross, int ignore_walls)
+int find_route(short srcx, short srcy, short xx, short yy, int move_speed_x, int move_speed_y,
+    Bitmap *onscreen, int move_id, int nocross, int ignore_walls)
 {
   wallscreen = onscreen;
 
@@ -303,12 +296,27 @@ int find_route(short srcx, short srcy, short xx, short yy, Bitmap *onscreen, int
   AGS::Common::Debug::Printf("stages: %d\n",num_navpoints);
 #endif
 
+  const fixed fix_speed_x = input_speed_to_fixed(move_speed_x);
+  const fixed fix_speed_y = input_speed_to_fixed(move_speed_y);
   for (int i=0; i<num_navpoints-1; i++)
-    calculate_move_stage(&mlist, i);
+    calculate_move_stage(&mlist, i, fix_speed_x, fix_speed_y);
 
   mlist.from = { srcx, srcy };
   mls[move_id] = mlist;
   return move_id;
+}
+
+bool add_waypoint_direct(MoveList * mlsp, short x, short y, int move_speed_x, int move_speed_y)
+{
+  if (mlsp->numstage >= MAXNEEDSTAGES)
+    return false;
+
+  const fixed fix_speed_x = input_speed_to_fixed(move_speed_x);
+  const fixed fix_speed_y = input_speed_to_fixed(move_speed_y);
+  mlsp->pos[mlsp->numstage] = { x, y };
+  calculate_move_stage(mlsp, mlsp->numstage - 1, fix_speed_x, fix_speed_y);
+  mlsp->numstage++;
+  return true;
 }
 
 

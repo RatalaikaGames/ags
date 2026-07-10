@@ -1,4 +1,16 @@
-
+//=============================================================================
+//
+// Adventure Game Studio (AGS)
+//
+// Copyright (C) 1999-2011 Chris Jones and 2011-2024 various contributors
+// The full list of copyright holders can be found in the Copyright.txt
+// file, which is part of this source code distribution.
+//
+// The AGS source code is provided under the Artistic License 2.0.
+// A copy of this license can be found in the file License.txt and at
+// https://opensource.org/license/artistic-2-0/
+//
+//=============================================================================
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -228,7 +240,7 @@ int symbolTable::add_ex(const char*nta,int typo,char sizee) {
 	entry.sscope = 0;
     entry.arrsize = 0;
     entry.extends = 0;
-	entry.funcparamtypes = std::vector<unsigned long>(MAX_FUNCTION_PARAMETERS + 1);
+	entry.funcparamtypes = std::vector<uint32_t>(MAX_FUNCTION_PARAMETERS + 1);
     entry.funcParamDefaultValues = std::vector<int>(MAX_FUNCTION_PARAMETERS + 1);
 	entry.funcParamHasDefaultValues = std::vector<bool>(MAX_FUNCTION_PARAMETERS + 1);
 	entries.push_back(entry);

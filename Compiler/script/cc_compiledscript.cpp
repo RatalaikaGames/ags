@@ -1,4 +1,16 @@
-
+//=============================================================================
+//
+// Adventure Game Studio (AGS)
+//
+// Copyright (C) 1999-2011 Chris Jones and 2011-2024 various contributors
+// The full list of copyright holders can be found in the Copyright.txt
+// file, which is part of this source code distribution.
+//
+// The AGS source code is provided under the Artistic License 2.0.
+// A copy of this license can be found in the file License.txt and at
+// https://opensource.org/license/artistic-2-0/
+//
+//=============================================================================
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -97,7 +109,7 @@ int ccCompiledScript::add_new_function(const char*namm, int *idx) {
     strcpy(functions[numfunctions],namm);
     funccodeoffs[numfunctions] = codesize;
     funcnumparams[numfunctions] = 0;
-    //  code = (long*)realloc(code, codesize + 5000);
+    //  code = (int32_t*)realloc(code, codesize + 5000);
     if (idx)
         *idx = numfunctions;
     numfunctions++;
@@ -183,7 +195,7 @@ int ccCompiledScript::remove_any_import (const char*namm, SymbolDef *oldSym) {
     return 0;
 }
 
-int ccCompiledScript::add_new_export(const char*namm,int etype,long eoffs, int numArgs)
+int ccCompiledScript::add_new_export(const char*namm, int etype, int32_t eoffs, int numArgs)
 {
     if (numexports >= exportsCapacity)
     {
@@ -212,7 +224,7 @@ int ccCompiledScript::add_new_export(const char*namm,int etype,long eoffs, int n
     }
     exports[numexports] = newName;
 
-    export_addr[numexports] = eoffs | ((long)etype << 24L);
+    export_addr[numexports] = eoffs | ((int32_t)etype << 24L);
     numexports++;
     return numexports-1;
 }

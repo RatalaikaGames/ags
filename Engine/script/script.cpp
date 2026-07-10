@@ -501,8 +501,8 @@ int RunScriptFunctionAuto(ScriptInstType sc_inst, const char *tsname, size_t par
     }
     // Claimable event is run in all the script modules and room script,
     // before running in the globalscript instance
-    if ((strcmp(tsname, tsnames[TS_KEYPRESS]) == 0) || (strcmp(tsname, tsnames[TS_MCLICK]) == 0) ||
-        (strcmp(tsname, tsnames[TS_TEXTINPUT]) == 0) || (strcmp(tsname, "on_event") == 0))
+    if ((strcmp(tsname, tsnames[kTS_KeyPress]) == 0) || (strcmp(tsname, tsnames[kTS_MouseClick]) == 0) ||
+        (strcmp(tsname, tsnames[kTS_TextInput]) == 0) || (strcmp(tsname, "on_event") == 0))
     {
         return RunClaimableEvent(tsname, param_count, params);
     }
@@ -626,6 +626,11 @@ void post_script_cleanup() {
 
     int old_room_number = displayed_room;
 
+    // FIXME: sync audio in case any screen changing or time-consuming post-script actions were scheduled
+    if (copyof.numPostScriptActions > 0) {
+        sync_audio_playback();
+    }
+
     // run the queued post-script actions
     for (int ii = 0; ii < copyof.numPostScriptActions; ii++) {
         int thisData = copyof.postScriptActionData[ii];
@@ -678,6 +683,10 @@ void post_script_cleanup() {
         }
     }
 
+
+    if (copyof.numPostScriptActions > 0) {
+        sync_audio_playback();
+    }
 
     for (int jj = 0; jj < copyof.numanother; jj++) {
         old_room_number = displayed_room;

@@ -254,14 +254,14 @@ HSaveError ReadDescription_v321(Stream *in, SavegameVersion &svg_ver, SavegameDe
     else
         SkipSaveImage(in);
 
+    const Version low_compat_version(3, 2, 0, 1123);
     String version_str = String::FromStream(in);
     Version eng_version(version_str);
-    if (eng_version > EngineVersion ||
-        eng_version < SavedgameLowestBackwardCompatVersion)
+    if (eng_version > EngineVersion || eng_version < low_compat_version)
     {
         // Engine version is either non-forward or non-backward compatible
         return new SavegameError(kSvgErr_IncompatibleEngine,
-            String::FromFormat("Required: %s, supported: %s - %s.", eng_version.LongString.GetCStr(), SavedgameLowestBackwardCompatVersion.LongString.GetCStr(), EngineVersion.LongString.GetCStr()));
+            String::FromFormat("Required: %s, supported: %s - %s.", eng_version.LongString.GetCStr(), low_compat_version.LongString.GetCStr(), EngineVersion.LongString.GetCStr()));
     }
     if (elems & kSvgDesc_EnvInfo)
     {
@@ -369,6 +369,7 @@ void DoBeforeRestore(PreservedParams &pp)
 {
     pp.SpeechVOX = play.voice_avail;
     pp.MusicVOX = play.separate_music_lib;
+    memcpy(pp.GameOptions, game.options, GameSetupStruct::MAX_OPTIONS * sizeof(int));
 
     unload_old_room();
     raw_saved_screen = nullptr;
@@ -460,6 +461,14 @@ void RestoreViewportsAndCameras(const RestoredData &r_data)
     play.InvalidateViewportZOrder();
 }
 
+// Resets a number of options that are not supposed to be changed at runtime
+static void CopyPreservedGameOptions(GameSetupStructBase &gs, const PreservedParams &pp)
+{
+    const auto restricted_opts = GameSetupStructBase::GetRestrictedOptions();
+    for (auto opt : restricted_opts)
+        gs.options[opt] = pp.GameOptions[opt];
+}
+
 // Final processing after successfully restoring from save
 HSaveError DoAfterRestore(const PreservedParams &pp, RestoredData &r_data)
 {
@@ -471,6 +480,9 @@ HSaveError DoAfterRestore(const PreservedParams &pp, RestoredData &r_data)
     // Preserve whether the music vox is available
     play.voice_avail = pp.SpeechVOX;
     play.separate_music_lib = pp.MusicVOX;
+
+    // Restore particular game options that must not change at runtime
+    CopyPreservedGameOptions(game, pp);
 
     // Restore debug flags
     if (debug_flags & DBG_DEBUGMODE)

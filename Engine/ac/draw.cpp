@@ -1050,7 +1050,7 @@ void notify_sprite_changed(int sprnum, bool deleted)
     // update all the related drawn objects on screen.
     // For software renderer we should notify drawables that currently
     // reference this sprite.
-    if (drawstate.SoftwareRender)
+    if (drawstate.SoftwareRender && !play.spritemodified.empty())
     {
         assert(static_cast<uint32_t>(sprnum) < play.spritemodified.size());
         play.spritemodified[sprnum] = true;
@@ -1103,7 +1103,9 @@ void clear_shared_texture(uint32_t sprite_id)
 
 void texturecache_precache(uint32_t sprite_id)
 {
-    texturecache.GetOrLoad(sprite_id, nullptr, (game.SpriteInfos[sprite_id].Flags & SPF_ALPHACHANNEL) != 0, false);
+    bool has_alpha = (sprite_id < game.SpriteInfos.size()) ?
+        ((game.SpriteInfos[sprite_id].Flags & SPF_ALPHACHANNEL) != 0) : false;
+    texturecache.GetOrLoad(sprite_id, nullptr, has_alpha, false);
 }
 
 void mark_screen_dirty()
@@ -1496,12 +1498,15 @@ void draw_gui_sprite_v330(Bitmap *ds, int pic, int x, int y, bool use_alpha, Ble
 
 
 // Avoid freeing and reallocating the memory if possible
-Bitmap *recycle_bitmap(Bitmap *bimp, int coldep, int wid, int hit, bool make_transparent) {
-    if (bimp != nullptr) {
+Bitmap *recycle_bitmap(Bitmap *bimp, int coldep, int wid, int hit, bool make_transparent)
+{
+    if (bimp != nullptr)
+    {
         // same colour depth, width and height -> reuse
         if ((bimp->GetColorDepth() == coldep) && (bimp->GetWidth() == wid)
                 && (bimp->GetHeight() == hit))
         {
+            bimp->ResetClip();
             if (make_transparent)
             {
                 bimp->ClearTransparent();
@@ -2347,7 +2352,7 @@ void draw_fps(const Rect &viewport)
 // Draw GUI controls as separate sprites, each on their own texture
 static void construct_guictrl_tex(GUIMain &gui)
 {
-    if (all_buttons_disabled && (GUI::Options.DisabledStyle == kGuiDis_Blackout))
+    if ((all_buttons_disabled >= 0) && (GUI::Options.DisabledStyle == kGuiDis_Blackout))
         return; // don't draw GUI controls
 
     int draw_index = guiobjddbref[gui.ID];
@@ -2384,6 +2389,14 @@ static void draw_gui_controls_batch(int gui_id)
         SpriteTransform(), kFlip_None);
     // Add GUI itself
     gfxDriver->DrawSprite(0, 0, gui_bg);
+
+    // Don't draw child controls at all if disabled with kGuiDis_Blackout style
+    if ((all_buttons_disabled >= 0) && (GUI::Options.DisabledStyle == kGuiDis_Blackout))
+    {
+        gfxDriver->EndSpriteBatch();
+        return;
+    }
+
     // Add all the GUI controls
     const int draw_index = guiobjddbref[gui_id];
     for (const auto &obj_id : gui.GetControlsDrawOrder())

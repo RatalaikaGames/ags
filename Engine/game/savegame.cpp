@@ -258,7 +258,9 @@ HSaveError ReadDescription_v321(Stream *in, SavegameVersion &svg_ver, SavegameDe
     else
         SkipSaveImage(in);
 
-    const Version low_compat_version(3, 2, 0, 1123);
+    // This is the lowest legacy save format we support,
+    // judging by the engine code received from CJ.
+    const Version low_compat_version(3, 2, 0, 1103);
     String version_str = String::FromStream(in);
     Version eng_version(version_str);
     if (eng_version > EngineVersion || eng_version < low_compat_version)
@@ -447,11 +449,12 @@ void RestoreViewportsAndCameras(const RestoredData &r_data)
             cam->Lock();
         else
             cam->Release();
-        cam->SetAt(cam_dat.Left, cam_dat.Top);
+        // Set size first, or offset position may clamp to the room
         if (r_data.LegacyViewCamera)
             cam->SetSize(main_view.GetSize());
         else
             cam->SetSize(Size(cam_dat.Width, cam_dat.Height));
+        cam->SetAt(cam_dat.Left, cam_dat.Top);
     }
     for (size_t i = 0; i < r_data.Viewports.size(); ++i)
     {

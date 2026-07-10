@@ -5,7 +5,7 @@ set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX ${CMAKE_CURRENT_SOURCE_DIR}/CMake/cxx_fla
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.9" CACHE STRING "Minimum OS X deployment version")
 
 project(AGS
-    VERSION 3.6.1.6
+    VERSION 3.6.1.7
     LANGUAGES CXX C)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
@@ -94,7 +94,7 @@ message( "AGS_DESKTOP:" ${AGS_DESKTOP} )
 message("----------------------------------------")
 
 if (WIN32 AND NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
-	message(FATAL_ERROR "Windows builds only support 32bit for now")
+	message(WARNING "Windows builds only support 32bit for now, this is experimental.")
 endif()
 
 if(LINUX)
@@ -311,6 +311,7 @@ include(FindLocalAllegro)
 
 add_subdirectory(libsrc/glm                     EXCLUDE_FROM_ALL)
 add_subdirectory(libsrc/tinyxml2                EXCLUDE_FROM_ALL)
+add_subdirectory(libsrc/miniz                   EXCLUDE_FROM_ALL)
 
 add_subdirectory(Common/libsrc/aastr-0.1.1      EXCLUDE_FROM_ALL)
 

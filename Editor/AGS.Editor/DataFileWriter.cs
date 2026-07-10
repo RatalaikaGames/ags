@@ -318,51 +318,6 @@ namespace AGS.Editor
             }
         }
 
-        static int CopyFileAcross(Stream instream, Stream copystream, long leftforthis)
-        {
-            int success = 1;
-            byte[] diskbuffer = new byte[NativeConstants.CHUNKSIZE + 10];
-            while (leftforthis > 0)
-            {
-                if (leftforthis > NativeConstants.CHUNKSIZE)
-                {
-                    instream.Read(diskbuffer, 0, NativeConstants.CHUNKSIZE);
-                    try
-                    {
-                        copystream.Write(diskbuffer, 0, NativeConstants.CHUNKSIZE);
-                    }
-                    catch
-                    {
-                        success = 0;
-                    }
-                    finally
-                    {
-                        success = 1;
-                    }
-                    leftforthis -= NativeConstants.CHUNKSIZE;
-                }
-                else
-                {
-                    instream.Read(diskbuffer, 0, (int)leftforthis);
-                    try
-                    {
-                        copystream.Write(diskbuffer, 0, (int)leftforthis);
-                    }
-                    catch
-                    {
-                        success = 0;
-                    }
-                    finally
-                    {
-                        success = 1;
-                    }
-                    leftforthis = 0;
-                }
-                if (success < 1) break;
-            }
-            return success;
-        }
-
         /// <summary>
         /// Builds a AGS pack file, using the list of assets and parameters.
         /// Returns null on success and an error message on error.
@@ -493,7 +448,7 @@ namespace AGS.Editor
                                     }
                                     return "Unable to find file '" + ourlib.Files[j].Filename + "' for compilation in directory '" + Directory.GetCurrentDirectory() + "'. Do not remove files during the compilation process.";
                                 }
-                                if (CopyFileAcross(stream, writer.BaseStream, ourlib.Files[j].Length) < 1)
+                                if (Utilities.CopyStream(stream, writer.BaseStream, ourlib.Files[j].Length) < ourlib.Files[j].Length)
                                 {
                                     return "Error writing file '" + ourlib.Files[j].Filename + "': possibly disk full";
                                 }
@@ -1399,11 +1354,6 @@ namespace AGS.Editor
 
         private static bool WritePluginsToDisk(BinaryWriter writer, Game game, CompileMessages errors)
         {
-            if (game.Plugins.Count > NativeConstants.MAX_PLUGINS)
-            {
-                errors.Add(new CompileError("Too many plugins"));
-                return false;
-            }
             writer.Write(1); // version
             writer.Write(game.Plugins.Count);
             foreach (Plugin plugin in game.Plugins)

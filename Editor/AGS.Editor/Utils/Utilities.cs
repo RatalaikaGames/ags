@@ -315,6 +315,27 @@ namespace AGS.Editor
             return true;
         }
 
+        /// <summary>
+        /// // Copies N bytes from one stream into another; returns number of bytes actually written.
+        /// </summary>
+        /// <returns></returns>
+        public static long CopyStream(Stream instream, Stream outstream, long length)
+        {
+            byte[] buf = new byte[256 * 1024]; // 256 KB buffer
+            long wroteTotal = 0;
+            while (length > 0)
+            {
+                int toRead = Math.Min(buf.Length, (int)Math.Min(int.MaxValue, length));
+                int wasRead = instream.Read(buf, 0, toRead);
+                if (wasRead == 0)
+                    return wroteTotal;
+                length -= wasRead;
+                outstream.Write(buf, 0, wasRead);
+                wroteTotal += wasRead;
+            }
+            return wroteTotal;
+        }
+
         public static void CopyFont(int fromSlot, int toSlot)
         {
             if (fromSlot == toSlot)

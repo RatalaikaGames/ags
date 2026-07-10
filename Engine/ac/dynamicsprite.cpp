@@ -435,8 +435,7 @@ int add_dynamic_sprite(std::unique_ptr<Bitmap> image, bool has_alpha) {
     if (slot <= 0)
         return 0;
 
-    spriteset.SetSprite(slot, std::move(image), SPF_DYNAMICALLOC | (SPF_ALPHACHANNEL * has_alpha));
-    return slot;
+    return add_dynamic_sprite(slot, std::move(image), has_alpha);
 }
 
 int add_dynamic_sprite(int slot, std::unique_ptr<Bitmap> image, bool has_alpha) {
@@ -445,16 +444,23 @@ int add_dynamic_sprite(int slot, std::unique_ptr<Bitmap> image, bool has_alpha) 
         return 0; // invalid slot, or reserved for the static sprite
 
     spriteset.SetSprite(slot, std::move(image), SPF_DYNAMICALLOC | (SPF_ALPHACHANNEL * has_alpha));
+    if (play.spritemodified.size() < game.SpriteInfos.size())
+        play.spritemodified.resize(game.SpriteInfos.size());
     return slot;
 }
 
-void free_dynamic_sprite(int slot) {
-    assert((slot > 0) && (game.SpriteInfos[slot].Flags & SPF_DYNAMICALLOC));
-    if (slot <= 0 || (game.SpriteInfos[slot].Flags & SPF_DYNAMICALLOC) == 0)
+void free_dynamic_sprite(int slot, bool notify_all) {
+    assert((slot > 0) && (static_cast<size_t>(slot) < game.SpriteInfos.size()) &&
+        (game.SpriteInfos[slot].Flags & SPF_DYNAMICALLOC));
+    if ((slot <= 0) || (static_cast<size_t>(slot) >= game.SpriteInfos.size()) ||
+        (game.SpriteInfos[slot].Flags & SPF_DYNAMICALLOC) == 0)
         return;
 
     spriteset.DisposeSprite(slot);
-    game_sprite_deleted(slot);
+    if (notify_all)
+        game_sprite_updated(slot, true);
+    else
+        notify_sprite_changed(slot, true);
 }
 
 //=============================================================================

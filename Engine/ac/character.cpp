@@ -1028,7 +1028,6 @@ void Character_WalkStraight(CharacterInfo *chaa, int xx, int yy, int blocking) {
     if (chaa->room != displayed_room)
         quit("!MoveCharacterStraight: specified character not in current room");
 
-    Character_StopMoving(chaa);
     int movetox = xx, movetoy = yy;
 
     set_wallscreen(prepare_walkable_areas(chaa->index_id));
@@ -1045,13 +1044,7 @@ void Character_WalkStraight(CharacterInfo *chaa, int xx, int yy, int blocking) {
         movetoy = mask_to_room_coord(lastcy);
     }
 
-    walk_character(chaa->index_id, movetox, movetoy, 1, true);
-
-    if ((blocking == BLOCKING) || (blocking == 1))
-        GameLoopUntilNotMoving(&chaa->walking);
-    else if ((blocking != IN_BACKGROUND) && (blocking != 0))
-        quit("!Character.Walk: Blocking must be BLOCKING or IN_BACKGRUOND");
-
+    walk_or_move_character(chaa, movetox, movetoy, blocking, 1 /* use ANYWHERE */, true);
 }
 
 void Character_RunInteraction(CharacterInfo *chaa, int mood) {
@@ -1268,6 +1261,11 @@ int Character_GetID(CharacterInfo *chaa) {
 
     return chaa->index_id;
 
+}
+
+const char *Character_GetScriptName(CharacterInfo *chin)
+{
+    return CreateNewScriptString(chin->scrname);
 }
 
 int Character_GetFrame(CharacterInfo *chaa) {
@@ -2050,7 +2048,7 @@ void walk_or_move_character(CharacterInfo *chaa, int x, int y, int blocking, int
     if ((blocking == BLOCKING) || (blocking == 1))
         GameLoopUntilNotMoving(&chaa->walking);
     else if ((blocking != IN_BACKGROUND) && (blocking != 0))
-        quit("!Character.Walk: Blocking must be BLOCKING or IN_BACKGRUOND");
+        quit("!Character.Walk: Blocking must be BLOCKING or IN_BACKGROUND");
 
 }
 
@@ -3003,6 +3001,17 @@ PViewport FindNearestViewport(int charid)
 
 extern ScriptString myScriptStringImpl;
 
+CharacterInfo *Character_GetByName(const char *name)
+{
+    return static_cast<CharacterInfo*>(ccGetScriptObjectAddress(name, ccDynamicCharacter.GetType()));
+}
+
+
+RuntimeScriptValue Sc_Character_GetByName(const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_SCALL_OBJ_POBJ(CharacterInfo, ccDynamicCharacter, Character_GetByName, const char);
+}
+
 // void | CharacterInfo *chaa, ScriptInvItem *invi, int addIndex
 RuntimeScriptValue Sc_Character_AddInventory(void *self, const RuntimeScriptValue *params, int32_t param_count)
 {
@@ -3295,12 +3304,6 @@ RuntimeScriptValue Sc_Character_GetTintLuminance(void *self, const RuntimeScript
     API_OBJCALL_INT(CharacterInfo, Character_GetTintLuminance);
 }
 
-/*
-RuntimeScriptValue Sc_Character_SetOption(void *self, const RuntimeScriptValue *params, int32_t param_count)
-{
-}
-*/
-
 // void (CharacterInfo *chaa, int xspeed, int yspeed)
 RuntimeScriptValue Sc_Character_SetSpeed(void *self, const RuntimeScriptValue *params, int32_t param_count)
 {
@@ -3524,6 +3527,11 @@ RuntimeScriptValue Sc_Character_GetHasExplicitTint(void *self, const RuntimeScri
 RuntimeScriptValue Sc_Character_GetID(void *self, const RuntimeScriptValue *params, int32_t param_count)
 {
     API_OBJCALL_INT(CharacterInfo, Character_GetID);
+}
+
+RuntimeScriptValue Sc_Character_GetScriptName(void *self, const RuntimeScriptValue *params, int32_t param_count)
+{
+    API_OBJCALL_OBJ(CharacterInfo, const char, myScriptStringImpl, Character_GetScriptName);
 }
 
 // int (CharacterInfo *chaa)
@@ -3890,6 +3898,7 @@ void RegisterCharacterAPI(ScriptAPIVersion base_api, ScriptAPIVersion /*compat_a
     ScFnRegister character_api[] = {
         { "Character::GetAtRoomXY^2",             API_FN_PAIR(GetCharacterAtRoom) },
         { "Character::GetAtScreenXY^2",           API_FN_PAIR(GetCharacterAtScreen) },
+        { "Character::GetByName",                 API_FN_PAIR(Character_GetByName) },
 
         { "Character::AddInventory^2",            API_FN_PAIR(Character_AddInventory) },
         { "Character::AddWaypoint^2",             API_FN_PAIR(Character_AddWaypoint) },
@@ -3997,6 +4006,7 @@ void RegisterCharacterAPI(ScriptAPIVersion base_api, ScriptAPIVersion /*compat_a
         { "Character::set_ScaleVolume",           API_FN_PAIR(Character_SetScaleVolume) },
         { "Character::get_Scaling",               API_FN_PAIR(Character_GetScaling) },
         { "Character::set_Scaling",               API_FN_PAIR(Character_SetScaling) },
+        { "Character::get_ScriptName",            API_FN_PAIR(Character_GetScriptName) },
         { "Character::get_Solid",                 API_FN_PAIR(Character_GetSolid) },
         { "Character::set_Solid",                 API_FN_PAIR(Character_SetSolid) },
         { "Character::get_Speaking",              API_FN_PAIR(Character_GetSpeaking) },

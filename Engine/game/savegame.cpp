@@ -378,13 +378,11 @@ void DoBeforeRestore(PreservedParams &pp)
     play.text_overlay_on = 0;
 
     // cleanup dynamic sprites
-    // NOTE: sprite 0 is a special constant sprite that cannot be dynamic
+    // NOTE: sprite 0 is a special constant sprite that cannot be dynamic (? is this actually true)
     for (size_t i = 1; i < spriteset.GetSpriteSlotCount(); ++i)
     {
         if (game.SpriteInfos[i].Flags & SPF_DYNAMICALLOC)
         {
-            // do this early, so that it changing guibuts doesn't
-            // affect the restored data
             free_dynamic_sprite(i);
         }
     }
@@ -497,7 +495,14 @@ HSaveError DoAfterRestore(const PreservedParams &pp, RestoredData &r_data)
     // Remap old sound nums in case we restored a save having a different list of audio clips
     RemapLegacySoundNums(game, views, loaded_game_file_version);
 
-    // restore these to the ones retrieved from the save game
+    // Restore Overlay bitmaps (older save format, which stored them along with overlays)
+    auto &overs = get_overlays();
+    for (auto &over_im : r_data.OverlayImages)
+    {
+        auto &over = overs[over_im.first];
+        over.SetImage(std::move(over_im.second), over.HasAlphaChannel(), over.offsetX, over.offsetY);
+    }
+    // Restore dynamic surfaces
     const size_t dynsurf_num = std::min((size_t)MAX_DYNAMIC_SURFACES, r_data.DynamicSurfaces.size());
     for (size_t i = 0; i < dynsurf_num; ++i)
     {
@@ -718,8 +723,8 @@ HSaveError RestoreGameState(Stream *in, SavegameVersion svg_version)
     }
     else
     {
-        GameDataVersion use_dataver = usetup.dataver_for_legacysavs != kGameVersion_Undefined ?
-                usetup.dataver_for_legacysavs : loaded_game_file_version;
+        GameDataVersion use_dataver = usetup.legacysave_assume_dataver != kGameVersion_Undefined ?
+                usetup.legacysave_assume_dataver : loaded_game_file_version;
         err = restore_save_data_v321(in, use_dataver, pp, r_data);
     }
     if (!err)

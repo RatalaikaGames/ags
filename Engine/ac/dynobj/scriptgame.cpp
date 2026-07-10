@@ -12,11 +12,16 @@
 //
 //=============================================================================
 #include "ac/dynobj/scriptgame.h"
+#include "ac/gamesetupstruct.h"
 #include "ac/game.h"
 #include "ac/gamestate.h"
+#include "debug/debug_log.h"
+#include "gui/guimain.h"
 #include "script/cc_common.h" // cc_error
 
+using namespace AGS::Common;
 
+extern GameSetupStruct game;
 CCScriptGame GameStaticManager;
 
 
@@ -38,7 +43,7 @@ int32_t CCScriptGame::ReadInt32(void *address, intptr_t offset)
     case 56: return play.usedinv;
     case 57: return play.inv_top;
     case 58: return play.inv_numdisp;
-    case 59: return play.obsolete_inv_numorder;
+    case 59: return play.inv_numorder;
     case 60: return play.inv_numinline;
     case 61: return play.text_speed;
     case 62: return play.sierra_inv_color;
@@ -133,10 +138,15 @@ void CCScriptGame::WriteInt32(void *address, intptr_t offset, int32_t val)
     // 5 -> 54: play.globalvars
     case 55:  play.messagetime = val; break;
     case 56:  play.usedinv = val; break;
-    case 57:  play.inv_top = val; break;
-    case 58:  play.inv_numdisp = val; break;
-    case 59:  play.obsolete_inv_numorder = val; break;
-    case 60:  play.inv_numinline = val; break;
+    case 57:
+        play.inv_top = val;
+        GUI::MarkInventoryForUpdate(game.playercharacter, true);
+        break;
+    case 58:  // play.inv_numdisp
+    case 59:  // play.inv_numorder
+    case 60:  // play.inv_numinline
+        debug_script_warn("ScriptGame: attempt to write in readonly variable at offset %d, value %d", offset, val);
+        break;
     case 61:  play.text_speed = val; break;
     case 62:  play.sierra_inv_color = val; break;
     case 63:  play.talkanim_speed = val; break;
@@ -163,7 +173,7 @@ void CCScriptGame::WriteInt32(void *address, intptr_t offset, int32_t val)
     case 84: // play.fast_forward;
     case 85: // play.room_width;
     case 86: // play.room_height;
-        cc_error("ScriptGame: attempt to write readonly variable at offset %d", offset);
+        debug_script_warn("ScriptGame: attempt to write in readonly variable at offset %d, value %d", offset, val);
         break;
     case 87:  play.game_speed_modifier = val; break;
     case 88:  play.score_sound = val; break;
@@ -198,7 +208,7 @@ void CCScriptGame::WriteInt32(void *address, intptr_t offset, int32_t val)
     case 117: // play.fade_to_red;
     case 118: // play.fade_to_green;
     case 119: // play.fade_to_blue;
-        cc_error("ScriptGame: attempt to write readonly variable at offset %d", offset);
+        debug_script_warn("ScriptGame: attempt to write in readonly variable at offset %d, value %d", offset, val);
         break;
     case 120:  play.show_single_dialog_option = val; break;
     case 121:  play.keep_screen_during_instant_transition = val; break;

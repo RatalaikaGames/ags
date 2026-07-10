@@ -73,10 +73,12 @@ struct GameState
     int  globalvars[MAXGLOBALVARS]{}; // obsolete
     int  messagetime = 0;       // time left for auto-remove messages
     int  usedinv = 0;           // inventory item last used
-    int  inv_top = 0;
-    int  inv_numdisp = 0;
-    int  obsolete_inv_numorder = 0;
-    int  inv_numinline = 0;
+    // Following inv_* variables are legacy variables controlling
+    // the single player's inventory (used prior to supporting custom InvWindow controls).
+    int  inv_top = 0;           // topmost index of displayed player's inventory
+    int  inv_numdisp = 0;       // number of player's items displayed at once
+    int  inv_numorder = 0;      // total number of player's items
+    int  inv_numinline = 0;     // number of items displayed on a single inventory row
     int  text_speed = 0;        // how quickly text is removed
     int  sierra_inv_color = 0;  // background used to paint defualt inv window
     int  talkanim_speed = 0;    // animation speed of talking anims
@@ -239,7 +241,7 @@ struct GameState
     int   next_screen_transition = 0;
     int   gamma_adjustment = 0;
     short temporarily_turned_off_character = 0;  // Hide Player Charactr ticked
-    short inv_backwards_compatibility = 0;
+    short inv_backwards_compatibility = 0; // tells to use legacy inv_* variables
     std::vector<int> gui_draw_order; // used only for hit detection now
     std::unordered_set<AGS::Common::String> do_once_tokens;
     int   text_min_display_time_ms = 0;
@@ -275,7 +277,16 @@ struct GameState
     // Speech portrait overlay managed handle
     int  speech_face_schandle = 0;
 
-    int shake_screen_yoff = 0; // y offset of the shaking screen
+    // y offset of the shaking screen
+    int shake_screen_yoff = 0;
+
+    // CHECKME: we might consider hiding these in draw unit, but then,
+    // because the drawing system still has standalone parts (GUIs...)
+    // there still may be cases when we may require these accessed elsewhere.
+    // Sprite modified flag, used to detect dynamic sprite modifications
+    std::vector<bool> spritemodified;
+    // Which sprites were modified since the recent drawing pass
+    std::vector<int> spritemodifiedlist;
 
 
     GameState();

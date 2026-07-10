@@ -1272,6 +1272,9 @@ builtin managed struct File {
 builtin managed struct InventoryItem {
   /// Returns the inventory item at the specified location.
   import static InventoryItem* GetAtScreenXY(int x, int y);    // $AUTOCOMPLETESTATICONLY$
+#ifdef SCRIPT_API_v361
+  import static InventoryItem* GetByName(const string scriptName); // $AUTOCOMPLETESTATICONLY$
+#endif
   /// Gets an integer custom property for this item.
   import int  GetProperty(const string property);
   /// Gets a text custom property for this item.
@@ -1286,7 +1289,7 @@ builtin managed struct InventoryItem {
   import attribute int  Graphic;
   /// Gets the ID number of the inventory item.
   readonly import attribute int ID;
-  /// Gets/sets the name of the inventory item.
+  /// Gets/sets the human-readable name of the inventory item.
   import attribute String Name;
 #ifdef SCRIPT_API_v340
   /// Sets an integer custom property for this item.
@@ -1294,11 +1297,16 @@ builtin managed struct InventoryItem {
   /// Sets a text custom property for this item.
   import bool SetTextProperty(const string property, const string value);
 #endif
+#ifdef SCRIPT_API_v361
+  /// Gets the script name of the inventory item.
+  import readonly attribute String ScriptName;
+#endif
 #ifndef STRICT_STRINGS
   import void GetName(string buffer);
   import void GetPropertyText(const string property, string buffer);
   import void SetName(const string newName);
 #endif
+
   int reserved[2];   // $AUTOCOMPLETEIGNORE$
 };
 
@@ -1668,6 +1676,9 @@ builtin managed struct GUIControl {
   import void BringToFront();
   /// Gets the GUI Control that is visible at the specified location on the screen, or null.
   import static GUIControl* GetAtScreenXY(int x, int y);    // $AUTOCOMPLETESTATICONLY$  $AUTOCOMPLETENOINHERIT$
+#ifdef SCRIPT_API_v361
+  import static GUIControl* GetByName(const string scriptName); // $AUTOCOMPLETESTATICONLY$
+#endif
   /// Sends this control to the back of the z-order, behind all other controls.
   import void SendToBack();
   /// Moves the control to the specified position within the GUI.
@@ -1711,6 +1722,10 @@ builtin managed struct GUIControl {
 #ifdef SCRIPT_API_v360
   /// Gets/sets the control's transparency.
   import attribute int  Transparency;
+#endif
+#ifdef SCRIPT_API_v361
+  /// Gets the script name of this control.
+  import readonly attribute String ScriptName;
 #endif
 };
 
@@ -1899,6 +1914,9 @@ builtin managed struct GUI {
   import void Centre();
   /// Gets the topmost GUI visible on the screen at the specified co-ordinates.
   import static GUI* GetAtScreenXY(int x, int y);    // $AUTOCOMPLETESTATICONLY$
+#ifdef SCRIPT_API_v361
+  import static GUI* GetByName(const string scriptName); // $AUTOCOMPLETESTATICONLY$
+#endif
   /// Moves the GUI to have its top-left corner at the specified position.
   import void SetPosition(int x, int y);
   /// Changes the size of the GUI.
@@ -1949,7 +1967,11 @@ builtin managed struct GUI {
   /// Gets if this GUI is currently active on screen. In certain cases this is different than reading Visible property.
   import readonly attribute bool Shown;
 #endif
-  
+#ifdef SCRIPT_API_v361
+  /// Gets the script name of this GUI.
+  import readonly attribute String ScriptName;
+#endif
+
   int   reserved[2];   // $AUTOCOMPLETEIGNORE$
 };
 
@@ -1969,6 +1991,9 @@ builtin managed struct Hotspot {
   import void GetName(string buffer);
   import void GetPropertyText(const string property, string buffer);
 #endif
+#ifdef SCRIPT_API_v361
+  import static Hotspot* GetByName(const string scriptName); // $AUTOCOMPLETESTATICONLY$
+#endif
   /// Gets an integer Custom Property for this hotspot.
   import int  GetProperty(const string property);
   /// Gets a text Custom Property for this hotspot.
@@ -1979,7 +2004,7 @@ builtin managed struct Hotspot {
   import attribute bool Enabled;
   /// Gets the ID of the hotspot.
   readonly import attribute int ID;
-  /// Gets/sets the name of the hotspot.
+  /// Gets/sets the human-readable name of the hotspot.
   import attribute String Name;
   /// Gets the X co-ordinate of the walk-to point for this hotspot.
   readonly import attribute int WalkToX;
@@ -2001,6 +2026,11 @@ builtin managed struct Hotspot {
   /// Gets the drawing surface for the 8-bit hotspots mask
   import static DrawingSurface* GetDrawingSurface();     // $AUTOCOMPLETESTATICONLY$
 #endif
+#ifdef SCRIPT_API_v361
+  /// Gets the script name of this hotspot.
+  import readonly attribute String ScriptName;
+#endif
+
   int reserved[2];   // $AUTOCOMPLETEIGNORE$
 };
 
@@ -2041,6 +2071,9 @@ builtin managed struct Region {
 };
 
 builtin managed struct Dialog {
+#ifdef SCRIPT_API_v361
+  import static Dialog* GetByName(const string scriptName); // $AUTOCOMPLETESTATICONLY$
+#endif
   /// Displays the options for this dialog and returns which one the player selected.
   import int DisplayOptions(DialogOptionSayStyle = eSayUseOptionSetting);
   /// Gets the enabled state for the specified option in this dialog.
@@ -2063,7 +2096,11 @@ builtin managed struct Dialog {
   /// Manually marks whether the option was chosen before or not.
   import void SetHasOptionBeenChosen(int option, bool chosen);
 #endif
-  
+#ifdef SCRIPT_API_v361
+  /// Gets the script name of this dialog.
+  import readonly attribute String ScriptName;
+#endif
+
   int reserved[2];   // $AUTOCOMPLETEIGNORE$
 };
 
@@ -2203,6 +2240,9 @@ builtin managed struct AudioChannel {
 };
 
 builtin managed struct AudioClip {
+#ifdef SCRIPT_API_v361
+  import static AudioClip* GetByName(const string scriptName); // $AUTOCOMPLETESTATICONLY$
+#endif
   /// Plays this audio clip.
   import AudioChannel* Play(AudioPriority=SCR_NO_VALUE, RepeatStyle=SCR_NO_VALUE);
   /// Plays this audio clip, starting from the specified offset.
@@ -2224,6 +2264,10 @@ builtin managed struct AudioClip {
 #ifdef SCRIPT_API_v350
   /// Gets the clip's ID number.
   readonly import attribute int ID;
+#endif
+#ifdef SCRIPT_API_v361
+  /// Gets the script name of this clip.
+  import readonly attribute String ScriptName;
 #endif
 };
 
@@ -2314,8 +2358,11 @@ builtin managed struct Object {
   /// Gets the object that is on the screen at the specified co-ordinates.
   import static Object* GetAtScreenXY(int x, int y);    // $AUTOCOMPLETESTATICONLY$
 #ifndef STRICT_STRINGS
-	import void     GetName(string buffer);
+  import void     GetName(string buffer);
   import function GetPropertyText(const string property, string buffer);
+#endif
+#ifdef SCRIPT_API_v361
+  import static Object* GetByName(const string scriptName); // $AUTOCOMPLETESTATICONLY$
 #endif
   /// Gets an integer Custom Property for this object.
   import function GetProperty(const string property);
@@ -2375,7 +2422,7 @@ builtin managed struct Object {
   readonly import attribute int  Loop;
   /// Gets whether the object is currently moving.
   readonly import attribute bool Moving;
-  /// Gets/sets the name of the object.
+  /// Gets/sets the human-readable name of the object.
   import attribute String Name;
   /// Gets/sets whether other objects and characters can move through this object.
   import attribute bool Solid;
@@ -2430,6 +2477,8 @@ builtin managed struct Object {
 #ifdef SCRIPT_API_v361
   /// Gets/sets the volume modifier (0-100) of frame-linked sounds for this object.
   import attribute int  AnimationVolume;
+  /// Gets the script name of this object.
+  import readonly attribute String ScriptName;
 #endif
 
   int reserved[2];  // $AUTOCOMPLETEIGNORE$
@@ -2479,6 +2528,9 @@ builtin managed struct Character {
   import function FollowCharacter(Character*, int dist=10, int eagerness=97);
   /// Returns the character that is at the specified position on the screen.
   import static Character* GetAtScreenXY(int x, int y);    // $AUTOCOMPLETESTATICONLY$
+#ifdef SCRIPT_API_v361
+  import static Character* GetByName(const string scriptName); // $AUTOCOMPLETESTATICONLY$
+#endif
   /// Gets a numeric custom property for this character.
   import function GetProperty(const string property);
 #ifndef STRICT_STRINGS
@@ -2605,7 +2657,7 @@ builtin managed struct Character {
   import attribute bool MovementLinkedToAnimation;
   /// Gets whether the character is currently moving.
   readonly import attribute bool Moving;
-  /// Gets/sets the character's name.
+  /// Gets/sets the human-readable character's name.
   import attribute String Name;
   /// Gets the character's normal walking view.
   readonly import attribute int NormalView;
@@ -2690,6 +2742,10 @@ builtin managed struct Character {
   import attribute int  AnimationVolume;
   /// Gets/sets the character's idle animation delay.
   import attribute int  IdleAnimationDelay;
+#endif
+#ifdef SCRIPT_API_v361
+  /// Gets the script name of this character.
+  import readonly attribute String ScriptName;
 #endif
 #ifdef STRICT
   /// The character's current X-position.
@@ -2882,13 +2938,13 @@ builtin struct GameState {
   int  messagetime;   // for auto-remove messages
   int  usedinv;
 #ifdef STRICT
-  int  reserved__[4];   // $AUTOCOMPLETEIGNORE$
+  readonly int  reserved__[4];   // $AUTOCOMPLETEIGNORE$
 #endif
 #ifndef STRICT
   int  top_inv_item;
-  int  num_inv_displayed;
-  int  num_inv_items;
-  int  items_per_line;
+  readonly int  num_inv_displayed;
+  readonly int  num_inv_items;
+  readonly int  items_per_line;
 #endif
   int  text_speed;
   int  sierra_inv_color;
@@ -2920,7 +2976,7 @@ builtin struct GameState {
   int  score_sound;
   int  previous_game_data;
 #ifndef SCRIPT_COMPAT_v341
-  readonly int unused__041; // $AUTOCOMPLETEIGNORE$
+  readonly readonly int unused__041; // $AUTOCOMPLETEIGNORE$
 #endif
 #ifdef SCRIPT_COMPAT_v341
   int  replay_hotkey;
@@ -2931,7 +2987,7 @@ builtin struct GameState {
   int  ambient_sounds_persist;
   int  lipsync_speed;
 #ifndef SCRIPT_COMPAT_v321
-  int  reserved__4;   // $AUTOCOMPLETEIGNORE$
+  readonly int  reserved__4;   // $AUTOCOMPLETEIGNORE$
 #endif
 #ifdef SCRIPT_COMPAT_v321
   int  close_mouth_end_speech_time;
@@ -2952,7 +3008,7 @@ builtin struct GameState {
   int  screenshot_height;
   int  top_bar_font;
 #ifndef SCRIPT_COMPAT_v321
-  int  reserved__2;   // $AUTOCOMPLETEIGNORE$
+  readonly int  reserved__2;   // $AUTOCOMPLETEIGNORE$
 #endif
 #ifdef SCRIPT_COMPAT_v321
   int  speech_text_align;
@@ -2960,7 +3016,7 @@ builtin struct GameState {
   int  auto_use_walkto_points;
   int  inventory_greys_out;
 #ifndef SCRIPT_COMPAT_v321
-  int  reserved__3;   // $AUTOCOMPLETEIGNORE$
+  readonly int  reserved__3;   // $AUTOCOMPLETEIGNORE$
 #endif
 #ifdef SCRIPT_COMPAT_v321
   int  skip_speech_specific_key;
@@ -2974,10 +3030,10 @@ builtin struct GameState {
   int  read_dialog_option_color;
   int  stop_dialog_at_end;   // $AUTOCOMPLETEIGNORE$
 #ifdef SCRIPT_API_v340
-  int  reserved__5;   // $AUTOCOMPLETEIGNORE$
-  int  reserved__6;   // $AUTOCOMPLETEIGNORE$
-  int  reserved__7;   // $AUTOCOMPLETEIGNORE$
-  int  reserved__8;   // $AUTOCOMPLETEIGNORE$
+  readonly int  reserved__5;   // $AUTOCOMPLETEIGNORE$
+  readonly int  reserved__6;   // $AUTOCOMPLETEIGNORE$
+  readonly int  reserved__7;   // $AUTOCOMPLETEIGNORE$
+  readonly int  reserved__8;   // $AUTOCOMPLETEIGNORE$
   int  dialog_options_highlight_color;
 #endif
   };

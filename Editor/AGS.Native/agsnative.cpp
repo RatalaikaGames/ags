@@ -1639,8 +1639,8 @@ AGSString load_room_file(RoomStruct &rs, const AGSString &filename) {
   RoomTools->roomModified = false;
 
   validate_mask(rs.HotspotMask.get(), get_mask_name(kRoomAreaHotspot), MAX_ROOM_HOTSPOTS);
-  validate_mask(rs.WalkBehindMask.get(), get_mask_name(kRoomAreaWalkBehind), MAX_WALK_AREAS + 1);
-  validate_mask(rs.WalkAreaMask.get(), get_mask_name(kRoomAreaWalkable), MAX_WALK_AREAS + 1);
+  validate_mask(rs.WalkBehindMask.get(), get_mask_name(kRoomAreaWalkBehind), MAX_WALK_AREAS);
+  validate_mask(rs.WalkAreaMask.get(), get_mask_name(kRoomAreaWalkable), MAX_WALK_AREAS);
   validate_mask(rs.RegionMask.get(), get_mask_name(kRoomAreaRegion), MAX_ROOM_REGIONS);
   return AGSString();
 }
@@ -1648,14 +1648,14 @@ AGSString load_room_file(RoomStruct &rs, const AGSString &filename) {
 void calculate_walkable_areas (RoomStruct &rs) {
   int ww, thispix;
 
-  for (ww = 0; ww <= MAX_WALK_AREAS; ww++) {
+  for (ww = 0; ww < MAX_WALK_AREAS; ww++) {
     rs.WalkAreas[ww].Top = rs.Height;
     rs.WalkAreas[ww].Bottom = 0;
   }
   for (ww = 0; ww < rs.WalkAreaMask->GetWidth(); ww++) {
     for (int qq = 0; qq < rs.WalkAreaMask->GetHeight(); qq++) {
       thispix = rs.WalkAreaMask->GetPixel (ww, qq);
-      if (thispix > MAX_WALK_AREAS)
+      if (thispix >= MAX_WALK_AREAS)
         continue;
       if (rs.WalkAreas[thispix].Top > qq)
         rs.WalkAreas[thispix].Top = qq;
@@ -2262,7 +2262,7 @@ void ImportBackground(Room ^room, int backgroundNumber, System::Drawing::Bitmap 
 	theRoom->Height = room->Height;
 	bool resolutionChanged = (theRoom->GetResolutionType() != (AGS::Common::RoomResolutionType)room->Resolution);
 	theRoom->SetResolution((AGS::Common::RoomResolutionType)room->Resolution);
-    theRoom->MaskResolution = theRoom->MaskResolution;
+    theRoom->MaskResolution = room->MaskResolution;
 
 	if (newbg->GetColorDepth() == 8) 
 	{
@@ -2333,7 +2333,7 @@ void import_area_mask(void *roomptr, int maskType, System::Drawing::Bitmap ^bmp)
 	}
 	delete importedImage;
 
-	validate_mask(mask, get_mask_name((RoomAreaMask)maskType), (maskType == kRoomAreaHotspot) ? MAX_ROOM_HOTSPOTS : (MAX_WALK_AREAS + 1));
+	validate_mask(mask, get_mask_name((RoomAreaMask)maskType), (maskType == kRoomAreaHotspot) ? MAX_ROOM_HOTSPOTS : MAX_WALK_AREAS);
 }
 
 SysBitmap ^export_area_mask(void *roomptr, int maskType)
@@ -3208,8 +3208,8 @@ Game^ import_compiled_game_dta(const AGSString &filename)
 		character->MovementSpeedX = thisgame.chars[i].walkspeed;
 		character->MovementSpeedY = thisgame.chars[i].walkspeed_y;
 		character->NormalView = thisgame.chars[i].defview + 1;
-		character->RealName = gcnew String(thisgame.chars[i].name.GetCStr());
-		character->ScriptName = gcnew String(thisgame.chars[i].scrname.GetCStr());
+		character->RealName = gcnew String(thisgame.chars2[i].name_new.GetCStr());
+		character->ScriptName = gcnew String(thisgame.chars2[i].scrname_new.GetCStr());
 		character->Solid = !(thisgame.chars[i].flags & CHF_NOBLOCKING);
 		character->SpeechColor = thisgame.chars[i].talkcolor;
 		character->SpeechView = (thisgame.chars[i].talkview < 1) ? 0 : (thisgame.chars[i].talkview + 1);
@@ -3640,7 +3640,7 @@ void convert_room_from_native(const RoomStruct &rs, Room ^room, System::Text::En
 		}
 	}
 
-	for (size_t i = 0; i <= MAX_WALK_AREAS; ++i) 
+	for (size_t i = 0; i < MAX_WALK_AREAS; ++i) 
 	{
 		RoomWalkableArea ^area = room->WalkableAreas[i];
 		area->ID = i;

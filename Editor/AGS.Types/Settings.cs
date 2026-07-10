@@ -84,7 +84,6 @@ namespace AGS.Types
         private bool _oldKeyHandling = false;
         private bool _scaleCharacterSpriteOffsets = true;
         private int _playSoundOnScore = -1;
-        private CrossfadeSpeed _crossfadeMusic = CrossfadeSpeed.No;
         private int _dialogOptionsGUI = 0;
         private int _dialogOptionsGap = 0;
         private int _dialogBulletImage = 0;
@@ -107,7 +106,6 @@ namespace AGS.Types
         private bool _backwardsText = false;
         private int _uniqueID;
 		private Guid _guid;
-        private bool _hasMODMusic = false;
         private int _totalScore = 0;
         private GUIAlphaStyle _guiAlphaStyle = GUIAlphaStyle.MultiplyTranslucenceSrcBlend;
         private SpriteAlphaStyle _spriteAlphaStyle = SpriteAlphaStyle.Improved;
@@ -792,7 +790,7 @@ namespace AGS.Types
         [DisplayName("Play sound when the player gets points")]
         [Description("This sound number will be played whenever the player scores points (0 to disable)")]
         [DefaultValue(AudioClip.FixedIndexNoValue)]
-        [Category("Sound")]
+        [Category("Score")]
         [TypeConverter(typeof(AudioClipTypeConverter))]
         public int PlaySoundOnScore
         {
@@ -800,16 +798,10 @@ namespace AGS.Types
             set { _playSoundOnScore = value; }
         }
 
-        [DisplayName("Crossfade music tracks")]
-        [Description("When going from one track to another, they can be crossfaded")]
-        [DefaultValue(CrossfadeSpeed.No)]
-        [Category("Sound")]
+        [Obsolete]
         [Browsable(false)]
-        public CrossfadeSpeed CrossfadeMusic
-        {
-            get { return _crossfadeMusic; }
-            set { _crossfadeMusic = value; }
-        }
+        // NOTE: have to keep setter here because we load old games before upgrading them
+        public CrossfadeSpeed CrossfadeMusic { get; set; }
 
         [DisplayName("Use GUI for dialog options")]
         [Description("Dialog options can be drawn on a textwindow GUI (0 to just draw at bottom of screen instead)")]
@@ -1031,19 +1023,16 @@ namespace AGS.Types
 
         [DisplayName("Maximum possible score")]
         [Description("The maximum score that the player can achieve (displayed by @TOTALSCORE@ on GUI labels)")]
-        [Category("(Basic properties)")]
+        [Category("Score")]
         public int MaximumScore
         {
             get { return _totalScore; }
             set { _totalScore = value; }
         }
 
+        [Obsolete]
         [Browsable(false)]
-        public bool HasMODMusic
-        {
-            get { return _hasMODMusic; }
-            set { _hasMODMusic = value; }
-        }
+        public bool HasMODMusic { get; }
 
         [DisplayName("Default mask resolution")]
         [Description("What resolution do room region masks have relative to the room size")]
@@ -1253,7 +1242,7 @@ namespace AGS.Types
         [DisplayName("Render sprites at screen resolution")]
         [Description("When drawing zoomed character and object sprites, AGS will take advantage of higher runtime resolution to give scaled images more detail, than it would be possible if the game was displayed in its native resolution. The effect is stronger for low-res games. Keep disabled for pixel-perfect output. Currently supported only by Direct3D and OpenGL renderers.")]
         [DefaultValue(RenderAtScreenResolution.UserDefined)]
-        [Category("(Basic properties)")]
+        [Category("Visual")]
         [TypeConverter(typeof(EnumTypeConverter))]
         public RenderAtScreenResolution RenderAtScreenResolution
         {

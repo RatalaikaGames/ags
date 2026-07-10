@@ -529,18 +529,21 @@ void wouttextxy_AutoOutline(Bitmap *ds, size_t font, int32_t color, const char *
     if (antialias) // This is to make sure TTFs render proper alpha channel in 16-bit games too
         color |= makeacol32(0, 0, 0, 0xff);
 
-    size_t const t_width = get_text_width(texx, font);
-    size_t const t_height = get_font_surface_height(font);
+    const int t_width = get_text_width(texx, font);
+    const auto t_extent = get_font_surface_extent(font);
+    const int t_height = t_extent.second - t_extent.first;
     if (t_width == 0 || t_height == 0)
         return;
     // Prepare stencils
+    const int t_yoff = t_extent.first;
     Bitmap *texx_stencil, *outline_stencil;
     alloc_font_outline_buffers(font, &texx_stencil, &outline_stencil,
         t_width, t_height, stencil_cd);
     texx_stencil->ClearTransparent();
     outline_stencil->ClearTransparent();
     // Ready text stencil
-    wouttextxy(texx_stencil, 0, 0, font, color, texx);
+    // Note we are drawing with y off, in case some font's glyphs exceed font's ascender
+    wouttextxy(texx_stencil, 0, -t_yoff, font, color, texx);
     // Anti-aliased TTFs require to be alpha-blended, not blit,
     // or the alpha values will be plain copied and final image will be broken.
     void(Bitmap::*pfn_drawstencil)(Bitmap *src, int dst_x, int dst_y);
@@ -556,7 +559,7 @@ void wouttextxy_AutoOutline(Bitmap *ds, size_t font, int32_t color, const char *
 
     // move start of text so that the outline doesn't drop off the bitmap
     xxp += thickness;
-    int const outline_y = yyp;
+    int const outline_y = yyp + t_yoff;
     yyp += thickness;
     
     // What we do here: first we paint text onto outline_stencil offsetting vertically;

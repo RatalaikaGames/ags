@@ -107,7 +107,7 @@ struct CharacterInfo {
     short pic_xoffs; // this is fixed in screen coordinates
     short walkwaitcounter;
     uint16_t loop, frame;
-    short walking;
+    short walking; // stores movelist index, optionally +TURNING_AROUND
     short animating; // stores CHANIM_* flags in lower byte and delay in upper byte
     short walkspeed, animspeed;
     short inv[MAX_INV];
@@ -116,7 +116,6 @@ struct CharacterInfo {
     char  scrname[MAX_SCRIPT_NAME_LEN];
     char  on;
 
-    int get_effective_y() const;     // return Y - Z
     int get_baseline() const;        // return baseline, or Y if not set
     int get_blocking_top() const;    // return Y - BlockingHeight/2
     int get_blocking_bottom() const; // return Y + BlockingHeight/2

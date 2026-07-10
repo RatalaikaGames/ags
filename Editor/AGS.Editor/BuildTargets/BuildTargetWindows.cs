@@ -26,6 +26,8 @@ namespace AGS.Editor
 
         public override void DeleteMainGameData(string name)
         {
+            DeleteCommonGameFiles(OutputDirectoryFullPath, name);
+
             string filename = Path.Combine(OutputDirectoryFullPath, name + ".exe");
             Utilities.TryDeleteFile(filename);
         }

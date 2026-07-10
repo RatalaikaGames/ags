@@ -193,6 +193,36 @@ namespace AGS.Editor.Components
             _guiController.AddOrShowPane(document);
 		}
 
+        public override IList<string> GetManagedScriptElements()
+        {
+            return new string[] { "GUI", "Label", "Button", "Slider", "ListBox", "TextBox", "InvWindow" };
+        }
+
+        public override void ShowItemPaneByName(string name)
+        {
+            IList<GUI> guis = GetFlatList();
+            foreach (GUI g in guis)
+            {
+                if (g.Name == name)
+                {
+                    _guiController.ProjectTree.SelectNode(this, GetNodeID(g));
+                    ShowOrAddPane(g);
+                    return;
+                }
+                
+                foreach(GUIControl gctrl in g.Controls)
+                {
+                    if(gctrl.Name == name)
+                    {
+                        _guiController.ProjectTree.SelectNode(this, GetNodeID(g));
+                        ShowOrAddPane(g);
+                        Factory.GUIController.SetPropertyGridObject(gctrl);
+                        return;
+                    }
+                }
+            }
+        }
+
         private void OnItemIDOrNameChanged(GUI item, bool name_only)
         {
             // Refresh tree, property grid and open windows

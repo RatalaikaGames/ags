@@ -659,5 +659,51 @@ namespace AGS.Editor
             graphics.Dispose();
             return proportion;
         }
+
+        public static bool OpenFileOrDirInFileExplorer(string path)
+        {
+            if (File.Exists(path))
+            {
+                if (Utilities.IsMonoRunning())
+                {
+                    // FIXME - this probably needs to be more platform specific
+                    Process.Start(path);
+                }
+                else
+                {
+                    Hacks.ShowInExplorer(path);
+                }
+                return true;
+            }
+            else if(Directory.Exists(path))
+            {
+                if (Utilities.IsMonoRunning())
+                {
+                    // FIXME - this probably needs to be more platform specific
+                    Process.Start(path);
+                }
+                else
+                {
+                    Hacks.ShowInExplorer(path, null);
+                }
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Tries to get a config value stored in particular section, under certain key.
+        /// If either section or key does not exist, then returns provided default value.
+        /// </summary>
+        public static string GetConfigString(Dictionary<string, Dictionary<string, string>> cfg, string section, string key, string def)
+        {
+            Dictionary<string, string> secmap;
+            if (!cfg.TryGetValue(section, out secmap))
+                return def;
+            string value;
+            if (!secmap.TryGetValue(key, out value))
+                return def;
+            return value;
+        }
     }
 }

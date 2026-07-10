@@ -12,13 +12,23 @@
 //
 //=============================================================================
 //
-//
+// Contains various update functions (moving, animating, etc).
+// TODO: cleanup this h/cpp pair, the header is mostly useless, merge with
+// something else.
 //
 //=============================================================================
 #ifndef __AGS_EE_MAIN__UPDATE_H
 #define __AGS_EE_MAIN__UPDATE_H
 
-int do_movelist_move(short*mlnum,int*xx,int*yy);
+// Update MoveList of certain index, save current position;
+// *resets* mslot to zero if path is complete.
+// returns "need_to_fix_sprite" value, which may be 0,1,2;
+// TODO: find out what this return value means, and refactor.
+// TODO: do not reset mslot in this function, reset externally instead.
+int do_movelist_move(short &mslot, int &pos_x, int &pos_y);
+// Recalculate derived (non-serialized) values in movelists
+void restore_movelists();
+// Update various things on the game frame (historical code mess...)
 void update_stuff();
 
 #endif // __AGS_EE_MAIN__UPDATE_H

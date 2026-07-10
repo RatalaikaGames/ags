@@ -807,7 +807,8 @@ namespace AGS.Editor
                 RegisterIcon("GameIcon", Resources.ResourceManager.GetIcon("game.ico"));
 				RegisterIcon("CompileErrorIcon", Resources.ResourceManager.GetIcon("eventlogError.ico"));
 				RegisterIcon("CompileWarningIcon", Resources.ResourceManager.GetIcon("eventlogWarn.ico"));
-				_mainForm.SetTreeImageList(_imageList);
+                RegisterIcon("OpenContainingFolderIcon", Resources.ResourceManager.GetIcon("menu_file_openfolder.ico"));
+                _mainForm.SetTreeImageList(_imageList);
                 _mainForm.mainMenu.ImageList = _imageList;
 				_mainForm.pnlOutput.SetImageList(_imageList);
 				//_mainForm.SetProjectTreeLocation(_agsEditor.Preferences.ProjectTreeOnRight);
@@ -846,7 +847,6 @@ namespace AGS.Editor
 		private bool ProcessCommandLineArgumentsAndReturnWhetherToShowWelcomeScreen()
 		{
 			bool compileAndExit = false;
-			bool forceRebuild;
 
 			foreach (string arg in _commandLineArgs)
 			{
@@ -868,10 +868,11 @@ namespace AGS.Editor
 					{
 						if (compileAndExit)
 						{
-							forceRebuild = _agsEditor.NeedsRebuildForDebugMode();
-							if (forceRebuild)
-								_agsEditor.SaveGameFiles();
-							if (!_agsEditor.CompileGame(forceRebuild, false).HasErrors)
+                            bool forceRebuild = _agsEditor.NeedsRebuildForDebugMode();
+                            var messages = _agsEditor.CompileGame(forceRebuild, false);
+                            if (forceRebuild)
+                                _agsEditor.SaveUserDataFile(); // in case pending config is applied
+                            if (!messages.HasErrors)
 							{
 								_batchProcessShutdown = true;
 								this.ExitApplication();
@@ -1016,6 +1017,11 @@ namespace AGS.Editor
                     _agsEditor.CurrentGame.WorkspaceState.LastBuildConfiguration = _agsEditor.CurrentGame.Settings.DebugMode ? BuildConfiguration.Debug : BuildConfiguration.Release;
                     if (_agsEditor.SaveGameFiles())
                     {
+                        // TODO: seriously, running whole game compilation is
+                        // not a good solution for updating room files......
+                        // change this to do exactly what's necessary and not
+                        // building all default build targets!
+
                         // Force a rebuild to remove the key in the room
                         // files that links them to the old game ID
                         // Force no message to be displayed if the build fails
@@ -1024,6 +1030,8 @@ namespace AGS.Editor
                         Factory.AGSEditor.Settings.MessageBoxOnCompile = MessageBoxOnCompile.Never;
 
                         _agsEditor.CompileGame(true, false);
+                        // The user data may have been amended by the building process
+                        _agsEditor.SaveUserDataFile();
 
                         Factory.AGSEditor.Settings.MessageBoxOnCompile = oldMessageBoxSetting;
                     }

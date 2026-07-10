@@ -541,11 +541,48 @@ namespace AGS.Editor
             {
                 if (foundInScript.FileName == AGSEditor.BUILT_IN_HEADER_FILE_NAME)
                 {
-                    Factory.GUIController.LaunchHelpForKeyword(_goToDefinition);
+                    if (_goToDefinition == "player")
+                    {
+                        CharactersComponent charactersComponent = Factory.ComponentController.FindComponent<CharactersComponent>();
+                        charactersComponent.ShowPlayerCharacter();
+                    }
+                    else
+                    {
+                        Factory.GUIController.LaunchHelpForKeyword(_goToDefinition);
+                    }
                 }
                 else if (foundInScript.FileName == Tasks.AUTO_GENERATED_HEADER_NAME)
                 {
-                    Factory.GUIController.ShowMessage("This variable is internally defined by AGS and probably corresponds to an in-game entity such as a Character or Inventory Item.", MessageBoxIcon.Information);
+                    string scriptElementType = null, scriptElementName = null;
+                    if (found is ScriptVariable)
+                    {
+                        ScriptVariable sVar = found as ScriptVariable;
+                        scriptElementType = sVar.Type;
+                        scriptElementName = sVar.VariableName;
+                    }
+                    else if (found is ScriptEnumValue)
+                    {
+                        ScriptEnumValue sEnum = found as ScriptEnumValue;
+                        scriptElementType = sEnum.Type;
+                        scriptElementName = sEnum.Name;
+                    }
+
+                    if (!string.IsNullOrEmpty(scriptElementType))
+                    { 
+                        BaseComponent component = Factory.ComponentController.FindComponentThatManageScriptElement(scriptElementType) as BaseComponent;
+                        if(component != null)
+                        {
+                            component.ShowItemPaneByName(scriptElementName);
+                        }
+                        else
+                        {
+                            Factory.GUIController.ShowMessage("This variable is internally defined by AGS and probably corresponds to an in-game entity which does not support Go to Definition at the moment.", MessageBoxIcon.Information);
+                        }
+                    }
+                    else
+                    {
+                        Factory.GUIController.ShowMessage("This is internally defined by AGS.", MessageBoxIcon.Information);
+                    }
                 }
                 else if (foundInScript.FileName == GlobalVariablesComponent.GLOBAL_VARS_HEADER_FILE_NAME)
                 {

@@ -498,7 +498,7 @@ HSaveError restore_save_data_v321(Stream *in, GameDataVersion data_ver, const Pr
     // Character extras (runtime only data)
     for (int i = 0; i < game.numcharacters; ++i)
     {
-        charextra[i].ReadFromSavegame(in, game.chars[i], kCharSvgVersion_Initial);
+        charextra[i].ReadFromSavegame(in, kCharSvgVersion_Initial);
     }
     restore_game_palette(in);
     restore_game_dialogs(in);
@@ -530,7 +530,7 @@ HSaveError restore_save_data_v321(Stream *in, GameDataVersion data_ver, const Pr
     if (!err)
         return err;
 
-    ReadPluginSaveData(in);
+    ReadPluginSaveData(in, kPluginSvgVersion_Initial, SIZE_MAX);
     if (static_cast<uint32_t>(in->ReadInt32()) != MAGICNUMBER)
         return new SavegameError(kSvgErr_InconsistentPlugin);
 

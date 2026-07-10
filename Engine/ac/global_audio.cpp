@@ -363,35 +363,26 @@ void SetMusicRepeat(int loopflag) {
     play.music_repeat=loopflag;
 }
 
-void PlayMP3File (const char *filename) {
-    if (strlen(filename) >= PLAYMP3FILE_MAX_FILENAME_LEN)
-        quit("!PlayMP3File: filename too long");
-
+void PlayMP3File (const char *filename)
+{
     debug_script_log("PlayMP3File %s", filename);
 
     AssetPath asset_name(filename, "audio");
-
-    int useChan = prepare_for_new_music ();
-    bool doLoop = (play.music_repeat > 0);
-
-    std::unique_ptr<SOUNDCLIP> clip(load_sound_clip(asset_name, "", doLoop));
-    if (clip) {
-        if (clip->play()) {
-            clip->set_volume255(150);
-            AudioChans::SetChannel(useChan, std::move(clip));
-            current_music_type = clip->soundType;
-            play.cur_music_number = 1000;
-            // save the filename (if it's not what we were supplied with)
-            if (filename != &play.playmp3file_name[0])
-                snprintf(play.playmp3file_name, sizeof(play.playmp3file_name), "%s", filename);
-        }
+    const bool do_loop = (play.music_repeat > 0);
+    std::unique_ptr<SOUNDCLIP> clip(load_sound_clip(asset_name, "", do_loop));
+    if (!clip)
+    {
+        debug_script_warn("PlayMP3File: music file '%s' not found or cannot be read", filename);
+        return;
     }
 
-    if (!clip) {
-        AudioChans::SetChannel(useChan, nullptr);
-        debug_script_warn ("PlayMP3File: file '%s' not found or cannot play", filename);
-    }
-
+    const int use_chan = prepare_for_new_music();
+    current_music_type = clip->soundType;
+    play.cur_music_number = 1000;
+    play.playmp3file_name = filename;
+    clip->set_volume255(150); // CHECKME: why 150?...
+    clip->play();
+    AudioChans::SetChannel(use_chan, std::move(clip));
     post_new_music_check();
     update_music_volume();
 }

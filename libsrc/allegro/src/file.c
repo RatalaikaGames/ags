@@ -116,6 +116,7 @@ static int filename_encoding = U_ASCII;
 
 /* Use strictly UTF-8 encoding for the file paths
 */
+#undef  U_CURRENT
 #define U_CURRENT U_UTF8
 #define ugetc     utf8_getc
 #define ugetx     utf8_getx

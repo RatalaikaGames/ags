@@ -67,7 +67,6 @@
 #include "plugin/plugin_engine.h"
 #include "script/script.h"
 #include "script/script_runtime.h"
-#include "util/alignedstream.h"
 #include "util/directory.h"
 #include "util/file.h"
 #include "util/path.h"

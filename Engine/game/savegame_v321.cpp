@@ -24,6 +24,7 @@
 #include "ac/characterextras.h"
 #include "ac/common.h"
 #include "ac/dialog.h"
+#include "ac/draw.h"
 #include "ac/dynamicsprite.h"
 #include "ac/game.h"
 #include "ac/gamesetupstruct.h"
@@ -57,7 +58,6 @@ extern RGB palette[256];
 extern std::vector<AnimatingGUIButton> animbuts;
 extern int ifacepopped;
 extern int mouse_on_iface;
-extern Bitmap *raw_saved_screen;
 extern RoomStatus troom;
 
 
@@ -83,8 +83,9 @@ static void restore_game_spriteset(Stream *in)
     int sprnum = in->ReadInt32();
     while (sprnum) {
         unsigned char spriteflag = in->ReadByte();
-        add_dynamic_sprite(sprnum, read_serialized_bitmap(in));
-        game.SpriteInfos[sprnum].Flags = spriteflag;
+        std::unique_ptr<Bitmap> image(read_serialized_bitmap(in));
+        add_dynamic_sprite(sprnum, std::move(image));
+        game.SpriteInfos[sprnum].Flags = spriteflag; // FIXME, don't set directly; are these flags even necessary?
         sprnum = in->ReadInt32();
     }
 }
@@ -354,7 +355,7 @@ static void restore_game_dynamic_surfaces(Stream *in, RestoredData &r_data)
         }
         else
         {
-            r_data.DynamicSurfaces[i] = read_serialized_bitmap(in);
+            r_data.DynamicSurfaces[i].reset(read_serialized_bitmap(in));
         }
     }
 }
@@ -376,7 +377,7 @@ static void restore_game_displayed_room_status(Stream *in, RestoredData &r_data)
         bb = in->ReadInt32();
 
         if (bb)
-            raw_saved_screen = read_serialized_bitmap(in);
+            raw_saved_screen.reset(read_serialized_bitmap(in));
 
         // get the current troom, in case they save in room 600 or whatever
         ReadRoomStatus_Aligned(&troom, in);

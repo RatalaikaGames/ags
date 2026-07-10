@@ -546,15 +546,7 @@ void IAGSEngine::PlaySoundChannel (int32 channel, int32 soundType, int32 volume,
     if (channel == SCHAN_SPEECH && play.IsNonBlockingVoiceSpeech())
         stop_voice_nonblocking();
 
-    SOUNDCLIP *newcha = nullptr;
-
-    if (((soundType == PSND_MP3STREAM) || (soundType == PSND_OGGSTREAM)) 
-        && (loop != 0))
-        quit("IAGSEngine::PlaySoundChannel: streamed samples cannot loop");
-
-    // TODO: find out how engine was supposed to decide on where to load the sound from
     AssetPath asset_name(filename, "audio");
-
     const char *ext = "";
     switch (soundType)
     {
@@ -580,7 +572,7 @@ void IAGSEngine::PlaySoundChannel (int32 channel, int32 soundType, int32 volume,
         return;
     }
 
-    newcha = load_sound_clip(asset_name, ext, (loop != 0));
+    std::unique_ptr<SOUNDCLIP> newcha(load_sound_clip(asset_name, ext, (loop != 0)));
     if (!newcha)
     {
         debug_script_warn("IAGSEngine::PlaySoundChannel: failed to load %s", filename);
@@ -588,7 +580,7 @@ void IAGSEngine::PlaySoundChannel (int32 channel, int32 soundType, int32 volume,
     }
 
     newcha->set_volume255(volume);
-    AudioChans::SetChannel(channel, std::unique_ptr<SOUNDCLIP>(newcha));
+    AudioChans::SetChannel(channel, std::move(newcha));
 }
 // Engine interface 12 and above are below
 void IAGSEngine::MarkRegionDirty(int32 left, int32 top, int32 right, int32 bottom) {
@@ -624,25 +616,17 @@ int IAGSEngine::GetFontType(int32 fontNum) {
     return FNT_SCI;
 }
 int IAGSEngine::CreateDynamicSprite(int32 coldepth, int32 width, int32 height) {
-
-    // TODO: why is this implemented right here, should not an existing
-    // script handling implementation be called instead?
-
-    int gotSlot = spriteset.GetFreeIndex();
-    if (gotSlot <= 0)
-        return 0;
-
     if ((width < 1) || (height < 1))
         quit("!IAGSEngine::CreateDynamicSprite: invalid width/height requested by plugin");
 
-    // resize the sprite to the requested size
-    Bitmap *newPic = BitmapHelper::CreateTransparentBitmap(width, height, coldepth);
-    if (newPic == nullptr)
+    if (!spriteset.HasFreeSlots())
         return 0;
 
-    // add it into the sprite set
-    add_dynamic_sprite(gotSlot, newPic);
-    return gotSlot;
+    std::unique_ptr<Bitmap> image(BitmapHelper::CreateTransparentBitmap(width, height, coldepth));
+    if (!image)
+        return 0;
+
+    return add_dynamic_sprite(std::move(image));
 }
 void IAGSEngine::DeleteDynamicSprite(int32 slot) {
     free_dynamic_sprite(slot);
@@ -782,7 +766,7 @@ void IAGSEngine::GetMovementPathWaypointSpeed(int32 pathId, int32 waypoint, int3
 
 int IAGSEngine::IsRunningUnderDebugger()
 {
-    return (editor_debugging_enabled != 0) ? 1 : 0;
+    return (editor_debugging_initialized != 0) ? 1 : 0;
 }
 
 void IAGSEngine::GetPathToFileInCompiledFolder(const char*fileName, char *buffer)

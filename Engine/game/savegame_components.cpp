@@ -56,10 +56,8 @@ using namespace Common;
 extern GameSetupStruct game;
 extern RGB palette[256];
 extern std::vector<ViewStruct> views;
-extern Bitmap *dynamicallyCreatedSurfaces[MAX_DYNAMIC_SURFACES];
 extern RoomStruct thisroom;
 extern RoomStatus troom;
-extern Bitmap *raw_saved_screen;
 
 
 namespace AGS
@@ -837,8 +835,9 @@ HSaveError ReadDynamicSprites(Stream *in, int32_t /*cmp_ver*/, const PreservedPa
     {
         int id = in->ReadInt32();
         int flags = in->ReadInt32();
-        add_dynamic_sprite(id, read_serialized_bitmap(in));
-        game.SpriteInfos[id].Flags = flags;
+        std::unique_ptr<Bitmap> image(read_serialized_bitmap(in));
+        add_dynamic_sprite(id, std::move(image));
+        game.SpriteInfos[id].Flags = flags; // FIXME, don't set directly; are these flags even necessary?
     }
     return err;
 }
@@ -905,7 +904,7 @@ HSaveError WriteDynamicSurfaces(Stream *out)
         else
         {
             out->WriteInt8(1);
-            serialize_bitmap(dynamicallyCreatedSurfaces[i], out);
+            serialize_bitmap(dynamicallyCreatedSurfaces[i].get(), out);
         }
     }
     return HSaveError::None();
@@ -923,7 +922,7 @@ HSaveError ReadDynamicSurfaces(Stream *in, int32_t /*cmp_ver*/, const PreservedP
         if (in->ReadInt8() == 0)
             r_data.DynamicSurfaces[i] = nullptr;
         else
-            r_data.DynamicSurfaces[i] = read_serialized_bitmap(in);
+            r_data.DynamicSurfaces[i].reset(read_serialized_bitmap(in));
     }
     return err;
 }
@@ -1038,7 +1037,7 @@ HSaveError WriteThisRoom(Stream *out)
     }
     out->WriteBool(raw_saved_screen != nullptr);
     if (raw_saved_screen)
-        serialize_bitmap(raw_saved_screen, out);
+        serialize_bitmap(raw_saved_screen.get(), out);
 
     // room region state
     for (int i = 0; i < MAX_ROOM_REGIONS; ++i)
@@ -1089,7 +1088,7 @@ HSaveError ReadThisRoom(Stream *in, int32_t cmp_ver, const PreservedParams& /*pp
             r_data.RoomBkgScene[i] = nullptr;
     }
     if (in->ReadBool())
-        raw_saved_screen = read_serialized_bitmap(in);
+        raw_saved_screen.reset(read_serialized_bitmap(in));
 
     // room region state
     for (int i = 0; i < MAX_ROOM_REGIONS; ++i)

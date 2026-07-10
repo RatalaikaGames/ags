@@ -86,6 +86,7 @@ const char* Game_GetGlobalStrings(int index);
 // View, loop, frame parameter assertions.
 // WARNING: these functions assume that view is already in an internal 0-based range.
 void AssertView(const char *apiname, int view);
+void AssertViewHasLoops(const char *apiname, int view);
 void AssertLoop(const char *apiname, int view, int loop);
 void AssertFrame(const char *apiname, int view, int loop, int frame);
 
@@ -159,7 +160,7 @@ void free_do_once_tokens();
 void unload_game_file();
 void save_game(int slotn, const char*descript);
 bool read_savedgame_description(const Common::String &savedgame, Common::String &description);
-bool read_savedgame_screenshot(const Common::String &savedgame, int &want_shot);
+std::unique_ptr<Common::Bitmap> read_savedgame_screenshot(const Common::String &savedgame);
 // Tries to restore saved game and displays an error on failure; if the error occured
 // too late, when the game data was already overwritten, shuts engine down.
 bool try_restore_save(int slot);

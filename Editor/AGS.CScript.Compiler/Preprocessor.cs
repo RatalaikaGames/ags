@@ -38,7 +38,7 @@ namespace AGS.CScript.Compiler
 		public string Preprocess(string script, string scriptName)
 		{
 			StringBuilder output = new StringBuilder(script.Length);
-			output.AppendLine(Constants.NEW_SCRIPT_MARKER + scriptName + "\"");
+			output.AppendLine(Constants.NEW_SCRIPT_MARKER + scriptName.Replace(@"\", @"\\") + "\"");
 			StringReader reader = new StringReader(script);
 			string thisLine;
 			_scriptName = scriptName;
@@ -238,6 +238,18 @@ namespace AGS.CScript.Compiler
 				(directive == "ifver") || (directive == "ifnver"))
 			{
 				ProcessConditionalDirective(directive, line, _results);
+			}
+			else if (directive == "else")
+			{
+				if (_conditionalStatements.Count > 0)
+				{
+					// Negate previous condition
+					_conditionalStatements.Push(!_conditionalStatements.Pop());
+				}
+				else
+				{
+					RecordError(ErrorCode.ElseWithoutIf, "#else has no matching #if");
+				}
 			}
 			else if (directive == "endif")
 			{

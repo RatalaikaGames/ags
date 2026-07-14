@@ -543,7 +543,7 @@ bool graphics_mode_update_render_frame()
     Size screen_size = Size(dm.Width, dm.Height);
     Size native_size = gfxDriver->GetNativeSize();
     
-    #ifdef RATA_GAME_LEGENDOFHAND 
+    #if defined(RATA_GAME_LEGENDOFHAND) || defined(RATA_GAME_ADVENTURESBLACKHAWK)
     // This is likely due to us targetting an older version of Kore with LegendOfHand so this hack 
     // makes the virtual cursor operate correctly on the whole screen area
     Size frame_size = screen_size;

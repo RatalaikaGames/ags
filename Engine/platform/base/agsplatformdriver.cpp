@@ -171,6 +171,7 @@ SetupReturnValue AGSPlatformDriver::RunSetup(const ConfigTree &/*cfg_in*/, Confi
 
 void AGSPlatformDriver::SetTranslation(const char* name) {}
 
+#ifdef AGS_RATA_USE_CUSTOM_WAITFORNEXTFRAME
 extern volatile int timerloop;
 void AGSPlatformDriver::WaitForNextFrame()
 {
@@ -179,6 +180,11 @@ void AGSPlatformDriver::WaitForNextFrame()
         YieldCPU(); 
     }
 }
+#else
+void AGSPlatformDriver::WaitForNextFrame()
+{
+}
+#endif
 
 #if 0 // DPASCA - let the original code manage this, since it's the same
 void AGSPlatformDriver::Save_DeleteSlot(int slnum)

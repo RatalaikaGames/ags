@@ -24,7 +24,7 @@
 #endif
 
 #ifdef AGS_RATA
-#define AGS_RATA_USE_CUSTOM_WAITFORNEXTFRAME // DPASCA - comment to have original behavior
+//#define AGS_RATA_USE_CUSTOM_WAITFORNEXTFRAME // DPASCA - comment to have original behavior
 #endif
 
 #ifdef AGS_RATA_USE_CUSTOM_WAITFORNEXTFRAME

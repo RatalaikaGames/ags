@@ -976,7 +976,7 @@ bool OGLGraphicsDriver::GetCopyOfScreenIntoBitmap(Bitmap *destination,
 
   // Now convert from OGL RGBA to Allegro RGBA pixel format
   uint8_t* sourcePtr = &buffer.front();
-  for (int y = destination->GetHeight() - 1; y >= 0; y--)
+  for (int y = 0; y < destination->GetHeight(); y++)
   {
     unsigned int * destPtr = reinterpret_cast<unsigned int*>(&destination->GetScanLineForWriting(y)[0]);
     for (int dx = 0, sx = 0; dx < destination->GetWidth(); ++dx, sx = dx * bpp)
